@@ -30,12 +30,12 @@ export default function LoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const uid = userCredential.user.uid;
 
-      // التحقق من صلاحيات المشرف
+      // التحقق من صلاحيات المشرف في مجموعة admin_roles
       const adminDocRef = doc(firestore, 'admin_roles', uid);
       const adminDoc = await getDoc(adminDocRef);
       
       if (adminDoc.exists()) {
-        toast({ title: "مرحباً بك يا بشمهندس", description: "جاري توجيهك للوحة التحكم..." });
+        toast({ title: "مرحباً بك يا بشمهندس", description: "جاري توجيهك للوحة التحكم الخاصة بالمشرف..." });
         router.push('/admin');
       } else {
         toast({ title: "أهلاً بك", description: "جاري الدخول لحساب الطالب..." });
@@ -43,10 +43,15 @@ export default function LoginPage() {
       }
     } catch (error: any) {
       console.error("Login error:", error);
+      let errorMessage = "يرجى التأكد من البريد الإلكتروني وكلمة المرور.";
+      
+      if (error.code === 'auth/user-not-found') errorMessage = "هذا الحساب غير موجود.";
+      if (error.code === 'auth/wrong-password') errorMessage = "كلمة المرور غير صحيحة.";
+      
       toast({
         variant: "destructive",
         title: "خطأ في تسجيل الدخول",
-        description: "يرجى التأكد من البريد الإلكتروني وكلمة المرور."
+        description: errorMessage
       });
     } finally {
       setIsLoading(false);
@@ -84,11 +89,9 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password" title="كلمة المرور" className="text-sm font-bold flex items-center gap-2">
-                <Lock className="w-4 h-4 text-primary" /> كلمة المرور
-              </Label>
-            </div>
+            <Label htmlFor="password" title="كلمة المرور" className="text-sm font-bold flex items-center gap-2">
+              <Lock className="w-4 h-4 text-primary" /> كلمة المرور
+            </Label>
             <Input 
               id="password" 
               type="password" 

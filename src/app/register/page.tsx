@@ -38,7 +38,7 @@ export default function RegisterPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const uid = userCredential.user.uid;
 
-      // إنشاء وثيقة الطالب في Firestore
+      // إنشاء وثيقة الطالب في Firestore ببيانات أولية (صفرية)
       const studentDocRef = doc(firestore, 'students', uid);
       await setDoc(studentDocRef, {
         id: uid,
@@ -49,20 +49,25 @@ export default function RegisterPage() {
         academicYear: formData.academicYear === '1' ? 'الصف الأول الثانوي' : formData.academicYear === '2' ? 'الصف الثاني الثانوي' : 'الصف الثالث الثانوي',
         registrationDate: new Date().toISOString(),
         lastLoginDate: new Date().toISOString(),
-        points: 0
+        points: 0,
+        courses: [] // لا توجد كورسات في البداية
       });
 
       toast({
         title: "تم إنشاء الحساب بنجاح",
-        description: "مرحباً بك في منصة البشمهندس."
+        description: "مرحباً بك يا بشمهندس في منصتك التعليمية."
       });
       router.push('/student');
     } catch (error: any) {
       console.error("Registration error:", error);
+      let errorMessage = "حدث خطأ ما، يرجى المحاولة لاحقاً.";
+      if (error.code === 'auth/email-already-in-use') errorMessage = "هذا البريد الإلكتروني مستخدم بالفعل.";
+      if (error.code === 'auth/weak-password') errorMessage = "كلمة المرور ضعيفة جداً.";
+      
       toast({
         variant: "destructive",
         title: "خطأ في إنشاء الحساب",
-        description: error.message || "حدث خطأ ما، يرجى المحاولة لاحقاً."
+        description: errorMessage
       });
     } finally {
       setIsLoading(false);

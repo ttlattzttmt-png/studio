@@ -9,10 +9,11 @@ export default function AdminOverview() {
   const [currentTime, setCurrentTime] = useState<string | null>(null);
 
   useEffect(() => {
-    // حل مشكلة الـ Hydration من خلال تأخير عرض الوقت للـ Client-side
-    const timer = setInterval(() => {
+    const updateTime = () => {
       setCurrentTime(new Date().toLocaleTimeString('ar-EG'));
-    }, 1000);
+    };
+    updateTime();
+    const timer = setInterval(updateTime, 1000);
     return () => clearInterval(timer);
   }, []);
 
