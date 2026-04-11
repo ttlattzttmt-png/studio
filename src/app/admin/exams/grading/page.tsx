@@ -17,10 +17,11 @@ import {
   CheckCircle,
   BrainCircuit,
   GraduationCap,
-  ClipboardList
+  ClipboardList,
+  AlertCircle
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collectionGroup, query, orderBy, updateDoc, doc, collection, onSnapshot } from 'firebase/firestore';
+import { collectionGroup, query, updateDoc, doc, collection } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeEssayAnswer } from '@/ai/flows/admin-essay-answer-analyzer';
 import Image from 'next/image';
@@ -32,10 +33,9 @@ export default function AdminGradingPage() {
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // جلب كافة محاولات الطلاب لحظياً
+  // جلب كافة محاولات الطلاب لحظياً باستخدام Collection Group
   const attemptsRef = useMemoFirebase(() => {
     if (!firestore) return null;
-    // تم إزالة orderBy مؤقتاً لتجنب أخطاء الفهارس (Indexes)
     return collectionGroup(firestore, 'quiz_attempts');
   }, [firestore]);
 
@@ -43,8 +43,7 @@ export default function AdminGradingPage() {
 
   const filteredAttempts = attempts?.filter(a => 
     a.studentId.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    a.courseContentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.courseId?.toLowerCase().includes(searchTerm.toLowerCase())
+    a.courseContentId.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleGradeAnswer = async (answer: any, isCorrect: boolean, score: number) => {
@@ -53,11 +52,13 @@ export default function AdminGradingPage() {
       const answerRef = doc(firestore, 'students', selectedAttempt.studentId, 'quiz_attempts', selectedAttempt.id, 'answers', answer.id);
       await updateDoc(answerRef, { 
         isCorrect, 
-        scoreAchieved: score,
-        updatedAt: new Date().toISOString()
+        scoreAchieved: score
       });
       toast({ title: "تم التقييم", description: "تم حفظ درجة السؤال بنجاح." });
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      console.error(e); 
+      toast({ variant: "destructive", title: "خطأ", description: "فشل حفظ درجة السؤال." });
+    }
   };
 
   const handleAnalyzeAI = async (text: string) => {
@@ -66,8 +67,12 @@ export default function AdminGradingPage() {
     try {
       const result = await analyzeEssayAnswer({ essayAnswer: text });
       toast({ title: "تحليل الذكاء الاصطناعي", description: result.summary });
-    } catch (e) { console.error(e); }
-    finally { setIsAnalyzing(false); }
+    } catch (e) { 
+      console.error(e); 
+      toast({ variant: "destructive", title: "خطأ", description: "فشل تحليل الذكاء الاصطناعي." });
+    } finally { 
+      setIsAnalyzing(false); 
+    }
   };
 
   const handleReleaseGrades = async (attempt: any) => {
@@ -79,7 +84,10 @@ export default function AdminGradingPage() {
         gradeReleaseDate: new Date().toISOString()
       });
       toast({ title: "تم الاعتماد", description: "النتيجة أصبحت متاحة للطالب الآن." });
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      console.error(e); 
+      toast({ variant: "destructive", title: "خطأ", description: "فشل اعتماد النتيجة." });
+    }
   };
 
   return (
@@ -96,8 +104,8 @@ export default function AdminGradingPage() {
             <div className="relative">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input 
-                placeholder="بحث عن طالب أو امتحان..." 
-                className="pr-10 bg-background border-primary/10" 
+                placeholder="بحث عن طالب..." 
+                className="pr-10 bg-background border-primary/10 text-right" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -117,16 +125,16 @@ export default function AdminGradingPage() {
                   <button 
                     key={attempt.id}
                     onClick={() => setSelectedAttempt(attempt)}
-                    className={`w-full p-6 text-right hover:bg-primary/5 transition-all flex flex-col gap-2 ${selectedAttempt?.id === attempt.id ? 'bg-primary/10 border-r-4 border-primary shadow-inner' : ''}`}
+                    className={`w-full p-6 text-right hover:bg-primary/5 transition-all flex flex-col gap-2 ${selectedAttempt?.id === attempt.id ? 'bg-primary/10 border-r-4 border-primary' : ''}`}
                   >
                     <div className="flex justify-between items-center">
                       <StudentBrief studentId={attempt.studentId} />
-                      <Badge variant={attempt.isGraded ? 'default' : 'secondary'} className={attempt.isGraded ? 'bg-accent' : ''}>
+                      <Badge variant={attempt.isGraded ? 'default' : 'secondary'}>
                         {attempt.isGraded ? 'مصحح' : 'قيد المراجعة'}
                       </Badge>
                     </div>
-                    <p className="font-bold text-lg mt-1 truncate">امتحان: {attempt.courseContentId}</p>
-                    <span className="text-[10px] text-muted-foreground bg-secondary/50 px-2 py-1 rounded-full inline-block w-fit">
+                    <p className="font-bold truncate">امتحان: {attempt.courseContentId}</p>
+                    <span className="text-[10px] text-muted-foreground">
                       {new Date(attempt.submittedAt).toLocaleString('ar-EG')}
                     </span>
                   </button>
@@ -165,10 +173,10 @@ function StudentBrief({ studentId }: { studentId: string }) {
 
   return (
     <div className="flex items-center gap-2 text-xs font-bold text-primary">
-      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-[10px] text-primary">
+      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-[10px]">
         {student?.name?.[0] || 'S'}
       </div>
-      <span className="truncate max-w-[150px]">{student?.name || studentId}</span>
+      <span className="truncate">{student?.name || studentId}</span>
     </div>
   );
 }
@@ -183,19 +191,16 @@ function AttemptDetails({ attempt, onAnalyzeAI, onGrade, onRelease, isAnalyzing 
   const { data: answers, isLoading } = useCollection(answersRef);
 
   return (
-    <Card className="bg-card border-primary/10 shadow-2xl animate-in zoom-in-95 sticky top-8">
+    <Card className="bg-card border-primary/10 shadow-2xl animate-in zoom-in-95">
       <CardHeader className="border-b bg-secondary/5 flex flex-row items-center justify-between p-6">
-        <div className="space-y-1">
+        <div>
           <CardTitle className="text-2xl font-bold text-primary">مراجعة إجابات الطالب</CardTitle>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-             <span className="flex items-center gap-1"><ClipboardList className="w-3 h-3"/> محاولة رقم {attempt.attemptNumber}</span>
-             <span className="flex items-center gap-1"><User className="w-3 h-3"/> {attempt.studentId}</span>
-          </div>
+          <p className="text-xs text-muted-foreground">معرف المحاولة: {attempt.id}</p>
         </div>
         <Button 
           onClick={() => onRelease(attempt)} 
           disabled={attempt.isGraded} 
-          className="bg-accent hover:bg-accent/90 text-white font-bold h-12 px-6 gap-2 shadow-lg"
+          className="bg-accent hover:bg-accent/90 text-white font-bold h-12 px-6 gap-2"
         >
           <CheckCircle className="w-5 h-5" /> اعتماد النتيجة
         </Button>
@@ -206,48 +211,42 @@ function AttemptDetails({ attempt, onAnalyzeAI, onGrade, onRelease, isAnalyzing 
         ) : (
           <div className="space-y-6">
             {answers?.map((answer, i) => (
-              <Card key={answer.id} className="bg-background border-primary/5 overflow-hidden shadow-sm hover:border-primary/20 transition-all">
+              <Card key={answer.id} className="bg-background border-primary/5 overflow-hidden">
                 <div className="p-4 bg-secondary/10 border-b flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <span className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg">{i+1}</span>
-                    <Badge variant="outline" className="border-primary/30 text-primary">
-                      {answer.questionType === 'MCQ' ? 'اختياري' : 'مقالي'}
-                    </Badge>
-                  </div>
+                  <Badge variant="outline" className="border-primary/30 text-primary">
+                    سؤال {i+1} - {answer.questionType === 'MCQ' ? 'اختياري' : 'مقالي'}
+                  </Badge>
                   <div className="flex gap-2">
                     <Button 
                       size="sm" 
                       variant={answer.isCorrect ? 'default' : 'outline'} 
                       onClick={() => onGrade(answer, true, 1)}
-                      className={`h-10 px-6 gap-2 font-bold ${answer.isCorrect ? 'bg-accent text-white' : ''}`}
+                      className={answer.isCorrect ? 'bg-accent text-white' : ''}
                     >
-                      <CheckCircle2 className="w-4 h-4" /> صحيح
+                      <CheckCircle2 className="w-4 h-4 ml-1" /> صحيح
                     </Button>
                     <Button 
                       size="sm" 
                       variant={answer.isCorrect === false ? 'destructive' : 'outline'} 
                       onClick={() => onGrade(answer, false, 0)}
-                      className="h-10 px-6 gap-2 font-bold"
                     >
-                      <XCircle className="w-4 h-4" /> خطأ
+                      <XCircle className="w-4 h-4 ml-1" /> خطأ
                     </Button>
                   </div>
                 </div>
-                <CardContent className="p-6 space-y-4">
+                <CardContent className="p-6 space-y-4 text-right">
                   {answer.questionType === 'MCQ' ? (
-                    <div className="flex items-center gap-4 p-4 bg-primary/5 rounded-xl border border-dashed border-primary/20">
-                      <p className="text-sm font-bold text-muted-foreground">خيار الطالب:</p>
-                      <span className="text-xl font-black text-primary">{answer.mcqSelectedOptionId}</span>
-                    </div>
+                    <p className="text-lg font-bold">خيار الطالب: <span className="text-primary">{answer.mcqSelectedOptionId}</span></p>
                   ) : (
                     <div className="space-y-4">
                       {answer.essayAnswerText && (
                         <div className="space-y-2">
-                          <div className="flex justify-between items-center">
-                            <Label className="text-sm text-primary font-bold">إجابة الطالب النصية:</Label>
+                          <div className="flex justify-between items-center mb-1">
+                            <Label className="text-sm font-bold">إجابة الطالب النصية:</Label>
                             <Button 
                               variant="ghost" 
-                              className="h-8 text-[10px] gap-1 text-accent hover:bg-accent/10" 
+                              size="sm"
+                              className="h-8 text-[10px] gap-1 text-accent" 
                               onClick={() => onAnalyzeAI(answer.essayAnswerText)}
                               disabled={isAnalyzing}
                             >
@@ -255,21 +254,19 @@ function AttemptDetails({ attempt, onAnalyzeAI, onGrade, onRelease, isAnalyzing 
                               تحليل ذكي
                             </Button>
                           </div>
-                          <div className="p-5 bg-secondary/20 rounded-2xl border border-primary/10">
-                            <p className="text-lg leading-relaxed whitespace-pre-wrap">{answer.essayAnswerText}</p>
-                          </div>
+                          <p className="p-4 bg-secondary/20 rounded-xl whitespace-pre-wrap">{answer.essayAnswerText}</p>
                         </div>
                       )}
                       
                       {answer.essayAnswerFileUrl && (
-                        <div className="space-y-3">
-                          <Label className="text-sm text-accent font-bold flex items-center gap-2">
+                        <div className="space-y-2">
+                          <Label className="text-sm font-bold flex items-center gap-2">
                             <FileText className="w-4 h-4" /> صورة الحل المرفوعة:
                           </Label>
-                          <div className="relative w-full h-[500px] bg-black/5 rounded-2xl border-2 border-dashed border-accent/30 overflow-hidden group">
+                          <div className="relative w-full h-[400px] bg-black/5 rounded-xl border border-dashed overflow-hidden group">
                             <Image 
                               src={answer.essayAnswerFileUrl} 
-                              alt="Student Uploaded Solution" 
+                              alt="Student solution" 
                               fill 
                               className="object-contain" 
                               unoptimized 
@@ -277,18 +274,11 @@ function AttemptDetails({ attempt, onAnalyzeAI, onGrade, onRelease, isAnalyzing 
                             <a 
                               href={answer.essayAnswerFileUrl} 
                               target="_blank" 
-                              className="absolute bottom-4 left-4 bg-black/80 text-white px-4 py-2 rounded-xl hover:bg-black transition-colors flex items-center gap-2 shadow-2xl"
+                              className="absolute bottom-2 left-2 bg-black/50 text-white px-3 py-1 rounded-lg text-xs hover:bg-black"
                             >
-                              <ExternalLink className="w-4 h-4" /> معاينة الصورة الكاملة
+                              <ExternalLink className="w-3 h-3 inline ml-1" /> فتح في نافذة جديدة
                             </a>
                           </div>
-                        </div>
-                      )}
-                      
-                      {!answer.essayAnswerText && !answer.essayAnswerFileUrl && (
-                        <div className="p-8 text-center bg-destructive/5 rounded-xl border border-dashed border-destructive/30">
-                          <AlertCircle className="w-8 h-8 text-destructive mx-auto mb-2 opacity-50" />
-                          <p className="text-sm text-destructive font-bold">لم يقم الطالب بتقديم أي إجابة لهذا السؤال.</p>
                         </div>
                       )}
                     </div>
@@ -301,25 +291,4 @@ function AttemptDetails({ attempt, onAnalyzeAI, onGrade, onRelease, isAnalyzing 
       </CardContent>
     </Card>
   );
-}
-
-function AlertCircle(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="8" x2="12" y2="12" />
-      <line x1="12" y1="16" x2="12.01" y2="16" />
-    </svg>
-  )
 }

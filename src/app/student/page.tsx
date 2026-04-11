@@ -49,7 +49,7 @@ export default function StudentDashboard() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
+        <div className="text-right">
           <h1 className="text-4xl font-headline font-bold mb-2">أهلاً بك، يا بشمهندس {studentProfile?.name?.split(' ')[0] || 'المجتهد'}</h1>
           <p className="text-muted-foreground">كل دروسك وامتحاناتك هنا، جاهز للتفوق؟</p>
         </div>
@@ -57,7 +57,7 @@ export default function StudentDashboard() {
           <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
             <Trophy className="w-6 h-6" />
           </div>
-          <div>
+          <div className="text-right">
             <p className="text-xs text-muted-foreground">نقاط التفوق</p>
             <p className="text-xl font-bold text-primary">{studentProfile?.points || 0} نقطة</p>
           </div>
@@ -68,26 +68,26 @@ export default function StudentDashboard() {
         <div className="lg:col-span-2 space-y-8">
            <Card className="bg-card border-primary/10 overflow-hidden shadow-sm">
              <div className="h-2 bg-primary" />
-             <CardHeader>
-               <CardTitle className="text-xl font-bold flex items-center gap-2">
-                 <User className="w-5 h-5 text-primary" /> بياناتك الأكاديمية
+             <CardHeader className="text-right">
+               <CardTitle className="text-xl font-bold flex items-center gap-2 justify-end">
+                 بياناتك الأكاديمية <User className="w-5 h-5 text-primary" />
                </CardTitle>
              </CardHeader>
              <CardContent>
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                 <div className="p-4 rounded-xl bg-secondary/20 border border-primary/5">
+                 <div className="p-4 rounded-xl bg-secondary/20 border border-primary/5 text-right">
                    <p className="text-xs text-muted-foreground mb-1">الاسم بالكامل</p>
                    <p className="font-bold text-lg">{studentProfile?.name || '---'}</p>
                  </div>
-                 <div className="p-4 rounded-xl bg-secondary/20 border border-primary/5">
+                 <div className="p-4 rounded-xl bg-secondary/20 border border-primary/5 text-right">
                    <p className="text-xs text-muted-foreground mb-1">المرحلة الدراسية</p>
                    <p className="font-bold text-lg">{studentProfile?.academicYear || '---'}</p>
                  </div>
-                 <div className="p-4 rounded-xl bg-secondary/20 border border-primary/5">
+                 <div className="p-4 rounded-xl bg-secondary/20 border border-primary/5 text-right">
                    <p className="text-xs text-muted-foreground mb-1">رقم الهاتف</p>
                    <p className="font-bold text-lg" dir="ltr">{studentProfile?.studentPhoneNumber || '---'}</p>
                  </div>
-                 <div className="p-4 rounded-xl bg-secondary/20 border border-primary/5">
+                 <div className="p-4 rounded-xl bg-secondary/20 border border-primary/5 text-right">
                    <p className="text-xs text-muted-foreground mb-1">هاتف ولي الأمر</p>
                    <p className="font-bold text-lg" dir="ltr">{studentProfile?.parentPhoneNumber || '---'}</p>
                  </div>
@@ -97,8 +97,8 @@ export default function StudentDashboard() {
 
            <div>
               <div className="flex items-center justify-between mb-6">
+                <Link href="/student/my-courses" className="text-primary hover:underline text-sm font-bold flex items-center gap-1"><ArrowLeft className="w-4 h-4" /> عرض الكل</Link>
                 <h2 className="text-2xl font-headline font-bold">كورساتي المفعلة</h2>
-                <Link href="/student/my-courses" className="text-primary hover:underline text-sm font-bold flex items-center gap-1">عرض الكل <ArrowLeft className="w-4 h-4" /></Link>
               </div>
               
               {isEnrollmentsLoading ? (
@@ -106,23 +106,23 @@ export default function StudentDashboard() {
               ) : enrollments && enrollments.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {enrollments.map(enrollment => (
-                    <Card key={enrollment.id} className="bg-card hover:border-primary/30 transition-all cursor-pointer group shadow-sm">
+                    <Card key={enrollment.id} className="bg-card hover:border-primary/30 transition-all cursor-pointer group shadow-sm text-right">
                       <CardContent className="p-6">
                          <div className="flex justify-between items-start mb-4">
-                           <div className="w-12 h-12 rounded-xl bg-primary/10 group-hover:bg-primary transition-colors flex items-center justify-center">
-                             <Play className="w-6 h-6 text-primary group-hover:text-primary-foreground" />
-                           </div>
                            <span className={`text-[10px] font-bold px-2 py-1 rounded ${enrollment.isCompleted ? 'bg-accent text-accent-foreground' : 'bg-secondary text-foreground'}`}>
                              {enrollment.isCompleted ? 'مكتمل' : 'قيد الدراسة'}
                            </span>
+                           <div className="w-12 h-12 rounded-xl bg-primary/10 group-hover:bg-primary transition-colors flex items-center justify-center">
+                             <Play className="w-6 h-6 text-primary group-hover:text-primary-foreground" />
+                           </div>
                          </div>
                          <h4 className="text-lg font-bold mb-4">كود الكورس: {enrollment.courseId}</h4>
                          <div className="w-full h-2 bg-secondary rounded-full overflow-hidden mb-2">
                            <div className="h-full bg-primary" style={{ width: `${enrollment.progressPercentage}%` }} />
                          </div>
                          <div className="flex items-center justify-between text-[10px] font-bold">
-                           <span className="text-muted-foreground">تقدمك الدراسي</span>
                            <span className="text-primary">{enrollment.progressPercentage}%</span>
+                           <span className="text-muted-foreground">تقدمك الدراسي</span>
                          </div>
                       </CardContent>
                     </Card>
@@ -139,9 +139,9 @@ export default function StudentDashboard() {
         </div>
 
         <div className="space-y-8">
-           <Card className="bg-primary text-primary-foreground p-8 rounded-3xl shadow-2xl shadow-primary/20 relative overflow-hidden group">
+           <Card className="bg-primary text-primary-foreground p-8 rounded-3xl shadow-2xl shadow-primary/20 relative overflow-hidden group text-right">
               <div className="relative z-10 space-y-4">
-                <h4 className="text-xl font-bold flex items-center gap-2"><Star className="w-5 h-5" /> تفعيل كورس جديد</h4>
+                <h4 className="text-xl font-bold flex items-center gap-2 justify-end"><Star className="w-5 h-5" /> تفعيل كورس جديد</h4>
                 <p className="text-sm opacity-90 leading-relaxed">أدخل الكود الذي استلمته لتفعيل المحتوى فوراً.</p>
                 <Input 
                   placeholder="ENG-XXXX-XXXX" 
@@ -159,10 +159,10 @@ export default function StudentDashboard() {
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
            </Card>
 
-           <Card className="bg-card border-primary/10 shadow-sm overflow-hidden">
+           <Card className="bg-card border-primary/10 shadow-sm overflow-hidden text-right">
              <CardHeader className="border-b bg-secondary/5 py-4">
-               <CardTitle className="text-lg font-bold flex items-center gap-2">
-                 <Megaphone className="w-5 h-5 text-primary" /> مركز التنبيهات
+               <CardTitle className="text-lg font-bold flex items-center gap-2 justify-end">
+                 مركز التنبيهات <Megaphone className="w-5 h-5 text-primary" />
                </CardTitle>
              </CardHeader>
              <CardContent className="p-0">
@@ -179,9 +179,9 @@ export default function StudentDashboard() {
                       <div key={notif.id} className="p-5 hover:bg-secondary/10 transition-colors">
                         <h5 className="text-sm font-bold text-primary mb-1">{notif.title}</h5>
                         <p className="text-xs text-muted-foreground line-clamp-3">{notif.message}</p>
-                        <div className="mt-2 flex items-center gap-1 text-[9px] text-muted-foreground italic">
-                          <Clock className="w-3 h-3" />
+                        <div className="mt-2 flex items-center gap-1 text-[9px] text-muted-foreground italic justify-end">
                           <span>{notif.createdAt?.toDate ? notif.createdAt.toDate().toLocaleString('ar-EG') : 'الآن'}</span>
+                          <Clock className="w-3 h-3" />
                         </div>
                       </div>
                     ))}
