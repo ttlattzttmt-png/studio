@@ -25,14 +25,11 @@ export default function RedeemCodePage() {
   }, [initialCode]);
 
   const handleRedeem = async () => {
-    if (!firestore || !user || !code) {
-      if (!user && !isUserLoading) toast({ variant: "destructive", title: "تنبيه", description: "يرجى تسجيل الدخول أولاً." });
-      return;
-    }
+    if (!firestore || !user || !code) return;
     
     setIsSubmitting(true);
     try {
-      // 1. البحث عن الكود (يجب أن يكون متاحاً وغير مستخدم)
+      // 1. البحث عن الكود
       const codesRef = collection(firestore, 'access_codes');
       const q = query(
         codesRef, 
@@ -46,7 +43,7 @@ export default function RedeemCodePage() {
         toast({
           variant: "destructive",
           title: "كود غير صالح",
-          description: "هذا الكود غير موجود، أو تم استخدامه مسبقاً، أو غير مفعل."
+          description: "الكود خاطئ أو تم استخدامه مسبقاً."
         });
         setIsSubmitting(false);
         return;
@@ -56,37 +53,27 @@ export default function RedeemCodePage() {
       const codeData = codeDoc.data();
       const courseId = codeData.courseId;
 
-      if (!courseId) {
-        throw new Error("هذا الكود غير مرتبط بأي كورس حالياً.");
-      }
-
-      // 2. التحقق من وجود الكورس فعلياً
+      // 2. التحقق من الكورس
       const courseRef = doc(firestore, 'courses', courseId);
       const courseSnap = await getDoc(courseRef);
       
       if (!courseSnap.exists()) {
-        toast({
-          variant: "destructive",
-          title: "كورس غير متاح",
-          description: "الكورس المرتبط بهذا الكود لم يعد متاحاً على المنصة."
-        });
+        toast({ variant: "destructive", title: "خطأ", description: "الكورس المرتبط بهذا الكود غير موجود." });
         setIsSubmitting(false);
         return;
       }
 
       const courseTitle = courseSnap.data().title;
 
-      // 3. تحديث حالة الكود ليصبح مستخدماً (تحديث الصلاحيات يسمح بذلك الآن)
-      const accessCodeRef = doc(firestore, 'access_codes', codeDoc.id);
-      await updateDoc(accessCodeRef, {
+      // 3. تحديث حالة الكود (تم منح الصلاحية في القواعد الآن)
+      await updateDoc(doc(firestore, 'access_codes', codeDoc.id), {
         isUsed: true,
         usedByStudentId: user.uid,
         usedAt: serverTimestamp()
       });
 
-      // 4. إنشاء سجل الاشتراك للطالب
-      const enrollmentRef = doc(firestore, 'students', user.uid, 'enrollments', courseId);
-      await setDoc(enrollmentRef, {
+      // 4. تفعيل الكورس للطالب
+      await setDoc(doc(firestore, 'students', user.uid, 'enrollments', courseId), {
         id: courseId,
         studentId: user.uid,
         courseId: courseId,
@@ -98,24 +85,16 @@ export default function RedeemCodePage() {
 
       toast({
         title: "تم التفعيل بنجاح!",
-        description: `تمت إضافة كورس "${courseTitle}" إلى مكتبتك.`
+        description: `تم فتح كورس ${courseTitle} بنجاح.`
       });
       
       router.push('/student/my-courses');
     } catch (e: any) {
       console.error("Redeem error:", e);
-      let errorMessage = "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى أو التواصل مع الدعم.";
-      
-      if (e.message.includes('permission-denied')) {
-        errorMessage = "خطأ في الصلاحيات. يرجى تسجيل الخروج والدخول مرة أخرى.";
-      } else if (e.message) {
-        errorMessage = e.message;
-      }
-      
       toast({
         variant: "destructive",
-        title: "فشل التفعيل",
-        description: errorMessage
+        title: "خطأ في الصلاحيات",
+        description: "تأكد من تسجيل الدخول والمحاولة مرة أخرى."
       });
     } finally {
       setIsSubmitting(false);
@@ -129,7 +108,6 @@ export default function RedeemCodePage() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center space-y-4">
         <AlertCircle className="w-16 h-16 text-destructive opacity-50" />
         <h2 className="text-2xl font-bold">يرجى تسجيل الدخول أولاً</h2>
-        <p className="text-muted-foreground">يجب أن تكون مسجلاً كطالب لتتمكن من تفعيل أكواد الكورسات.</p>
         <Button onClick={() => router.push('/login')} className="bg-primary text-primary-foreground font-bold px-8 h-12">تسجيل الدخول</Button>
       </div>
     );

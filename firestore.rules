@@ -59,11 +59,11 @@ service cloud.firestore {
     }
 
     // أكواد الوصول: 
-    // - المسؤول له صلاحية كاملة
-    // - الطالب يمكنه البحث عن الأكواد وقراءتها وتحديث حالتها (Update) ليتمكن من تفعيل الكورس
+    // - القراءة مسموحة لجميع المسجلين للتحقق من الكود
+    // - التحديث مسموح للطالب فقط إذا كان يحول حالة الكود من "غير مستخدم" إلى "مستخدم"
     match /access_codes/{codeId} {
-      allow create, delete: if isAdmin();
       allow read, list: if isSignedIn();
+      allow create, delete: if isAdmin();
       allow update: if isSignedIn() && (
         isAdmin() || 
         (resource.data.isUsed == false && request.resource.data.isUsed == true)
@@ -79,7 +79,7 @@ service cloud.firestore {
       }
     }
 
-    // دعم استعلامات المجموعات (Collection Group) للمسؤول
+    // دعم استعلامات المجموعات (Collection Group) للمسؤول والطلاب
     match /{path=**}/quiz_attempts/{id} {
       allow read, list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
     }
