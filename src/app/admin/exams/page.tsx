@@ -19,18 +19,13 @@ import {
 } from "@/components/ui/dialog";
 import { 
   Plus, 
-  ClipboardList, 
-  BookOpen, 
   Clock, 
   Loader2, 
   Trash2, 
   Settings2,
-  Eye,
   Megaphone,
   CheckCircle2,
-  ImageIcon,
-  Upload,
-  FileImage
+  Upload
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, orderBy, updateDoc } from 'firebase/firestore';
@@ -298,7 +293,7 @@ function QuestionManager({ exam }: { exam: any }) {
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (e) { 
       console.error(e);
-      toast({ variant: "destructive", title: "خطأ في الرفع" });
+      toast({ variant: "destructive", title: "خطأ في الرفع، تأكد من اتصالك." });
     } finally { 
       setIsAdding(false); 
     }
