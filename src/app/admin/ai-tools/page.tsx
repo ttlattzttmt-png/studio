@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -10,9 +11,11 @@ import { BrainCircuit, Sparkles, Wand2, Loader2, CheckCircle2, AlertCircle } fro
 import { analyzeEssayAnswer } from '@/ai/flows/admin-essay-answer-analyzer';
 import { generateQuizQuestions } from '@/ai/flows/admin-quiz-question-generator';
 import { useToast } from '@/hooks/use-toast';
+import { useUser } from '@/firebase';
 
 export default function AITools() {
   const { toast } = useToast();
+  const { user, isUserLoading } = useUser();
   const [essay, setEssay] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
@@ -34,7 +37,7 @@ export default function AITools() {
       toast({ 
         variant: "destructive", 
         title: "خطأ في التحليل", 
-        description: "فشل الاتصال بمحرك الذكاء الاصطناعي. تأكد من إعداد مفتاح API." 
+        description: "فشل الاتصال بمحرك الذكاء الاصطناعي. يرجى المحاولة لاحقاً." 
       });
     } finally {
       setIsAnalyzing(false);
@@ -64,6 +67,9 @@ export default function AITools() {
       setIsGenerating(false);
     }
   };
+
+  if (isUserLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
+  if (!user) return <div className="p-20 text-center text-muted-foreground italic">يرجى تسجيل الدخول كمسؤول أولاً.</div>;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
