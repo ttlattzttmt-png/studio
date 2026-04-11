@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Dialog, 
@@ -114,8 +115,8 @@ export default function AdminExams() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-headline font-bold mb-2">إدارة الاختبارات والوقت</h1>
-          <p className="text-muted-foreground">حدد وقت الامتحان وتحكم في موعد ظهور النتيجة للطلاب.</p>
+          <h1 className="text-4xl font-headline font-bold mb-2 text-right">إدارة الاختبارات والوقت</h1>
+          <p className="text-muted-foreground text-right">حدد وقت الامتحان وتحكم في موعد ظهور النتيجة للطلاب.</p>
         </div>
         
         <Dialog>
@@ -125,10 +126,10 @@ export default function AdminExams() {
             </Button>
           </DialogTrigger>
           <DialogContent className="bg-card">
-            <DialogHeader><DialogTitle className="text-2xl font-bold">إنشاء اختبار بمؤقت</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle className="text-2xl font-bold text-right">إنشاء اختبار بمؤقت</DialogTitle></DialogHeader>
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
+                <div className="space-y-2 text-right">
                   <Label className="text-sm font-bold">الكورس</Label>
                   <Select value={formData.courseId} onValueChange={(v) => setFormData({...formData, courseId: v})}>
                     <SelectTrigger className="bg-background"><SelectValue placeholder="اختر" /></SelectTrigger>
@@ -137,18 +138,18 @@ export default function AdminExams() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 text-right">
                   <Label className="text-sm font-bold">وقت الامتحان (بالدقائق)</Label>
-                  <Input type="number" value={formData.durationMinutes} onChange={(e) => setFormData({...formData, durationMinutes: e.target.value})} className="bg-background" />
+                  <Input type="number" value={formData.durationMinutes} onChange={(e) => setFormData({...formData, durationMinutes: e.target.value})} className="bg-background text-right" />
                 </div>
               </div>
-              <Input placeholder="عنوان الاختبار" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} />
+              <Input placeholder="عنوان الاختبار" className="text-right" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} />
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
+                <div className="space-y-2 text-right">
                   <Label className="text-sm font-bold">درجة النجاح %</Label>
-                  <Input type="number" value={formData.passMark} onChange={(e) => setFormData({...formData, passMark: e.target.value})} />
+                  <Input type="number" value={formData.passMark} onChange={(e) => setFormData({...formData, passMark: e.target.value})} className="text-right" />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 text-right">
                   <Label className="text-sm font-bold">النوع</Label>
                   <Select value={formData.contentType} onValueChange={(v) => setFormData({...formData, contentType: v})}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -168,9 +169,9 @@ export default function AdminExams() {
       </div>
 
       <Card className="bg-card">
-        <CardHeader className="border-b bg-secondary/10">
+        <CardHeader className="border-b bg-secondary/10 flex justify-end">
           <Select value={activeCourseId} onValueChange={setActiveCourseId}>
-            <SelectTrigger className="w-64 bg-background"><SelectValue placeholder="اختر كورس لعرض امتحاناته" /></SelectTrigger>
+            <SelectTrigger className="w-64 bg-background text-right"><SelectValue placeholder="اختر كورس لعرض امتحاناته" /></SelectTrigger>
             <SelectContent>
               {courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}
             </SelectContent>
@@ -178,33 +179,37 @@ export default function AdminExams() {
         </CardHeader>
         <CardContent className="p-6">
           {!activeCourseId ? (
-            <div className="text-center py-20 text-muted-foreground italic">يرجى اختيار كورس.</div>
+            <div className="text-center py-20 text-muted-foreground italic">يرجى اختيار كورس من القائمة لعرض الاختبارات.</div>
+          ) : isExamsLoading ? (
+            <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>
+          ) : exams.length === 0 ? (
+            <div className="text-center py-20 text-muted-foreground italic">لا توجد اختبارات مضافة لهذا الكورس بعد.</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {exams.map((exam) => (
-                <Card key={exam.id} className="relative overflow-hidden group">
+                <Card key={exam.id} className="relative overflow-hidden group border-primary/10">
                   <div className={`absolute top-0 right-0 w-2 h-full ${exam.allowInstantResultsDisplay ? 'bg-accent' : 'bg-muted'}`} />
-                  <CardContent className="p-6 space-y-4">
+                  <CardContent className="p-6 space-y-4 text-right">
                     <div className="flex justify-between items-start">
-                      <h3 className="font-bold text-lg">{exam.title}</h3>
                       <Badge variant="secondary" className="flex items-center gap-1">
                         <Clock className="w-3 h-3" /> {exam.durationMinutes} د
                       </Badge>
+                      <h3 className="font-bold text-lg">{exam.title}</h3>
                     </div>
                     
                     <div className="flex items-center justify-between p-3 bg-secondary/20 rounded-xl">
-                      <div className="flex items-center gap-2">
-                        <Megaphone className={`w-4 h-4 ${exam.allowInstantResultsDisplay ? 'text-accent' : 'text-muted-foreground'}`} />
-                        <span className="text-xs font-bold">إظهار النتائج للطلاب</span>
-                      </div>
                       <Switch 
                         checked={exam.allowInstantResultsDisplay} 
                         onCheckedChange={() => toggleResultsVisibility(exam)}
                       />
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold">إظهار النتائج للطلاب</span>
+                        <Megaphone className={`w-4 h-4 ${exam.allowInstantResultsDisplay ? 'text-accent' : 'text-muted-foreground'}`} />
+                      </div>
                     </div>
 
                     <div className="flex gap-2">
-                      <Button className="flex-grow bg-primary" onClick={() => setSelectedExamForQuestions(exam)}>إدارة الأسئلة</Button>
+                      <Button className="flex-grow bg-primary text-primary-foreground font-bold" onClick={() => setSelectedExamForQuestions(exam)}>إدارة الأسئلة</Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -274,13 +279,13 @@ function QuestionManager({ exam }: { exam: any }) {
     <div className="space-y-6">
       <Card className="bg-secondary/10 border-dashed">
         <CardContent className="p-6 space-y-4">
-          <Textarea placeholder="نص السؤال" value={newQuestion.text} onChange={(e) => setNewQuestion({...newQuestion, text: e.target.value})} />
+          <Textarea placeholder="نص السؤال" className="text-right" value={newQuestion.text} onChange={(e) => setNewQuestion({...newQuestion, text: e.target.value})} />
           {newQuestion.type === 'MCQ' && (
             <div className="grid grid-cols-2 gap-2">
               {newQuestion.options.map((opt, i) => (
-                <div key={i} className="flex gap-1 items-center">
+                <div key={i} className="flex gap-1 items-center flex-row-reverse">
                   <input type="radio" checked={newQuestion.correctIndex === i} onChange={() => setNewQuestion({...newQuestion, correctIndex: i})} />
-                  <Input placeholder={`خيار ${i+1}`} value={opt} onChange={(e) => {
+                  <Input placeholder={`خيار ${i+1}`} className="text-right" value={opt} onChange={(e) => {
                     const o = [...newQuestion.options];
                     o[i] = e.target.value;
                     setNewQuestion({...newQuestion, options: o});
@@ -289,14 +294,14 @@ function QuestionManager({ exam }: { exam: any }) {
               ))}
             </div>
           )}
-          <Button onClick={handleAddQuestion} disabled={isAdding} className="w-full">حفظ السؤال</Button>
+          <Button onClick={handleAddQuestion} disabled={isAdding} className="w-full bg-primary text-primary-foreground font-bold">حفظ السؤال</Button>
         </CardContent>
       </Card>
       <div className="divide-y">
         {questions?.map((q, i) => (
-          <div key={q.id} className="py-3 flex justify-between items-center">
-            <p className="font-bold text-sm">{i+1}. {q.questionText}</p>
-            <Badge>{q.questionType}</Badge>
+          <div key={q.id} className="py-3 flex flex-row-reverse justify-between items-center">
+            <p className="font-bold text-sm text-right">{i+1}. {q.questionText}</p>
+            <Badge variant="outline">{q.questionType}</Badge>
           </div>
         ))}
       </div>

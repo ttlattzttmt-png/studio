@@ -29,9 +29,9 @@ export default function StudentExamsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {!attempts || attempts.length === 0 ? (
-          <Card className="col-span-full p-12 text-center border-dashed">
+          <Card className="col-span-full p-12 text-center border-dashed border-2 bg-secondary/10">
              <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-10" />
-             <p className="text-muted-foreground">لم تؤدِ أي امتحانات بعد.</p>
+             <p className="text-muted-foreground">لم تؤدِ أي اختبارات بعد. ابدأ التعلم الآن!</p>
           </Card>
         ) : (
           attempts.map((attempt) => (
@@ -53,15 +53,16 @@ function ExamResultCard({ attempt }: { attempt: any }) {
   
   const { data: exam } = useDoc(examRef);
 
+  // الدرجة تظهر فقط إذا وافق الأدمن أو إذا كان الكورس مضبوطاً على الإظهار الفوري
   const canShowScore = exam?.allowInstantResultsDisplay || attempt.isGraded;
 
   return (
-    <Card className="bg-card overflow-hidden border-primary/10">
-      <CardHeader className="border-b pb-4 flex flex-row items-center justify-between">
-        <CardTitle className="text-lg truncate max-w-[200px]">{exam?.title || 'جاري تحميل الاسم...'}</CardTitle>
+    <Card className="bg-card overflow-hidden border-primary/10 hover:shadow-xl transition-shadow">
+      <CardHeader className="border-b pb-4 flex flex-row items-center justify-between text-right">
         <Badge variant={canShowScore ? "default" : "secondary"}>
           {canShowScore ? "تم النشر" : "قيد المراجعة"}
         </Badge>
+        <CardTitle className="text-lg truncate max-w-[200px]">{exam?.title || 'جاري تحميل الاسم...'}</CardTitle>
       </CardHeader>
       <CardContent className="p-6">
         <div className="flex items-center justify-center p-8 bg-secondary/20 rounded-2xl relative overflow-hidden border border-white/5 shadow-inner">
@@ -78,9 +79,9 @@ function ExamResultCard({ attempt }: { attempt: any }) {
             </div>
           )}
         </div>
-        <div className="mt-6 flex justify-between items-center text-[10px] text-muted-foreground border-t pt-4">
+        <div className="mt-6 flex flex-row-reverse justify-between items-center text-[10px] text-muted-foreground border-t pt-4">
           <span className="flex items-center gap-1 font-mono">
-            {attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleDateString('ar-EG') : '---'}
+             {attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleDateString('ar-EG') : '---'}
           </span>
           <span className={`px-2 py-0.5 rounded-full font-bold ${attempt.isGraded ? 'text-accent' : 'text-primary'}`}>
             {attempt.isGraded ? 'تم التصحيح' : 'جاري التصحيح'}
