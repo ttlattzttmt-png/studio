@@ -3,9 +3,12 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Video, Ticket, ClipboardList, TrendingUp, Loader2 } from 'lucide-react';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
 export default function AdminOverview() {
   const [currentTime, setCurrentTime] = useState<string | null>(null);
+  const firestore = useFirestore();
 
   useEffect(() => {
     const updateTime = () => {
@@ -16,11 +19,40 @@ export default function AdminOverview() {
     return () => clearInterval(timer);
   }, []);
 
+  // جلب البيانات اللحظية للإحصائيات
+  const studentsRef = useMemoFirebase(() => firestore ? collection(firestore, 'students') : null, [firestore]);
+  const coursesRef = useMemoFirebase(() => firestore ? collection(firestore, 'courses') : null, [firestore]);
+  const codesRef = useMemoFirebase(() => firestore ? collection(firestore, 'access_codes') : null, [firestore]);
+
+  const { data: students, isLoading: isStudentsLoading } = useCollection(studentsRef);
+  const { data: courses, isLoading: isCoursesLoading } = useCollection(coursesRef);
+  const { data: codes, isLoading: isCodesLoading } = useCollection(codesRef);
+
   const stats = [
-    { title: 'إجمالي الطلاب', val: '0', icon: <Users className="text-blue-500" />, trend: 'بداية جديدة' },
-    { title: 'الكورسات المفعلة', val: '2', icon: <Video className="text-primary" />, trend: 'كورسين تجريبيين' },
-    { title: 'الأكواد النشطة', val: '0', icon: <Ticket className="text-accent" />, trend: '0% استهلاك' },
-    { title: 'تسليمات الامتحانات', val: '0', icon: <ClipboardList className="text-purple-500" />, trend: 'لا توجد تسليمات' },
+    { 
+      title: 'إجمالي الطلاب', 
+      val: isStudentsLoading ? '...' : (students?.length || 0).toString(), 
+      icon: <Users className="text-blue-500" />, 
+      trend: 'تحديث لحظي' 
+    },
+    { 
+      title: 'الكورسات المفعلة', 
+      val: isCoursesLoading ? '...' : (courses?.length || 0).toString(), 
+      icon: <Video className="text-primary" />, 
+      trend: 'متاح للطلاب' 
+    },
+    { 
+      title: 'الأكواد النشطة', 
+      val: isCodesLoading ? '...' : (codes?.filter(c => !c.isUsed).length || 0).toString(), 
+      icon: <Ticket className="text-accent" />, 
+      trend: 'أكواد غير مستخدمة' 
+    },
+    { 
+      title: 'إجمالي الأكواد', 
+      val: isCodesLoading ? '...' : (codes?.length || 0).toString(), 
+      icon: <ClipboardList className="text-purple-500" />, 
+      trend: 'تم إنشاؤها' 
+    },
   ];
 
   return (
@@ -52,24 +84,46 @@ export default function AdminOverview() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 bg-card">
           <CardHeader>
-            <CardTitle>أحدث المشتركين</CardTitle>
+            <CardTitle>أحدث الطلاب المسجلين</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-12 border-2 border-dashed rounded-2xl">
-              <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-20" />
-              <p className="text-muted-foreground">لا يوجد مشتركين جدد حالياً.</p>
-            </div>
+            {isStudentsLoading ? (
+              <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+            ) : !students || students.length === 0 ? (
+              <div className="text-center py-12 border-2 border-dashed rounded-2xl">
+                <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-20" />
+                <p className="text-muted-foreground">لا يوجد مشتركين جدد حالياً.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {students.slice(0, 5).map((student) => (
+                  <div key={student.id} className="flex items-center justify-between p-4 rounded-xl bg-secondary/20 border">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                        {student.name?.[0] || 'S'}
+                      </div>
+                      <div>
+                        <p className="font-bold">{student.name}</p>
+                        <p className="text-xs text-muted-foreground">{student.academicYear}</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full">طالب جديد</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
         <Card className="bg-card">
           <CardHeader>
-            <CardTitle>أكواد جديدة</CardTitle>
+            <CardTitle>التحكم السريع</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
              <div className="p-6 rounded-2xl bg-primary/5 border border-dashed border-primary/50 text-center space-y-4">
-               <p className="text-sm text-muted-foreground">ابدأ بتوليد أكواد لطلابك الآن.</p>
-               <button className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-colors">إنشاء 100 كود جديد</button>
+               <p className="text-sm text-muted-foreground">قم بإدارة المحتوى والإشعارات فوراً ليرى الطلاب التحديثات بلحظتها.</p>
+               <button onClick={() => window.location.href='/admin/notifications'} className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-colors">إرسال إشعار عام</button>
+               <button onClick={() => window.location.href='/admin/courses'} className="w-full py-3 rounded-xl bg-secondary text-foreground hover:bg-secondary/80 transition-colors">إضافة كورس جديد</button>
              </div>
           </CardContent>
         </Card>
