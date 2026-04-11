@@ -1,13 +1,14 @@
+
 "use client";
 
 import { SidebarNav } from '@/components/layout/sidebar-nav';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col lg:flex-row-reverse">
       <SidebarNav isAdmin={true} />
-      <main className="pr-64 min-h-screen">
-        <div className="container mx-auto p-8">
+      <main className="flex-1 min-h-screen pt-16 lg:pt-0 lg:pr-64">
+        <div className="container mx-auto p-4 md:p-8">
           {children}
           <div className="mt-20 border-t pt-8 text-center pb-8">
             <p className="text-sm text-muted-foreground">made by : mohamed alaa</p>

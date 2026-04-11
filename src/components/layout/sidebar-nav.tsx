@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -9,16 +10,19 @@ import {
   BookOpen, 
   Video, 
   ClipboardList, 
-  Settings, 
   Users, 
   Ticket, 
   LogOut,
   BrainCircuit,
   PieChart,
   Megaphone,
-  CheckCircle
+  CheckCircle,
+  Menu,
+  X
 } from 'lucide-react';
 import { useAuth, initiateSignOut, useUser } from '@/firebase';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 interface SidebarNavProps {
   isAdmin?: boolean;
@@ -29,6 +33,7 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
   const router = useRouter();
   const auth = useAuth();
   const { user } = useUser();
+  const [open, setOpen] = useState(false);
 
   const studentLinks = [
     { label: 'الرئيسية', icon: <LayoutDashboard className="w-5 h-5" />, href: '/student' },
@@ -55,8 +60,8 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
     router.push('/');
   };
 
-  return (
-    <aside className="w-64 border-l bg-card flex flex-col h-screen fixed top-0 right-0 z-40 shadow-xl">
+  const NavContent = () => (
+    <div className="flex flex-col h-full bg-card">
       <div className="p-6 flex items-center gap-3 border-b">
         <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold">ب</div>
         <span className="text-xl font-headline font-bold">البشمهندس</span>
@@ -67,6 +72,7 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
           <Link
             key={link.href}
             href={link.href}
+            onClick={() => setOpen(false)}
             className={cn(
               "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
               pathname === link.href 
@@ -86,16 +92,12 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
       </nav>
 
       <div className="p-4 border-t space-y-4">
-        <div className="p-4 rounded-xl bg-secondary/50 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-muted border flex items-center justify-center overflow-hidden">
-            {user?.photoURL ? (
-              <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" />
-            ) : (
-              <Users className="w-5 h-5 text-muted-foreground" />
-            )}
+        <div className="p-4 rounded-xl bg-secondary/50 flex items-center gap-3 overflow-hidden">
+          <div className="w-10 h-10 rounded-full bg-muted border flex items-center justify-center shrink-0">
+            <Users className="w-5 h-5 text-muted-foreground" />
           </div>
-          <div className="overflow-hidden">
-            <p className="text-xs font-bold truncate">{user?.displayName || studentLinks.find(l => l.href === pathname)?.label || 'مستخدم'}</p>
+          <div className="min-w-0">
+            <p className="text-xs font-bold truncate">{user?.displayName || (isAdmin ? 'المشرف' : 'طالب')}</p>
             <p className="text-[10px] text-muted-foreground truncate">{isAdmin ? 'مسؤول المنصة' : 'طالب'}</p>
           </div>
         </div>
@@ -107,6 +109,33 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
           <span className="font-bold">تسجيل الخروج</span>
         </button>
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Mobile Top Nav */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b z-50 px-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold">ب</div>
+          <span className="text-lg font-headline font-bold">البشمهندس</span>
+        </div>
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <Menu className="w-6 h-6" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="p-0 w-72">
+            <NavContent />
+          </SheetContent>
+        </Sheet>
+      </header>
+
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:flex w-64 border-l bg-card flex-col h-screen fixed top-0 right-0 z-40 shadow-xl">
+        <NavContent />
+      </aside>
+    </>
   );
 }
