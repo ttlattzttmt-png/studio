@@ -1,28 +1,26 @@
-
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { 
   Loader2, 
-  Send, 
   Clock, 
-  AlertCircle,
   ChevronLeft,
   ChevronRight,
-  ImageIcon,
   Upload,
-  CheckCircle2
+  CheckCircle2,
+  FileImage,
+  Trash2
 } from 'lucide-react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, addDoc, doc, getDocs, query, orderBy, where, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { useUser, useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, addDoc, doc, getDocs, query, orderBy, where, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 
@@ -30,15 +28,16 @@ export default function TakeExamPage() {
   const { examId } = useParams();
   const router = useRouter();
   const { user, isUserLoading } = useUser();
-  const firestore = useFirestore();
+  const { firestore, storage } = useFirebase();
   const { toast } = useToast();
 
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [courseId, setCourseId] = useState<string | null>(null);
-  
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const findCourse = async () => {
@@ -86,8 +85,20 @@ export default function TakeExamPage() {
   const { data: questions, isLoading: isQsLoading } = useCollection(questionsRef);
   const currentQuestion = questions?.[activeQuestionIndex];
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!currentQuestion) return;
+    const file = e.target.files?.[0] || null;
+    setAnswers({
+      ...answers,
+      [currentQuestion.id]: {
+        ...answers[currentQuestion.id],
+        essayFile: file
+      }
+    });
+  };
+
   const handleSubmit = async () => {
-    if (isSubmitting || !firestore || !user || !questions || !courseId) return;
+    if (isSubmitting || !firestore || !user || !questions || !courseId || !storage) return;
     setIsSubmitting(true);
     
     try {
@@ -97,8 +108,7 @@ export default function TakeExamPage() {
         courseId: courseId,
         submittedAt: new Date().toISOString(),
         isGraded: false,
-        score: 0,
-        gradeReleased: false
+        score: 0
       });
 
       let totalScoreAchieved = 0;
@@ -109,6 +119,14 @@ export default function TakeExamPage() {
         const studentAns = answers[q.id] || {};
         let isCorrect = false;
         let scoreAchieved = 0;
+        let essayFileUrl = '';
+
+        // رفع الملف إذا وجد
+        if (studentAns.essayFile) {
+          const fileRef = ref(storage, `students/${user.uid}/attempts/${attemptRef.id}/${q.id}_${Date.now()}`);
+          const uploadSnap = await uploadBytes(fileRef, studentAns.essayFile);
+          essayFileUrl = await getDownloadURL(uploadSnap.ref);
+        }
 
         if (q.questionType === 'MCQ') {
           const optsSnap = await getDocs(collection(firestore, 'courses', courseId, 'content', examId as string, 'questions', q.id, 'options'));
@@ -125,25 +143,26 @@ export default function TakeExamPage() {
           questionType: q.questionType,
           mcqSelectedOptionId: studentAns.mcqOptionId || null,
           essayAnswerText: studentAns.essayText || '',
-          essayAnswerFileUrl: studentAns.essayFileUrl || '',
+          essayAnswerFileUrl: essayFileUrl,
           isCorrect: q.questionType === 'MCQ' ? isCorrect : false,
           scoreAchieved: q.questionType === 'MCQ' ? scoreAchieved : 0,
-          maxPoints: q.points // حفظ النقاط القصوى للسؤال لسهولة الحساب لاحقاً
+          maxPoints: q.points
         });
       }
 
       const finalScorePercentage = totalMaxPoints > 0 ? Math.round((totalScoreAchieved / totalMaxPoints) * 100) : 0;
       
-      await updateDoc(doc(firestore, 'students', user.uid, 'quiz_attempts', attemptRef.id), {
+      const updateRef = doc(firestore, 'students', user.uid, 'quiz_attempts', attemptRef.id);
+      await updateDoc(updateRef, {
         score: finalScorePercentage,
         isGraded: questions.every(q => q.questionType === 'MCQ')
       });
 
-      toast({ title: "تم تسليم الامتحان بنجاح" });
+      toast({ title: "تم تسليم الامتحان ورفع الملفات بنجاح" });
       router.push('/student/exams');
     } catch (e) {
       console.error(e);
-      toast({ variant: "destructive", title: "فشل التسليم" });
+      toast({ variant: "destructive", title: "فشل التسليم، تأكد من اتصال الإنترنت." });
     } finally {
       setIsSubmitting(false);
     }
@@ -169,7 +188,7 @@ export default function TakeExamPage() {
         <div className="flex items-center gap-2">
            <span className="text-xs text-muted-foreground hidden sm:block">سؤال {activeQuestionIndex + 1} من {questions?.length}</span>
            <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-primary text-primary-foreground font-bold px-8 shadow-lg shadow-primary/20">
-             {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "إنهاء وتسليم"}
+             {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin ml-2" /> جاري الرفع والتسليم...</> : "إنهاء وتسليم"}
            </Button>
         </div>
       </div>
@@ -220,15 +239,38 @@ export default function TakeExamPage() {
                     <div className="p-6 bg-secondary/20 rounded-2xl border-2 border-dashed border-primary/20 space-y-4">
                       <div className="flex items-center gap-2 text-primary font-bold">
                         <Upload className="w-5 h-5" />
-                        <span>أو ارفع صورة لحلك اليدوي</span>
+                        <span>ارفع ملف حلك اليدوي (صورة)</span>
                       </div>
-                      <p className="text-xs text-muted-foreground">إذا قمت بحل السؤال في ورقة خارجية، يمكنك تصويرها ووضع رابط الصورة هنا:</p>
-                      <Input 
-                        placeholder="ضع رابط الصورة المرفوعة هنا..." 
-                        className="bg-background text-right"
-                        value={answers[currentQuestion.id]?.essayFileUrl || ''}
-                        onChange={(e) => setAnswers({...answers, [currentQuestion.id]: { ...answers[currentQuestion.id], essayFileUrl: e.target.value }})}
-                      />
+                      
+                      <div className="flex flex-col gap-4">
+                        <Button 
+                          variant="outline" 
+                          onClick={() => fileInputRef.current?.click()}
+                          className="h-16 text-lg gap-3 border-primary/30"
+                        >
+                          {answers[currentQuestion.id]?.essayFile ? (
+                            <><CheckCircle2 className="text-accent" /> {answers[currentQuestion.id].essayFile.name}</>
+                          ) : (
+                            <><FileImage className="w-6 h-6" /> اختر صورة من جهازك</>
+                          )}
+                        </Button>
+                        <input 
+                          type="file" 
+                          ref={fileInputRef} 
+                          className="hidden" 
+                          accept="image/*"
+                          onChange={handleFileChange}
+                        />
+                        {answers[currentQuestion.id]?.essayFile && (
+                          <Button 
+                            variant="ghost" 
+                            className="text-destructive self-center" 
+                            onClick={() => setAnswers({...answers, [currentQuestion.id]: { ...answers[currentQuestion.id], essayFile: null }})}
+                          >
+                            <Trash2 className="w-4 h-4 ml-2" /> حذف الملف المختار
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -251,7 +293,7 @@ export default function TakeExamPage() {
                   <button 
                     key={i} 
                     onClick={() => setActiveQuestionIndex(i)}
-                    className={`w-3 h-3 rounded-full transition-all ${i === activeQuestionIndex ? 'bg-primary scale-125' : answers[questions[i].id] ? 'bg-accent' : 'bg-muted hover:bg-muted-foreground'}`} 
+                    className={`w-3 h-3 rounded-full transition-all ${i === activeQuestionIndex ? 'bg-primary scale-125' : (answers[questions[i].id]?.mcqOptionId || answers[questions[i].id]?.essayText || answers[questions[i].id]?.essayFile) ? 'bg-accent' : 'bg-muted hover:bg-muted-foreground'}`} 
                   />
                 ))}
               </div>
@@ -274,8 +316,9 @@ export default function TakeExamPage() {
 }
 
 function QuestionOptions({ courseId, examId, questionId, selectedId, onSelect }: any) {
-  const firestore = useFirestore();
+  const { firestore } = useFirebase();
   const optionsRef = useMemoFirebase(() => {
+    if (!firestore || !courseId || !examId || !questionId) return null;
     return collection(firestore, 'courses', courseId, 'content', examId, 'questions', questionId, 'options');
   }, [firestore, courseId, examId, questionId]);
 

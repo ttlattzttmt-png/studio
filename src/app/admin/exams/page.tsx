@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,15 +29,17 @@ import {
   Megaphone,
   CheckCircle2,
   ImageIcon,
-  Type
+  Upload,
+  FileImage
 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser, useFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, orderBy, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 
 export default function AdminExams() {
-  const firestore = useFirestore();
+  const { firestore } = useFirebase();
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   
@@ -103,8 +104,8 @@ export default function AdminExams() {
   const toggleResultsVisibility = async (exam: any) => {
     if (!firestore) return;
     try {
-      const ref = doc(firestore, 'courses', exam.courseId, 'content', exam.id);
-      await updateDoc(ref, { allowInstantResultsDisplay: !exam.allowInstantResultsDisplay });
+      const examDocRef = doc(firestore, 'courses', exam.courseId, 'content', exam.id);
+      await updateDoc(examDocRef, { allowInstantResultsDisplay: !exam.allowInstantResultsDisplay });
       toast({ 
         title: exam.allowInstantResultsDisplay ? "تم إخفاء النتائج" : "تم نشر النتائج للطلاب", 
         description: "تم تحديث حالة الظهور بنجاح." 
@@ -119,7 +120,7 @@ export default function AdminExams() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-4xl font-headline font-bold mb-2 text-right">إدارة الاختبارات والوقت</h1>
-          <p className="text-muted-foreground text-right">حدد وقت الامتحان وتحكم في موعد ظهور النتيجة للطلاب.</p>
+          <p className="text-muted-foreground text-right">حدد وقت الامتحان وارفع ملفات الأسئلة وتحكم في النتائج.</p>
         </div>
         
         <Dialog>
@@ -226,7 +227,7 @@ export default function AdminExams() {
         <DialogContent className="max-w-4xl bg-card h-[90vh] overflow-hidden flex flex-col p-0 text-right">
           <DialogHeader className="p-6 border-b">
             <DialogTitle className="flex items-center gap-2 justify-end">
-              <Settings2 className="w-5 h-5 text-primary" /> تعديل الأسئلة: {selectedExamForQuestions?.title}
+              <Settings2 className="w-5 h-5 text-primary" /> تعديل الأسئلة والملفات: {selectedExamForQuestions?.title}
             </DialogTitle>
           </DialogHeader>
           <div className="flex-grow overflow-y-auto p-6">
@@ -239,14 +240,16 @@ export default function AdminExams() {
 }
 
 function QuestionManager({ exam }: { exam: any }) {
-  const firestore = useFirestore();
+  const { firestore, storage } = useFirebase();
   const { toast } = useToast();
   const [isAdding, setIsAdding] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [newQuestion, setNewQuestion] = useState({ 
     text: '', 
     type: 'MCQ', 
     points: '1', 
-    imageUrl: '', 
     options: ['', '', '', ''], 
     correctIndex: 0 
   });
@@ -259,13 +262,21 @@ function QuestionManager({ exam }: { exam: any }) {
   const { data: questions } = useCollection(questionsRef);
 
   const handleAddQuestion = async () => {
-    if (!firestore || !exam || (!newQuestion.text && !newQuestion.imageUrl)) return;
+    if (!firestore || !exam || !storage || (!newQuestion.text && !selectedFile)) return;
     setIsAdding(true);
     try {
+      let imageUrl = '';
+      if (selectedFile) {
+        const storagePath = `exams/${exam.id}/questions/${Date.now()}_${selectedFile.name}`;
+        const fileRef = ref(storage, storagePath);
+        const uploadResult = await uploadBytes(fileRef, selectedFile);
+        imageUrl = await getDownloadURL(uploadResult.ref);
+      }
+
       const qRef = await addDoc(collection(firestore, 'courses', exam.courseId, 'content', exam.id, 'questions'), {
         courseContentId: exam.id,
         questionText: newQuestion.text,
-        questionImageUrl: newQuestion.imageUrl,
+        questionImageUrl: imageUrl,
         questionType: newQuestion.type,
         points: Number(newQuestion.points),
         orderIndex: Date.now(),
@@ -281,9 +292,16 @@ function QuestionManager({ exam }: { exam: any }) {
           });
         }
       }
-      toast({ title: "تم إضافة السؤال" });
-      setNewQuestion({ text: '', type: 'MCQ', points: '1', imageUrl: '', options: ['', '', '', ''], correctIndex: 0 });
-    } catch (e) { console.error(e); } finally { setIsAdding(false); }
+      toast({ title: "تم إضافة السؤال والملف بنجاح" });
+      setNewQuestion({ text: '', type: 'MCQ', points: '1', options: ['', '', '', ''], correctIndex: 0 });
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (e) { 
+      console.error(e);
+      toast({ variant: "destructive", title: "خطأ في الرفع" });
+    } finally { 
+      setIsAdding(false); 
+    }
   };
 
   const handleDeleteQuestion = async (qId: string) => {
@@ -317,13 +335,28 @@ function QuestionManager({ exam }: { exam: any }) {
           />
           
           <div className="space-y-2">
-            <Label className="text-xs font-bold flex items-center gap-2 justify-end">رابط صورة السؤال (اختياري) <ImageIcon className="w-3 h-3" /></Label>
-            <Input 
-              placeholder="ضع رابط الصورة هنا (مثلاً: https://...)" 
-              className="text-right bg-background" 
-              value={newQuestion.imageUrl} 
-              onChange={(e) => setNewQuestion({...newQuestion, imageUrl: e.target.value})} 
-            />
+            <Label className="text-xs font-bold flex items-center gap-2 justify-end">صورة السؤال (اختياري)</Label>
+            <div className="flex items-center gap-4 flex-row-reverse">
+              <Button 
+                variant="outline" 
+                onClick={() => fileInputRef.current?.click()}
+                className="h-12 flex-grow gap-2 border-primary/20 hover:border-primary"
+              >
+                {selectedFile ? <><CheckCircle2 className="w-4 h-4 text-accent" /> {selectedFile.name}</> : <><Upload className="w-4 h-4" /> اختر ملف من الجهاز</>}
+              </Button>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                className="hidden" 
+                accept="image/*"
+              />
+              {selectedFile && (
+                <Button variant="ghost" size="icon" onClick={() => setSelectedFile(null)} className="text-destructive">
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
           </div>
 
           {newQuestion.type === 'MCQ' && (
@@ -361,7 +394,7 @@ function QuestionManager({ exam }: { exam: any }) {
                <Input type="number" value={newQuestion.points} onChange={(e) => setNewQuestion({...newQuestion, points: e.target.value})} className="text-center h-10" />
             </div>
             <Button onClick={handleAddQuestion} disabled={isAdding} className="flex-grow h-10 bg-primary text-primary-foreground font-bold">
-              {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : "حفظ السؤال"}
+              {isAdding ? <><Loader2 className="w-4 h-4 animate-spin ml-2" /> جاري الرفع...</> : "حفظ السؤال والملف"}
             </Button>
           </div>
         </CardContent>
@@ -394,4 +427,3 @@ function QuestionManager({ exam }: { exam: any }) {
     </div>
   );
 }
-
