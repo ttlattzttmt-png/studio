@@ -6,11 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BrainCircuit, Sparkles, Wand2, Loader2, CheckCircle2 } from 'lucide-react';
+import { BrainCircuit, Sparkles, Wand2, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { analyzeEssayAnswer } from '@/ai/flows/admin-essay-answer-analyzer';
 import { generateQuizQuestions } from '@/ai/flows/admin-quiz-question-generator';
+import { useToast } from '@/hooks/use-toast';
 
 export default function AITools() {
+  const { toast } = useToast();
   const [essay, setEssay] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
@@ -22,11 +24,18 @@ export default function AITools() {
   const handleAnalyze = async () => {
     if (!essay) return;
     setIsAnalyzing(true);
+    setAnalysisResult(null);
     try {
       const result = await analyzeEssayAnswer({ essayAnswer: essay });
       setAnalysisResult(result);
-    } catch (e) {
+      toast({ title: "اكتمل التحليل", description: "قام الذكاء الاصطناعي بمعالجة النص بنجاح." });
+    } catch (e: any) {
       console.error(e);
+      toast({ 
+        variant: "destructive", 
+        title: "خطأ في التحليل", 
+        description: "فشل الاتصال بمحرك الذكاء الاصطناعي. تأكد من إعداد مفتاح API." 
+      });
     } finally {
       setIsAnalyzing(false);
     }
@@ -35,11 +44,22 @@ export default function AITools() {
   const handleGenerate = async () => {
     if (!topic) return;
     setIsGenerating(true);
+    setQuestions([]);
     try {
-      const result = await generateQuizQuestions({ topic, numberOfQuestions: 3, questionType: 'BOTH' });
+      const result = await generateQuizQuestions({ 
+        topic, 
+        numberOfQuestions: 3, 
+        questionType: 'BOTH' 
+      });
       setQuestions(result);
-    } catch (e) {
+      toast({ title: "تم التوليد", description: "تم إنشاء 3 أسئلة مقترحة بنجاح." });
+    } catch (e: any) {
       console.error(e);
+      toast({ 
+        variant: "destructive", 
+        title: "خطأ في التوليد", 
+        description: "فشل توليد الأسئلة. يرجى المحاولة مرة أخرى." 
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -53,7 +73,7 @@ export default function AITools() {
         </div>
         <div>
           <h1 className="text-4xl font-headline font-bold">مساعد البشمهندس الذكي</h1>
-          <p className="text-muted-foreground">استخدم الذكاء الاصطناعي لتسهيل مهامك اليومية.</p>
+          <p className="text-muted-foreground">استخدم الذكاء الاصطناعي لتسهيل مهامك اليومية كمعلم.</p>
         </div>
       </div>
 
@@ -82,7 +102,7 @@ export default function AITools() {
                 disabled={isAnalyzing || !essay}
                 className="w-full h-14 bg-primary text-primary-foreground font-bold rounded-xl text-lg shadow-lg shadow-primary/20"
               >
-                {isAnalyzing ? <><Loader2 className="w-5 h-5 ml-2 animate-spin" /> جاري التحليل...</> : <><Wand2 className="w-5 h-5 ml-2" /> ابدأ التحليل الآن</>}
+                {isAnalyzing ? <><Loader2 className="w-5 h-5 ml-2 animate-spin" /> جاري التحليل...</> : <><Wand2 className="w-5 h-5 ml-2" /> ابدأ التحليل الذكي</>}
               </Button>
             </CardContent>
           </Card>
@@ -94,7 +114,7 @@ export default function AITools() {
                 <CardContent><p className="leading-relaxed">{analysisResult.summary}</p></CardContent>
               </Card>
               <Card className="bg-accent/5 border-accent/20">
-                <CardHeader><CardTitle className="text-accent font-bold">المفاهيم الرئيسية</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-accent font-bold">المفاهيم المستخرجة</CardTitle></CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
                     {analysisResult.keyConcepts.map((c: string, i: number) => (
@@ -119,7 +139,7 @@ export default function AITools() {
             <CardContent className="space-y-4">
               <Input 
                 placeholder="اكتب موضوع الامتحان (مثال: قوانين نيوتن للحركة)" 
-                className="h-14 bg-background border-primary/10 focus:border-primary text-lg"
+                className="h-14 bg-background border-primary/10 focus:border-primary text-lg text-right"
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
               />
@@ -128,14 +148,14 @@ export default function AITools() {
                 disabled={isGenerating || !topic}
                 className="w-full h-14 bg-primary text-primary-foreground font-bold rounded-xl text-lg shadow-lg shadow-primary/20"
               >
-                {isGenerating ? <><Loader2 className="w-5 h-5 ml-2 animate-spin" /> جاري التوليد...</> : <><Sparkles className="w-5 h-5 ml-2" /> ولد 3 أسئلة فورية</>}
+                {isGenerating ? <><Loader2 className="w-5 h-5 ml-2 animate-spin" /> جاري توليد الأسئلة...</> : <><Sparkles className="w-5 h-5 ml-2" /> ولد 3 أسئلة فورية</>}
               </Button>
             </CardContent>
           </Card>
 
           {questions.length > 0 && (
             <div className="space-y-4 animate-in fade-in duration-500">
-              <h3 className="text-xl font-bold border-b pb-2">الأسئلة المقترحة:</h3>
+              <h3 className="text-xl font-bold border-r-4 border-primary pr-3">الأسئلة المقترحة:</h3>
               {questions.map((q, i) => (
                 <Card key={i} className="bg-card">
                   <CardContent className="p-6">
@@ -145,8 +165,8 @@ export default function AITools() {
                     <p className="text-lg font-bold mb-4">{i+1}. {q.questionText}</p>
                     {q.type === 'MCQ' ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {q.options.map((opt: string, idx: number) => (
-                          <div key={idx} className={`p-3 rounded-lg border ${opt === q.correctAnswer ? 'bg-accent/10 border-accent/50 text-accent' : 'bg-background'}`}>
+                        {q.options?.map((opt: string, idx: number) => (
+                          <div key={idx} className={`p-3 rounded-lg border ${opt === q.correctAnswer ? 'bg-accent/10 border-accent/50 text-accent font-bold' : 'bg-background'}`}>
                             {opt}
                           </div>
                         ))}
@@ -160,7 +180,9 @@ export default function AITools() {
                   </CardContent>
                 </Card>
               ))}
-              <Button variant="outline" className="w-full h-12 border-primary/20 text-primary">إضافة هذه الأسئلة للامتحان الحالي</Button>
+              <p className="text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+                <AlertCircle className="w-4 h-4" /> يرجى مراجعة الأسئلة قبل إضافتها للامتحان الفعلي.
+              </p>
             </div>
           )}
         </TabsContent>

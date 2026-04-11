@@ -23,17 +23,12 @@ const AdminEssayAnswerAnalyzerOutputSchema = z.object({
 });
 export type AdminEssayAnswerAnalyzerOutput = z.infer<typeof AdminEssayAnswerAnalyzerOutputSchema>;
 
-export async function analyzeEssayAnswer(
-  input: AdminEssayAnswerAnalyzerInput
-): Promise<AdminEssayAnswerAnalyzerOutput> {
-  return adminEssayAnswerAnalyzerFlow(input);
-}
-
 const adminEssayAnswerAnalyzerPrompt = ai.definePrompt({
   name: 'adminEssayAnswerAnalyzerPrompt',
   input: {schema: AdminEssayAnswerAnalyzerInputSchema},
   output: {schema: AdminEssayAnswerAnalyzerOutputSchema},
-  prompt: `You are an AI assistant designed to help educators quickly assess student essay responses. Your task is to read the provided essay, summarize its main points, and identify the key concepts discussed by the student.
+  prompt: `You are an AI assistant designed to help educators quickly assess student essay responses. 
+  Your task is to read the provided essay, summarize its main points in Arabic, and identify the key concepts discussed by the student.
 
 Student Essay:
 {{{essayAnswer}}}`,
@@ -47,6 +42,13 @@ const adminEssayAnswerAnalyzerFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await adminEssayAnswerAnalyzerPrompt(input);
-    return output!;
+    if (!output) throw new Error("AI failed to generate analysis output");
+    return output;
   }
 );
+
+export async function analyzeEssayAnswer(
+  input: AdminEssayAnswerAnalyzerInput
+): Promise<AdminEssayAnswerAnalyzerOutput> {
+  return adminEssayAnswerAnalyzerFlow(input);
+}
