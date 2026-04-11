@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,17 +20,13 @@ import {
   ClipboardList, 
   BookOpen, 
   Clock, 
-  Settings2, 
-  BrainCircuit, 
   Loader2, 
   Trash2, 
   HelpCircle,
-  Save,
-  CheckCircle2,
-  XCircle
+  CheckCircle2
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection, addDoc, serverTimestamp, deleteDoc, doc, updateDoc, query, where, orderBy, collectionGroup, getDocs } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdminExams() {
@@ -50,24 +46,27 @@ export default function AdminExams() {
     allowInstantResults: true
   });
 
-  // جلب الكورسات لاختيار واحد منها عند إنشاء امتحان
   const coursesRef = useMemoFirebase(() => firestore ? collection(firestore, 'courses') : null, [firestore]);
   const { data: courses } = useCollection(coursesRef);
 
-  // جلب جميع الامتحانات والكويزات من جميع الكورسات (استخدام استعلام بسيط للمحاكاة بدون تعقيد الفهرسة)
-  // في نظام حقيقي نستخدم collectionGroup ولكن هنا سنعرض الامتحانات لكل كورس بشكل منظم
   const [activeCourseId, setActiveCourseId] = useState<string>('');
   
+  // استعلام بسيط لتجنب أخطاء الفهارس (Indexes)
   const examsRef = useMemoFirebase(() => {
     if (!firestore || !activeCourseId) return null;
     return query(
       collection(firestore, 'courses', activeCourseId, 'content'),
-      where('contentType', 'in', ['Quiz', 'Exam']),
       orderBy('createdAt', 'desc')
     );
   }, [firestore, activeCourseId]);
 
-  const { data: exams, isLoading: isExamsLoading } = useCollection(examsRef);
+  const { data: allContent, isLoading: isExamsLoading } = useCollection(examsRef);
+
+  // تصفية البيانات في الذاكرة (In-memory filtering) لتجنب أخطاء Firestore
+  const exams = useMemo(() => {
+    if (!allContent) return [];
+    return allContent.filter(item => item.contentType === 'Quiz' || item.contentType === 'Exam');
+  }, [allContent]);
 
   const handleAddExam = async () => {
     if (!firestore || !user || !formData.courseId || !formData.title) return;
@@ -213,7 +212,6 @@ export default function AdminExams() {
         </CardContent>
       </Card>
 
-      {/* إدارة الأسئلة - نافذة منبثقة */}
       <Dialog open={!!selectedExamForQuestions} onOpenChange={() => setSelectedExamForQuestions(null)}>
         <DialogContent className="max-w-4xl bg-card border-primary/20 max-h-[90vh] overflow-y-auto">
           <DialogHeader className="border-b pb-4">
@@ -222,7 +220,7 @@ export default function AdminExams() {
             </DialogTitle>
           </DialogHeader>
           <div className="py-6">
-             <QuestionManager exam={selectedExamForQuestions} />
+             {selectedExamForQuestions && <QuestionManager exam={selectedExamForQuestions} />}
           </div>
         </DialogContent>
       </Dialog>
@@ -263,7 +261,6 @@ function QuestionManager({ exam }: { exam: any }) {
         createdAt: serverTimestamp()
       });
 
-      // إذا كان MCQ، أضف الاختيارات
       if (newQuestion.type === 'MCQ') {
         for (let i = 0; i < newQuestion.options.length; i++) {
           await addDoc(collection(firestore, 'courses', exam.courseId, 'content', exam.id, 'questions', qRef.id, 'options'), {
