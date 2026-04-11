@@ -46,8 +46,8 @@ export default function StudentDashboard() {
 
   if (!user) return <div className="p-20 text-center text-muted-foreground italic">يرجى تسجيل الدخول أولاً.</div>;
 
-  const activeEnrollments = enrollments?.filter(e => e.status === 'active');
-  const pendingEnrollments = enrollments?.filter(e => e.status === 'pending');
+  const activeEnrollments = enrollments?.filter(e => e.status === 'active') || [];
+  const pendingEnrollments = enrollments?.filter(e => e.status === 'pending') || [];
   const firstName = studentProfile?.name ? studentProfile.name.split(' ')[0] : 'المجتهد';
 
   return (
@@ -68,7 +68,6 @@ export default function StudentDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-           {/* البطاقة الترحيبية للبحث عن الكورسات */}
            <Card className="bg-primary text-primary-foreground p-8 rounded-[2rem] shadow-2xl relative overflow-hidden text-right">
               <div className="relative z-10 space-y-4">
                 <h2 className="text-2xl font-bold">هل تبحث عن كورس جديد؟</h2>
@@ -84,11 +83,11 @@ export default function StudentDashboard() {
 
            <div>
               <div className="flex items-center justify-between mb-6">
-                <Link href="/student/my-courses" className="text-primary hover:underline text-sm font-bold flex items-center gap-1"><ArrowLeft className="w-4 h-4" /> عرض الكل</Link>
+                <span className="text-muted-foreground text-xs font-bold">إجمالي ({activeEnrollments.length}) كورس</span>
                 <h2 className="text-2xl font-headline font-bold">دروسي المفعلة</h2>
               </div>
               
-              {!activeEnrollments || activeEnrollments.length === 0 ? (
+              {activeEnrollments.length === 0 ? (
                 <div className="p-16 text-center bg-secondary/10 rounded-3xl border-2 border-dashed border-primary/10">
                   <Play className="w-12 h-12 text-primary/20 mx-auto mb-4" />
                   <p className="text-muted-foreground font-medium mb-6">لا توجد دروس مفعلة حالياً.</p>
@@ -97,18 +96,21 @@ export default function StudentDashboard() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {activeEnrollments.map(en => (
-                    <Card key={en.id} className="bg-card hover:border-primary/30 transition-all cursor-pointer group shadow-sm text-right">
-                      <CardContent className="p-6">
-                         <div className="flex justify-between items-center mb-4">
-                           <span className="text-[10px] font-bold px-2 py-1 bg-accent/10 text-accent rounded-full">مفعل</span>
-                           <Play className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" />
-                         </div>
-                         <h4 className="text-lg font-bold mb-4">{en.courseTitle || en.courseId}</h4>
-                         <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden mb-2">
-                           <div className="h-full bg-primary" style={{ width: `${en.progressPercentage}%` }} />
-                         </div>
-                      </CardContent>
-                    </Card>
+                    <Link key={en.id} href={`/student/courses/${en.courseId}`}>
+                      <Card className="bg-card hover:border-primary/30 transition-all cursor-pointer group shadow-sm text-right">
+                        <CardContent className="p-6">
+                           <div className="flex justify-between items-center mb-4">
+                             <span className="text-[10px] font-bold px-2 py-1 bg-accent/10 text-accent rounded-full">مفعل</span>
+                             <Play className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" />
+                           </div>
+                           <h4 className="text-lg font-bold mb-4">{en.courseTitle || en.courseId}</h4>
+                           <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden mb-2">
+                             <div className="h-full bg-primary" style={{ width: `${en.progressPercentage || 0}%` }} />
+                           </div>
+                           <p className="text-[10px] text-muted-foreground">نسبة الإنجاز: {en.progressPercentage || 0}%</p>
+                        </CardContent>
+                      </Card>
+                    </Link>
                   ))}
                 </div>
               )}
@@ -116,7 +118,6 @@ export default function StudentDashboard() {
         </div>
 
         <div className="space-y-8">
-           {/* طلبات بانتظار الموافقة */}
            {pendingEnrollments && pendingEnrollments.length > 0 && (
              <Card className="bg-accent/5 border-accent/20 text-right">
                 <CardHeader>
@@ -131,7 +132,7 @@ export default function StudentDashboard() {
                       <span className="text-[9px] text-accent font-bold animate-pulse">جاري المراجعة...</span>
                     </div>
                   ))}
-                  <p className="text-[9px] text-muted-foreground pt-2 font-medium">سيتم تفعيل الكورسات أعلاه بواسطة البشمهندس خلال وقت قصير. لا داعي للقلق!</p>
+                  <p className="text-[9px] text-muted-foreground pt-2 font-medium">سيتم تفعيل الكورسات أعلاه بواسطة البشمهندس خلال وقت قصير.</p>
                 </CardContent>
              </Card>
            )}

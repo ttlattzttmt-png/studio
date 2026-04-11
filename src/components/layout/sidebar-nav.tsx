@@ -32,9 +32,10 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
   const { user } = useUser();
   const [open, setOpen] = useState(false);
 
-  // توجيه الطالب للوحة التحكم الرئيسية دائماً
+  // تحديث روابط الطالب لتشمل "كورساتي المفعلة" وتوجيهها للوحة التحكم
   const studentLinks = [
     { label: 'لوحة التحكم', icon: <LayoutDashboard className="w-5 h-5" />, href: '/student' },
+    { label: 'كورساتي المفعلة', icon: <Video className="w-5 h-5" />, href: '/student' },
     { label: 'استكشف الكورسات', icon: <Search className="w-5 h-5" />, href: '/courses' },
     { label: 'سجل درجاتي', icon: <ClipboardList className="w-5 h-5" />, href: '/student/exams' },
   ];
@@ -65,9 +66,9 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
       </Link>
 
       <nav className="flex-grow p-4 space-y-2 overflow-y-auto">
-        {links.map((link) => (
+        {links.map((link, idx) => (
           <Link
-            key={link.href}
+            key={`${link.href}-${idx}`}
             href={link.href}
             onClick={() => setOpen(false)}
             className={cn(
