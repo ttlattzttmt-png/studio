@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -13,7 +14,8 @@ import {
   Ticket, 
   LogOut,
   BrainCircuit,
-  PieChart
+  PieChart,
+  Megaphone
 } from 'lucide-react';
 import { useAuth, initiateSignOut, useUser } from '@/firebase';
 
@@ -40,6 +42,7 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
     { label: 'الأكواد', icon: <Ticket className="w-5 h-5" />, href: '/admin/codes' },
     { label: 'الطلاب', icon: <Users className="w-5 h-5" />, href: '/admin/students' },
     { label: 'بناء الاختبارات', icon: <ClipboardList className="w-5 h-5" />, href: '/admin/exams' },
+    { label: 'الإشعارات', icon: <Megaphone className="w-5 h-5" />, href: '/admin/notifications' },
     { label: 'الذكاء الاصطناعي', icon: <BrainCircuit className="w-5 h-5" />, href: '/admin/ai-tools' },
   ];
 
@@ -90,7 +93,7 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
             )}
           </div>
           <div className="overflow-hidden">
-            <p className="text-xs font-bold truncate">{user?.displayName || 'مستخدم'}</p>
+            <p className="text-xs font-bold truncate">{user?.displayName || studentLinks.find(l => l.href === pathname)?.label || 'مستخدم'}</p>
             <p className="text-[10px] text-muted-foreground truncate">{isAdmin ? 'مسؤول المنصة' : 'طالب'}</p>
           </div>
         </div>

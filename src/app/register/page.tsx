@@ -35,11 +35,9 @@ export default function RegisterPage() {
 
     setIsLoading(true);
     try {
-      // 1. إنشاء الحساب في Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const uid = userCredential.user.uid;
 
-      // 2. إنشاء مستند الطالب في Firestore
       await setDoc(doc(firestore, 'students', uid), {
         id: uid,
         name: formData.name,
@@ -48,7 +46,8 @@ export default function RegisterPage() {
         parentPhoneNumber: formData.parentPhone,
         academicYear: formData.academicYear === '1' ? 'الصف الأول الثانوي' : formData.academicYear === '2' ? 'الصف الثاني الثانوي' : 'الصف الثالث الثانوي',
         registrationDate: new Date().toISOString(),
-        lastLoginDate: new Date().toISOString()
+        lastLoginDate: new Date().toISOString(),
+        points: 0 // حساب جديد يبدأ بـ 0 نقطة
       });
 
       toast({
@@ -70,7 +69,6 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
-      {/* الجانب الأيسر: معلومات المنصة */}
       <div className="hidden md:flex md:w-1/2 bg-card items-center justify-center p-12 border-l">
         <div className="max-w-md space-y-8 animate-in fade-in slide-in-from-right duration-700">
           <div className="flex items-center gap-3">
@@ -100,7 +98,6 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      {/* الجانب الأيمن: نموذج التسجيل */}
       <div className="w-full md:w-1/2 flex items-center justify-center p-8 overflow-y-auto">
         <div className="w-full max-w-md space-y-8 py-12">
           <div className="text-center md:hidden mb-8">
