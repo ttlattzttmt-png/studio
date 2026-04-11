@@ -15,7 +15,6 @@ import {
   BrainCircuit,
   PieChart,
   Megaphone,
-  CheckCircle,
   Menu,
   Search
 } from 'lucide-react';
@@ -36,9 +35,9 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
 
   const studentLinks = [
     { label: 'الرئيسية', icon: <LayoutDashboard className="w-5 h-5" />, href: '/student' },
-    { label: 'كورساتي', icon: <BookOpen className="w-5 h-5" />, href: '/student' }, // تم الربط باللوحة الرئيسية لرؤية الكورسات المفعلة
+    { label: 'كورساتي المفعلة', icon: <BookOpen className="w-5 h-5" />, href: '/student' },
     { label: 'استكشف الكورسات', icon: <Search className="w-5 h-5" />, href: '/courses' },
-    { label: 'الامتحانات', icon: <ClipboardList className="w-5 h-5" />, href: '/student/exams' },
+    { label: 'سجل درجاتي', icon: <ClipboardList className="w-5 h-5" />, href: '/student/exams' },
   ];
 
   const adminLinks = [
@@ -46,21 +45,23 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
     { label: 'إدارة الكورسات', icon: <Video className="w-5 h-5" />, href: '/admin/courses' },
     { label: 'الطلاب والرقابة', icon: <Users className="w-5 h-5" />, href: '/admin/students' },
     { label: 'بناء الاختبارات', icon: <ClipboardList className="w-5 h-5" />, href: '/admin/exams' },
+    { label: 'مركز التصحيح', icon: <BrainCircuit className="w-5 h-5" />, href: '/admin/exams/grading' },
     { label: 'الإشعارات', icon: <Megaphone className="w-5 h-5" />, href: '/admin/notifications' },
     { label: 'الذكاء الاصطناعي', icon: <BrainCircuit className="w-5 h-5" />, href: '/admin/ai-tools' },
   ];
 
   const links = isAdmin ? adminLinks : studentLinks;
 
-  const handleLogout = () => {
-    initiateSignOut(auth);
-    router.push('/');
+  const handleLogout = async () => {
+    if (!auth) return;
+    await initiateSignOut(auth);
+    router.replace('/');
   };
 
   const NavContent = () => (
     <div className="flex flex-col h-full bg-card">
       <Link href={isAdmin ? '/admin' : '/student'} className="p-6 flex items-center gap-3 border-b hover:bg-secondary/20 transition-colors">
-        <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold">ب</div>
+        <div className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold text-xl shadow-lg shadow-primary/20">ب</div>
         <span className="text-xl font-headline font-bold">البشمهندس</span>
       </Link>
 
@@ -89,21 +90,21 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
       </nav>
 
       <div className="p-4 border-t space-y-4">
-        <div className="p-4 rounded-xl bg-secondary/50 flex items-center gap-3 overflow-hidden">
-          <div className="w-10 h-10 rounded-full bg-muted border flex items-center justify-center shrink-0">
-            <Users className="w-5 h-5 text-muted-foreground" />
+        <div className="p-4 rounded-2xl bg-secondary/50 flex items-center gap-3 overflow-hidden border border-white/5">
+          <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+            <Users className="w-5 h-5 text-primary" />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-bold truncate">{user?.displayName || (isAdmin ? 'المشرف' : 'طالب')}</p>
-            <p className="text-[10px] text-muted-foreground truncate">{isAdmin ? 'مسؤول المنصة' : 'طالب'}</p>
+            <p className="text-xs font-bold truncate text-foreground">{user?.displayName || (isAdmin ? 'المشرف العام' : 'طالب المنصة')}</p>
+            <p className="text-[10px] text-muted-foreground truncate">{isAdmin ? 'صلاحيات كاملة' : 'حساب طالب'}</p>
           </div>
         </div>
         <button 
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-destructive hover:bg-destructive/10 transition-colors"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-destructive hover:bg-destructive/10 transition-colors font-bold"
         >
           <LogOut className="w-5 h-5" />
-          <span className="font-bold">تسجيل الخروج</span>
+          <span>تسجيل الخروج</span>
         </button>
       </div>
     </div>

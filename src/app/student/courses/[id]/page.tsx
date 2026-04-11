@@ -6,8 +6,8 @@ import { Navbar } from '@/components/ui/navbar';
 import { Footer } from '@/components/ui/footer';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, orderBy, setDoc, serverTimestamp } from 'firebase/firestore';
-import { Loader2, PlayCircle, BookOpen, Clock, ChevronRight, Lock, FileQuestion, ExternalLink, CheckCircle } from 'lucide-react';
-import { useState } from 'react';
+import { Loader2, PlayCircle, CheckCircle, FileQuestion, BookOpen } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -20,6 +20,11 @@ export default function CourseViewer() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [activeContent, setActiveContent] = useState<any>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const enrollmentRef = useMemoFirebase(() => {
     if (!firestore || !user || !id) return null;
@@ -27,7 +32,6 @@ export default function CourseViewer() {
   }, [firestore, user, id]);
 
   const { data: enrollment, isLoading: isChecking } = useDoc(enrollmentRef);
-  const { data: course } = useDoc(useMemoFirebase(() => id ? doc(firestore, 'courses', id as string) : null, [firestore, id]));
   
   const contentRef = useMemoFirebase(() => {
     if (!firestore || !id) return null;
@@ -36,12 +40,18 @@ export default function CourseViewer() {
 
   const { data: contents, isLoading: isContentLoading } = useCollection(contentRef);
 
-  // جلب سجلات المشاهدة للطالب
   const progressRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return collection(firestore, 'students', user.uid, 'video_progress');
   }, [firestore, user]);
+  
   const { data: watchedVideos } = useCollection(progressRef);
+
+  useEffect(() => {
+    if (contents && contents.length > 0 && !activeContent) {
+      setActiveContent(contents[0]);
+    }
+  }, [contents, activeContent]);
 
   const markAsWatched = async (contentId: string) => {
     if (!firestore || !user) return;
@@ -52,18 +62,37 @@ export default function CourseViewer() {
         isCompleted: true,
         lastWatchedAt: serverTimestamp()
       });
-      toast({ title: "تم تسجيل المشاهدة", description: "سيتمكن البشمهندس من رؤية تقدمك الآن." });
-    } catch (e) { console.error(e); }
+      toast({ title: "تم تسجيل التقدم", description: "أحسنت! استمر في التعلم للوصول للقمة." });
+    } catch (e) { 
+      console.error(e);
+      toast({ variant: "destructive", title: "خطأ في تسجيل التقدم" });
+    }
   };
 
-  if (isUserLoading || isChecking || isContentLoading) return <div className="flex justify-center py-40"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
-
-  if (!enrollment || enrollment.status !== 'active') {
-    return <div className="min-h-screen flex items-center justify-center p-4">كورس غير مفعل أو لا تملك صلاحية الوصول.</div>;
+  if (!mounted || isUserLoading || isChecking || isContentLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <Loader2 className="w-12 h-12 animate-spin text-primary" />
+        <p className="text-muted-foreground font-bold animate-pulse">جاري تحميل محتوى الكورس...</p>
+      </div>
+    );
   }
 
-  const currentItem = activeContent || contents?.[0];
-  const isWatched = watchedVideos?.some(v => v.courseContentId === currentItem?.id);
+  if (!enrollment || enrollment.status !== 'active') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6">
+        <div className="w-20 h-20 bg-destructive/10 rounded-full flex items-center justify-center text-destructive">
+          <BookOpen className="w-10 h-10" />
+        </div>
+        <h2 className="text-2xl font-bold">عذراً، هذا الكورس غير مفعل لك حالياً</h2>
+        <p className="text-muted-foreground max-w-md">يرجى التأكد من طلب الانضمام وموافقة البشمهندس على طلبك أولاً.</p>
+        <Button onClick={() => router.replace('/courses')} variant="outline">العودة للمكتبة</Button>
+      </div>
+    );
+  }
+
+  const currentItem = activeContent;
+  const isWatched = currentItem && watchedVideos?.some(v => v.courseContentId === currentItem.id);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -72,28 +101,46 @@ export default function CourseViewer() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
             {currentItem?.contentType === 'Video' ? (
-              <div className="space-y-4">
-                <div className="aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl">
-                   <iframe src={`https://www.youtube.com/embed/${getYouTubeId(currentItem.youtubeLink)}`} className="w-full h-full" allowFullScreen />
+              <div className="space-y-4 animate-in fade-in duration-500">
+                <div className="aspect-video bg-black rounded-[2rem] overflow-hidden shadow-2xl border-4 border-primary/5">
+                   <iframe 
+                    src={`https://www.youtube.com/embed/${getYouTubeId(currentItem.youtubeLink)}`} 
+                    className="w-full h-full" 
+                    allowFullScreen 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                   />
                 </div>
-                <div className="flex justify-between items-center bg-card p-6 rounded-2xl border">
-                  <h1 className="text-2xl font-bold">{currentItem.title}</h1>
-                  <Button 
-                    onClick={() => markAsWatched(currentItem.id)} 
-                    disabled={isWatched}
-                    className={isWatched ? "bg-accent text-white" : "bg-primary"}
-                  >
-                    {isWatched ? <><CheckCircle className="w-4 h-4 ml-2" /> تمت المشاهدة</> : "تعليم كمشاهد"}
-                  </Button>
-                </div>
+                <Card className="bg-card p-8 rounded-[2rem] border-primary/10 shadow-lg">
+                  <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div className="text-right w-full">
+                      <h1 className="text-2xl font-bold mb-2">{currentItem.title}</h1>
+                      <p className="text-muted-foreground text-sm">{currentItem.description || 'شرح وافي لهذا الدرس مخصص لطلاب البشمهندس.'}</p>
+                    </div>
+                    <Button 
+                      onClick={() => markAsWatched(currentItem.id)} 
+                      disabled={isWatched}
+                      className={cn(
+                        "h-14 px-8 font-bold rounded-xl text-lg shrink-0",
+                        isWatched ? "bg-accent text-white opacity-100" : "bg-primary text-primary-foreground shadow-xl shadow-primary/20"
+                      )}
+                    >
+                      {isWatched ? <><CheckCircle className="w-5 h-5 ml-2" /> أكملت الدرس</> : "تعليم كـ مكتمل"}
+                    </Button>
+                  </div>
+                </Card>
               </div>
             ) : (
-              <Card className="bg-primary/5 border-2 border-dashed border-primary/20 p-12 text-center space-y-6 rounded-[2rem]">
-                <FileQuestion className="w-20 h-20 mx-auto text-primary" />
-                <h2 className="text-3xl font-bold">{currentItem?.title}</h2>
+              <Card className="bg-primary/5 border-2 border-dashed border-primary/20 p-20 text-center space-y-8 rounded-[3rem] animate-in zoom-in-95 duration-500">
+                <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary">
+                  <FileQuestion className="w-12 h-12" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-4xl font-headline font-bold">{currentItem?.title}</h2>
+                  <p className="text-muted-foreground">امتحان شامل على الدروس السابقة لقياس مستواك.</p>
+                </div>
                 <Link href={`/student/exams/${currentItem?.id}`}>
-                  <Button size="lg" className="h-16 px-12 bg-primary font-bold rounded-2xl text-xl shadow-xl shadow-primary/20">
-                    ابدأ الامتحان (مؤقت مفعل)
+                  <Button size="lg" className="h-16 px-12 bg-primary text-primary-foreground font-bold rounded-2xl text-xl shadow-2xl shadow-primary/30">
+                    ابدأ الامتحان الآن
                   </Button>
                 </Link>
               </Card>
@@ -101,23 +148,38 @@ export default function CourseViewer() {
           </div>
 
           <div className="lg:col-span-1">
-            <Card className="bg-card border-primary/10 overflow-hidden">
-              <CardHeader className="border-b bg-secondary/5"><CardTitle className="text-xl">محتوى الكورس</CardTitle></CardHeader>
-              <CardContent className="p-0 max-h-[600px] overflow-y-auto">
+            <Card className="bg-card border-primary/10 overflow-hidden shadow-xl rounded-[2rem] sticky top-24">
+              <CardHeader className="border-b bg-secondary/5 py-6">
+                <CardTitle className="text-xl font-bold flex items-center gap-2">
+                  <PlayCircle className="w-5 h-5 text-primary" /> محتوى الكورس
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 max-h-[60vh] overflow-y-auto">
                 {contents?.map((item, idx) => {
                   const watched = watchedVideos?.some(v => v.courseContentId === item.id);
+                  const isActive = currentItem?.id === item.id;
                   return (
                     <button 
                       key={item.id}
                       onClick={() => setActiveContent(item)}
-                      className={`w-full p-4 text-right flex items-center gap-3 transition-all ${currentItem?.id === item.id ? 'bg-primary/10 border-r-4 border-primary' : 'hover:bg-secondary/10'}`}
+                      className={cn(
+                        "w-full p-5 text-right flex items-center gap-4 transition-all border-b last:border-0",
+                        isActive ? "bg-primary/10 border-r-4 border-primary" : "hover:bg-secondary/10"
+                      )}
                     >
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 font-bold ${watched ? 'bg-accent text-white' : 'bg-secondary'}`}>
-                        {watched ? '✓' : idx + 1}
+                      <div className={cn(
+                        "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-bold text-sm",
+                        watched ? "bg-accent text-white" : isActive ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+                      )}>
+                        {watched ? <CheckCircle className="w-5 h-5" /> : idx + 1}
                       </div>
                       <div className="flex-grow min-w-0">
-                        <p className="font-bold text-sm truncate">{item.title}</p>
-                        <span className="text-[10px] text-muted-foreground">{item.contentType === 'Video' ? 'فيديو' : 'امتحان'}</span>
+                        <p className={cn("font-bold text-sm truncate", isActive ? "text-primary" : "text-foreground")}>
+                          {item.title}
+                        </p>
+                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+                          {item.contentType === 'Video' ? 'درس مرئي' : 'اختبار تقييمي'}
+                        </span>
                       </div>
                     </button>
                   );

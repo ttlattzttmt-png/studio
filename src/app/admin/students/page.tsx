@@ -12,28 +12,21 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogDescription,
-  DialogFooter
 } from "@/components/ui/dialog";
 import { 
   Search, 
   Phone, 
-  GraduationCap, 
-  Mail, 
   Calendar, 
-  BookOpen, 
   Loader2,
-  ChevronLeft,
-  CheckCircle,
-  Clock,
-  User,
-  ShieldAlert,
-  PlayCircle,
   CheckCircle2,
-  XCircle
+  PlayCircle,
+  Mail,
+  GraduationCap,
+  ClipboardList,
+  AlertCircle
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, collectionGroup, doc, updateDoc, deleteDoc, query } from 'firebase/firestore';
+import { collection, collectionGroup, doc, updateDoc, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdminStudents() {
@@ -45,7 +38,7 @@ export default function AdminStudents() {
   
   const studentsRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    return collection(firestore, 'students');
+    return query(collection(firestore, 'students'), orderBy('registrationDate', 'desc'));
   }, [firestore, user]);
 
   const { data: students, isLoading } = useCollection(studentsRef);
@@ -63,59 +56,104 @@ export default function AdminStudents() {
     try {
       const enRef = doc(firestore, 'students', enrollment.studentId, 'enrollments', enrollment.id);
       await updateDoc(enRef, { status: 'active', activationDate: new Date().toISOString() });
-      toast({ title: "تم التفعيل" });
-    } catch (e) { console.error(e); }
+      toast({ title: "تم تفعيل الكورس للطالب بنجاح" });
+    } catch (e) { 
+      console.error(e);
+      toast({ variant: "destructive", title: "خطأ في التفعيل" });
+    }
   };
 
   const filteredStudents = students?.filter(s => 
     s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    s.studentPhoneNumber.includes(searchTerm)
+    (s.studentPhoneNumber && s.studentPhoneNumber.includes(searchTerm)) ||
+    (s.email && s.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-4xl font-headline font-bold">ملفات الطلاب والرقابة</h1>
-        <p className="text-muted-foreground">تابع تقدم الطلاب الدراسي، الفيديوهات المشاهدة، ونتائج الامتحانات.</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-headline font-bold">إدارة شؤون الطلاب</h1>
+          <p className="text-muted-foreground">تابع ملفات الطلاب، درجاتهم، ونشاطهم التعليمي لحظة بلحظة.</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <Card className="lg:col-span-1 bg-primary/5 border-primary/20">
-          <CardHeader><CardTitle className="text-sm">طلبات جديدة ({pendingRequests?.length})</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            {pendingRequests?.map(req => (
-              <div key={req.id} className="p-3 bg-card border rounded-lg flex flex-col gap-2">
-                <span className="text-xs font-bold truncate">{req.courseTitle}</span>
-                <Button size="sm" onClick={() => handleActivateEnrollment(req)} className="h-8 bg-accent">تفعيل الآن</Button>
-              </div>
-            ))}
+        <Card className="lg:col-span-1 bg-accent/5 border-accent/20 h-fit">
+          <CardHeader className="border-b border-accent/10">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-accent" /> طلبات تفعيل معلقة ({pendingRequests?.length || 0})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 space-y-3">
+            {!pendingRequests || pendingRequests.length === 0 ? (
+              <p className="text-xs text-center text-muted-foreground italic py-4">لا توجد طلبات جديدة.</p>
+            ) : (
+              pendingRequests.map(req => (
+                <div key={req.id} className="p-4 bg-card border border-accent/10 rounded-2xl flex flex-col gap-3 shadow-sm">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full uppercase">طلب جديد</span>
+                    <p className="text-xs font-bold leading-tight">{req.courseTitle}</p>
+                    <p className="text-[10px] text-muted-foreground">ID: {req.studentId.substring(0, 8)}...</p>
+                  </div>
+                  <Button size="sm" onClick={() => handleActivateEnrollment(req)} className="w-full h-9 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl text-xs">تفعيل الكورس</Button>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-3 bg-card">
-          <CardHeader className="border-b">
-            <div className="relative w-64">
+        <Card className="lg:col-span-3 bg-card border-primary/5">
+          <CardHeader className="border-b bg-secondary/5">
+            <div className="relative w-full max-w-sm">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input placeholder="بحث بالاسم..." className="pr-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              <Input 
+                placeholder="بحث بالاسم، الإيميل أو الهاتف..." 
+                className="pr-10 bg-background border-primary/10 text-right" 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+              />
             </div>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 overflow-x-auto">
             <Table>
-              <TableHeader><TableRow>
-                <TableHead className="text-right">الطالب</TableHead>
-                <TableHead className="text-right">السنة الدراسية</TableHead>
-                <TableHead className="text-left">الإجراء</TableHead>
-              </TableRow></TableHeader>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="text-right">اسم الطالب</TableHead>
+                  <TableHead className="text-right">السنة الدراسية</TableHead>
+                  <TableHead className="text-right">رقم الهاتف</TableHead>
+                  <TableHead className="text-left">الإجراءات</TableHead>
+                </TableRow>
+              </TableHeader>
               <TableBody>
-                {filteredStudents?.map(s => (
-                  <TableRow key={s.id}>
-                    <TableCell className="font-bold">{s.name}</TableCell>
-                    <TableCell>{s.academicYear}</TableCell>
-                    <TableCell className="text-left">
-                      <Button variant="secondary" onClick={() => setSelectedStudent(s)}>الملف الأكاديمي</Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {isLoading ? (
+                  <TableRow><TableCell colSpan={4} className="text-center py-20"><Loader2 className="w-10 h-10 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                ) : !filteredStudents || filteredStudents.length === 0 ? (
+                  <TableRow><TableCell colSpan={4} className="text-center py-20 text-muted-foreground italic">لا يوجد طلاب مسجلون يطابقون البحث.</TableCell></TableRow>
+                ) : (
+                  filteredStudents.map(s => (
+                    <TableRow key={s.id} className="group hover:bg-primary/5 transition-colors">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                            {s.name?.[0] || 'S'}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-bold">{s.name}</span>
+                            <span className="text-[10px] text-muted-foreground">{s.email}</span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell><Badge variant="outline" className="font-medium">{s.academicYear}</Badge></TableCell>
+                      <TableCell className="font-mono text-xs">{s.studentPhoneNumber}</TableCell>
+                      <TableCell className="text-left">
+                        <Button variant="secondary" onClick={() => setSelectedStudent(s)} className="h-9 px-4 rounded-xl gap-2 font-bold group-hover:bg-primary group-hover:text-primary-foreground transition-all">
+                          الملف الأكاديمي الشامل
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -123,24 +161,28 @@ export default function AdminStudents() {
       </div>
 
       <Dialog open={!!selectedStudent} onOpenChange={() => setSelectedStudent(null)}>
-        <DialogContent className="max-w-4xl bg-card max-h-[90vh] overflow-y-auto text-right">
-          <DialogHeader className="border-b pb-6">
-            <div className="flex items-center gap-4 justify-end">
-              <div>
-                <DialogTitle className="text-2xl font-bold">{selectedStudent?.name}</DialogTitle>
-                <p className="text-sm text-muted-foreground">{selectedStudent?.email}</p>
+        <DialogContent className="max-w-5xl bg-card max-h-[90vh] overflow-y-auto text-right border-primary/20 p-0 overflow-hidden">
+          <div className="p-8 bg-gradient-to-l from-primary/10 to-transparent border-b">
+            <div className="flex flex-col md:flex-row items-center gap-6 justify-end">
+              <div className="text-right space-y-2 order-2 md:order-1">
+                <h2 className="text-3xl font-headline font-bold text-primary">{selectedStudent?.name}</h2>
+                <div className="flex flex-wrap gap-4 justify-end text-sm text-muted-foreground">
+                  <span className="flex items-center gap-1"><Mail className="w-4 h-4" /> {selectedStudent?.email}</span>
+                  <span className="flex items-center gap-1"><GraduationCap className="w-4 h-4" /> {selectedStudent?.academicYear}</span>
+                </div>
               </div>
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-2xl">
+              <div className="w-24 h-24 rounded-[2rem] bg-primary text-primary-foreground flex items-center justify-center font-bold text-4xl shadow-xl shadow-primary/20 order-1 md:order-2">
                 {selectedStudent?.name?.[0]}
               </div>
             </div>
-          </DialogHeader>
+          </div>
 
-          <div className="py-6 space-y-8">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="p-8 space-y-10">
+            {/* بيانات التواصل */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <InfoBox icon={<Phone />} label="هاتف الطالب" value={selectedStudent?.studentPhoneNumber} />
               <InfoBox icon={<Phone />} label="هاتف ولي الأمر" value={selectedStudent?.parentPhoneNumber} />
-              <InfoBox icon={<Calendar />} label="انضم في" value={selectedStudent?.registrationDate && new Date(selectedStudent.registrationDate).toLocaleDateString('ar-EG')} />
+              <InfoBox icon={<Calendar />} label="تاريخ الانضمام" value={selectedStudent?.registrationDate && new Date(selectedStudent.registrationDate).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })} />
             </div>
 
             <StudentAcademicProgress studentId={selectedStudent?.id} />
@@ -153,46 +195,100 @@ export default function AdminStudents() {
 
 function InfoBox({ icon, label, value }: any) {
   return (
-    <div className="p-4 bg-secondary/20 rounded-xl border border-primary/5">
-      <div className="flex items-center gap-2 text-primary mb-1 text-xs font-bold">
+    <div className="p-5 bg-secondary/20 rounded-2xl border border-white/5 shadow-sm group hover:border-primary/20 transition-all">
+      <div className="flex items-center gap-2 text-primary mb-2 text-xs font-bold">
         {icon} <span>{label}</span>
       </div>
-      <p className="font-bold">{value || '---'}</p>
+      <p className="font-bold text-lg">{value || '---'}</p>
     </div>
   );
 }
 
 function StudentAcademicProgress({ studentId }: { studentId: string }) {
   const firestore = useFirestore();
-  const attemptsRef = useMemoFirebase(() => query(collection(firestore, 'students', studentId, 'quiz_attempts')), [firestore, studentId]);
-  const progressRef = useMemoFirebase(() => query(collection(firestore, 'students', studentId, 'video_progress')), [firestore, studentId]);
+  const attemptsRef = useMemoFirebase(() => {
+    if (!firestore || !studentId) return null;
+    return query(collection(firestore, 'students', studentId, 'quiz_attempts'), orderBy('submittedAt', 'desc'));
+  }, [firestore, studentId]);
 
-  const { data: attempts } = useCollection(attemptsRef);
-  const { data: progress } = useCollection(progressRef);
+  const progressRef = useMemoFirebase(() => {
+    if (!firestore || !studentId) return null;
+    return query(collection(firestore, 'students', studentId, 'video_progress'), orderBy('lastWatchedAt', 'desc'));
+  }, [firestore, studentId]);
+
+  const { data: attempts, isLoading: isAttemptsLoading } = useCollection(attemptsRef);
+  const { data: progress, isLoading: isProgressLoading } = useCollection(progressRef);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-      <Card className="bg-secondary/10">
-        <CardHeader className="border-b"><CardTitle className="text-sm font-bold flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-accent" /> نتائج الامتحانات</CardTitle></CardHeader>
-        <CardContent className="p-0">
-          {attempts?.length ? attempts.map(a => (
-            <div key={a.id} className="p-4 border-b flex justify-between items-center text-xs">
-              <span className="font-bold">امتحان ID: {a.courseContentId}</span>
-              <Badge className={a.score >= 50 ? 'bg-accent' : 'bg-destructive'}>{a.score}%</Badge>
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+      {/* قسم الامتحانات */}
+      <Card className="bg-card shadow-sm border-primary/5">
+        <CardHeader className="border-b bg-accent/5 p-4 flex flex-row items-center justify-between">
+          <CardTitle className="text-sm font-bold flex items-center gap-2">
+            <ClipboardList className="w-4 h-4 text-accent" /> سجل الامتحانات والنتائج
+          </CardTitle>
+          <Badge variant="secondary" className="text-[10px]">{attempts?.length || 0} محاولات</Badge>
+        </CardHeader>
+        <CardContent className="p-0 max-h-[400px] overflow-y-auto">
+          {isAttemptsLoading ? (
+            <div className="p-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>
+          ) : !attempts || attempts.length === 0 ? (
+            <div className="p-20 text-center text-muted-foreground italic flex flex-col items-center gap-2">
+              <AlertCircle className="w-8 h-8 opacity-10" />
+              <p className="text-xs">لا توجد محاولات امتحانية مسجلة.</p>
             </div>
-          )) : <p className="p-8 text-center text-muted-foreground italic text-xs">لم يمتحن بعد.</p>}
+          ) : (
+            <div className="divide-y">
+              {attempts.map(a => (
+                <div key={a.id} className="p-4 flex justify-between items-center hover:bg-accent/5 transition-colors">
+                  <div className="space-y-1">
+                    <p className="font-bold text-sm">امتحان ID: {a.courseContentId.substring(0, 8)}...</p>
+                    <p className="text-[10px] text-muted-foreground">{new Date(a.submittedAt).toLocaleString('ar-EG')}</p>
+                  </div>
+                  <div className="text-left">
+                    <div className={`text-xl font-black ${a.score >= 50 ? 'text-accent' : 'text-destructive'}`}>
+                      {a.score}%
+                    </div>
+                    <Badge variant="outline" className="text-[9px] h-4">{a.isGraded ? 'تم التصحيح' : 'قيد المراجعة'}</Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      <Card className="bg-secondary/10">
-        <CardHeader className="border-b"><CardTitle className="text-sm font-bold flex items-center gap-2"><PlayCircle className="w-4 h-4 text-primary" /> فيديوهات شاهدها</CardTitle></CardHeader>
-        <CardContent className="p-0">
-          {progress?.length ? progress.map(p => (
-            <div key={p.id} className="p-4 border-b flex justify-between items-center text-xs">
-              <span className="font-bold">فيديو ID: {p.courseContentId}</span>
-              <Badge variant="outline" className="text-accent border-accent">مكتمل ✅</Badge>
+      {/* قسم الفيديوهات */}
+      <Card className="bg-card shadow-sm border-primary/5">
+        <CardHeader className="border-b bg-primary/5 p-4 flex flex-row items-center justify-between">
+          <CardTitle className="text-sm font-bold flex items-center gap-2">
+            <PlayCircle className="w-4 h-4 text-primary" /> متابعة مشاهدة الفيديوهات
+          </CardTitle>
+          <Badge variant="secondary" className="text-[10px]">{progress?.length || 0} فيديو</Badge>
+        </CardHeader>
+        <CardContent className="p-0 max-h-[400px] overflow-y-auto">
+          {isProgressLoading ? (
+            <div className="p-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>
+          ) : !progress || progress.length === 0 ? (
+            <div className="p-20 text-center text-muted-foreground italic flex flex-col items-center gap-2">
+              <PlayCircle className="w-8 h-8 opacity-10" />
+              <p className="text-xs">لم يبدأ الطالب بمشاهدة أي دروس بعد.</p>
             </div>
-          )) : <p className="p-8 text-center text-muted-foreground italic text-xs">لم يشاهد فيديوهات بعد.</p>}
+          ) : (
+            <div className="divide-y">
+              {progress.map(p => (
+                <div key={p.id} className="p-4 flex justify-between items-center hover:bg-primary/5 transition-colors">
+                  <div className="space-y-1">
+                    <p className="font-bold text-sm">فيديو ID: {p.courseContentId.substring(0, 8)}...</p>
+                    <p className="text-[10px] text-muted-foreground">آخر مشاهدة: {new Date(p.lastWatchedAt).toLocaleDateString('ar-EG')}</p>
+                  </div>
+                  <Badge className="bg-accent text-white gap-1 text-[10px] h-6 px-3">
+                    <CheckCircle2 className="w-3 h-3" /> مكتمل
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
