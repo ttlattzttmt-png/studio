@@ -30,8 +30,9 @@ export default function LoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const uid = userCredential.user.uid;
 
-      // التحقق مما إذا كان المستخدم مديراً (Admin)
-      const adminDoc = await getDoc(doc(firestore, 'admin_roles', uid));
+      // التحقق من صلاحيات المشرف
+      const adminDocRef = doc(firestore, 'admin_roles', uid);
+      const adminDoc = await getDoc(adminDocRef);
       
       if (adminDoc.exists()) {
         toast({ title: "مرحباً بك يا بشمهندس", description: "جاري توجيهك للوحة التحكم..." });
@@ -41,7 +42,7 @@ export default function LoginPage() {
         router.push('/student');
       }
     } catch (error: any) {
-      console.error(error);
+      console.error("Login error:", error);
       toast({
         variant: "destructive",
         title: "خطأ في تسجيل الدخول",
@@ -87,7 +88,6 @@ export default function LoginPage() {
               <Label htmlFor="password" title="كلمة المرور" className="text-sm font-bold flex items-center gap-2">
                 <Lock className="w-4 h-4 text-primary" /> كلمة المرور
               </Label>
-              <Link href="#" className="text-xs text-primary hover:underline">نسيت كلمة المرور؟</Link>
             </div>
             <Input 
               id="password" 
@@ -115,8 +115,6 @@ export default function LoginPage() {
           </Link>
         </p>
       </div>
-      
-      <p className="mt-8 text-xs text-muted-foreground">made by : mohamed alaa</p>
     </div>
   );
 }

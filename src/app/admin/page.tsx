@@ -9,7 +9,11 @@ export default function AdminOverview() {
   const [currentTime, setCurrentTime] = useState<string | null>(null);
 
   useEffect(() => {
-    setCurrentTime(new Date().toLocaleTimeString('ar-EG'));
+    // حل مشكلة الـ Hydration من خلال تأخير عرض الوقت للـ Client-side
+    const timer = setInterval(() => {
+      setCurrentTime(new Date().toLocaleTimeString('ar-EG'));
+    }, 1000);
+    return () => clearInterval(timer);
   }, []);
 
   const stats = [
@@ -66,13 +70,6 @@ export default function AdminOverview() {
              <div className="p-6 rounded-2xl bg-primary/5 border border-dashed border-primary/50 text-center space-y-4">
                <p className="text-sm text-muted-foreground">ابدأ بتوليد أكواد لطلابك الآن.</p>
                <button className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-colors">إنشاء 100 كود جديد</button>
-             </div>
-             
-             <div className="space-y-2">
-               <p className="text-sm font-bold">آخر الأكواد المنشأة</p>
-               <div className="text-center py-4 bg-background rounded-lg border border-dashed">
-                  <p className="text-xs text-muted-foreground">لا توجد أكواد منشأة.</p>
-               </div>
              </div>
           </CardContent>
         </Card>

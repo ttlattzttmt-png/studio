@@ -4,7 +4,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Play, ClipboardList, Trophy, ArrowLeft, Clock, Loader2, User } from 'lucide-react';
+import { Play, ClipboardList, Trophy, ArrowLeft, Loader2, User } from 'lucide-react';
 import Link from 'next/link';
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
@@ -64,19 +64,19 @@ export default function StudentDashboard() {
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                  <div className="p-3 rounded-lg bg-secondary/30">
                    <p className="text-muted-foreground">الاسم الكامل</p>
-                   <p className="font-bold">{studentProfile?.name}</p>
+                   <p className="font-bold">{studentProfile?.name || '---'}</p>
                  </div>
                  <div className="p-3 rounded-lg bg-secondary/30">
                    <p className="text-muted-foreground">السنة الدراسية</p>
-                   <p className="font-bold">{studentProfile?.academicYear}</p>
+                   <p className="font-bold">{studentProfile?.academicYear || '---'}</p>
                  </div>
                  <div className="p-3 rounded-lg bg-secondary/30">
                    <p className="text-muted-foreground">البريد الإلكتروني</p>
-                   <p className="font-bold">{studentProfile?.email}</p>
+                   <p className="font-bold">{studentProfile?.email || '---'}</p>
                  </div>
                  <div className="p-3 rounded-lg bg-secondary/30">
                    <p className="text-muted-foreground">رقم الهاتف</p>
-                   <p className="font-bold">{studentProfile?.studentPhoneNumber}</p>
+                   <p className="font-bold">{studentProfile?.studentPhoneNumber || '---'}</p>
                  </div>
                </div>
              </CardContent>
