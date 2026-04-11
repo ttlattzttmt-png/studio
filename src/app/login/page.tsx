@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { ShieldCheck, Lock, User, Loader2 } from 'lucide-react';
 import { useFirebase } from '@/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
@@ -29,16 +29,28 @@ export default function LoginPage() {
     
     setIsLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      let userCredential;
+      
+      try {
+        userCredential = await signInWithEmailAndPassword(auth, email, password);
+      } catch (authError: any) {
+        // سيناريو خاص للأدمن: إذا لم يكن الحساب موجوداً في Firebase Auth، نقوم بإنشائه تلقائياً (للمرة الأولى فقط)
+        if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase() && authError.code === 'auth/user-not-found') {
+           userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        } else {
+           throw authError;
+        }
+      }
+
       const uid = userCredential.user.uid;
 
-      // إذا كان البريد هو بريد المسؤول المخصص، نضمن وجوده في صلاحيات المسؤول
+      // إذا كان البريد هو بريد المسؤول المخصص، نضمن وجوده في صلاحيات المسؤول في Firestore
       if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
         const adminRoleRef = doc(firestore, 'admin_roles', uid);
         const adminRoleSnap = await getDoc(adminRoleRef);
         
         if (!adminRoleSnap.exists()) {
-          // إنشاء صلاحية المسؤول تلقائياً لهذا البريد إذا لم تكن موجودة
+          // إنشاء صلاحية المسؤول تلقائياً في Firestore
           await setDoc(adminRoleRef, { role: 'admin', createdAt: new Date().toISOString() });
           // وأيضاً إنشاء بروفايل أدمن
           await setDoc(doc(firestore, 'admin_users', uid), {
@@ -54,7 +66,7 @@ export default function LoginPage() {
         return;
       }
 
-      // التحقق من صلاحيات المشرف العادية للآخرين
+      // التحقق من صلاحيات المشرف العادية للآخرين (إذا كان مسجلاً كأدمن مسبقاً)
       const adminDocRef = doc(firestore, 'admin_roles', uid);
       const adminDoc = await getDoc(adminDocRef);
       
@@ -71,6 +83,7 @@ export default function LoginPage() {
       
       if (error.code === 'auth/user-not-found') errorMessage = "هذا الحساب غير موجود.";
       if (error.code === 'auth/wrong-password') errorMessage = "كلمة المرور غير صحيحة.";
+      if (error.code === 'auth/invalid-credential') errorMessage = "بيانات الدخول غير صحيحة.";
       
       toast({
         variant: "destructive",
