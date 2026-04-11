@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Ticket, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Ticket, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
 import { collection, query, where, getDocs, doc, setDoc, updateDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function RedeemCodePage() {
+function RedeemForm() {
   const searchParams = useSearchParams();
   const initialCode = searchParams.get('code') || '';
   const [code, setCode] = useState(initialCode.toUpperCase());
@@ -31,7 +31,7 @@ export default function RedeemCodePage() {
     try {
       const cleanCode = code.trim().toUpperCase();
       
-      // 1. البحث عن الكود (يجب أن تسمح القواعد بـ list)
+      // 1. البحث عن الكود في مجموعة الأكواد
       const codesRef = collection(firestore, 'access_codes');
       const q = query(codesRef, where('code', '==', cleanCode));
       const querySnapshot = await getDocs(q);
@@ -40,7 +40,7 @@ export default function RedeemCodePage() {
         toast({
           variant: "destructive",
           title: "كود غير صحيح",
-          description: "هذا الكود غير موجود في سجلاتنا."
+          description: "هذا الكود غير موجود، يرجى التأكد من كتابته بشكل سليم."
         });
         setIsSubmitting(false);
         return;
@@ -49,12 +49,12 @@ export default function RedeemCodePage() {
       const codeDoc = querySnapshot.docs[0];
       const codeData = codeDoc.data();
 
-      // التحقق من حالة الاستخدام
+      // التحقق مما إذا كان الكود مستخدماً
       if (codeData.isUsed) {
         toast({
           variant: "destructive",
           title: "كود مستخدم",
-          description: "هذا الكود تم تفعيله مسبقاً."
+          description: "هذا الكود تم تفعيله مسبقاً من قبل طالب آخر."
         });
         setIsSubmitting(false);
         return;
@@ -62,21 +62,21 @@ export default function RedeemCodePage() {
 
       const targetCourseId = codeData.courseId;
 
-      // 2. التحقق من وجود الكورس
+      // 2. التحقق من وجود الكورس المرتبط بالكود
       const courseRef = doc(firestore, 'courses', targetCourseId);
       const courseSnap = await getDoc(courseRef);
       
       if (!courseSnap.exists()) {
         toast({ 
           variant: "destructive", 
-          title: "خطأ في المزامنة", 
-          description: "الكورس المرتبط بهذا الكود غير متوفر حالياً." 
+          title: "خطأ في التزامن", 
+          description: "الكورس المرتبط بهذا الكود لم يعد متاحاً حالياً." 
         });
         setIsSubmitting(false);
         return;
       }
 
-      // 3. تحديث الكود ليكون "مستخدماً" (الآن مسموح به في القواعد)
+      // 3. تحديث حالة الكود إلى "مستخدم"
       const codeDocRef = doc(firestore, 'access_codes', codeDoc.id);
       await updateDoc(codeDocRef, {
         isUsed: true,
@@ -84,7 +84,7 @@ export default function RedeemCodePage() {
         usedAt: serverTimestamp()
       });
 
-      // 4. إنشاء سجل الاشتراك في حساب الطالب
+      // 4. إنشاء سجل الاشتراك في حساب الطالب لفتح المحتوى
       const enrollmentRef = doc(firestore, 'students', user.uid, 'enrollments', targetCourseId);
       await setDoc(enrollmentRef, {
         id: targetCourseId,
@@ -98,15 +98,15 @@ export default function RedeemCodePage() {
 
       toast({
         title: "تم التفعيل بنجاح!",
-        description: `تم فتح الكورس وإضافته لقائمة دروسك.`
+        description: `تم فتح كورس "${courseSnap.data().title}" وإضافته لقائمتك.`
       });
       
       router.push('/student/my-courses');
     } catch (e: any) {
       console.error("Redeem error:", e);
-      let errorMsg = "حدث خطأ فني أثناء التفعيل.";
-      if (e.message?.includes('permissions')) {
-        errorMsg = "خطأ في الصلاحيات. يرجى مراجعة القواعد الأمنية.";
+      let errorMsg = "حدث خطأ غير متوقع أثناء التفعيل.";
+      if (e.message?.includes('permission')) {
+        errorMsg = "خطأ في الصلاحيات: يرجى التأكد من تسجيل الدخول والمحاولة مرة أخرى.";
       }
       toast({
         variant: "destructive",
@@ -118,36 +118,42 @@ export default function RedeemCodePage() {
     }
   };
 
-  if (isUserLoading) return <div className="flex items-center justify-center min-h-screen"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
+  return (
+    <Card className="w-full max-w-md bg-card border-primary/20 shadow-2xl relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-full h-1.5 bg-primary" />
+      <CardHeader className="text-center pt-10">
+        <div className="w-20 h-20 rounded-[2rem] bg-primary/10 text-primary flex items-center justify-center mx-auto mb-6 rotate-3">
+          <Ticket className="w-10 h-10" />
+        </div>
+        <CardTitle className="text-3xl font-headline font-bold">تفعيل كود الكورس</CardTitle>
+        <p className="text-muted-foreground text-sm mt-3">أدخل الكود المكون من 12 رقماً لتفعيل المحتوى فوراً.</p>
+      </CardHeader>
+      <CardContent className="space-y-6 pb-10">
+        <Input 
+          placeholder="ENG-XXXX-XXXX" 
+          className="h-16 bg-background border-primary/20 text-center font-mono text-2xl font-bold focus:border-primary uppercase"
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          disabled={isSubmitting}
+        />
+        <Button 
+          onClick={handleRedeem}
+          disabled={isSubmitting || !code || isUserLoading}
+          className="w-full h-16 bg-primary text-primary-foreground font-bold text-xl rounded-2xl shadow-xl hover:scale-[1.01] transition-transform"
+        >
+          {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : <><CheckCircle2 className="w-6 h-6 ml-2" /> تفعيل الكورس الآن</>}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
 
+export default function RedeemCodePage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] p-4 animate-in fade-in duration-500">
-      <Card className="w-full max-w-md bg-card border-primary/20 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-full h-1.5 bg-primary" />
-        <CardHeader className="text-center pt-10">
-          <div className="w-20 h-20 rounded-[2rem] bg-primary/10 text-primary flex items-center justify-center mx-auto mb-6 rotate-3">
-            <Ticket className="w-10 h-10" />
-          </div>
-          <CardTitle className="text-3xl font-headline font-bold">تفعيل كود الكورس</CardTitle>
-          <p className="text-muted-foreground text-sm mt-3">أدخل الكود المكون من 12 رقماً لتفعيل الكورس فوراً.</p>
-        </CardHeader>
-        <CardContent className="space-y-6 pb-10">
-          <Input 
-            placeholder="ENG-XXXX-XXXX" 
-            className="h-16 bg-background border-primary/20 text-center font-mono text-2xl font-bold focus:border-primary uppercase"
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            disabled={isSubmitting}
-          />
-          <Button 
-            onClick={handleRedeem}
-            disabled={isSubmitting || !code}
-            className="w-full h-16 bg-primary text-primary-foreground font-bold text-xl rounded-2xl shadow-xl hover:scale-[1.01] transition-transform"
-          >
-            {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : <><CheckCircle2 className="w-6 h-6 ml-2" /> تفعيل الكورس الآن</>}
-          </Button>
-        </CardContent>
-      </Card>
+      <Suspense fallback={<Loader2 className="w-10 h-10 animate-spin text-primary" />}>
+        <RedeemForm />
+      </Suspense>
     </div>
   );
 }

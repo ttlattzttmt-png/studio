@@ -15,7 +15,7 @@ service cloud.firestore {
       );
     }
 
-    // دالة التحقق من ملكية البيانات
+    // دالة التحقق من ملكية البيانات (للطالب)
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
@@ -28,7 +28,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // أدوار ومستخدمي الإدارة
+    // الأدوار والمستخدمين
     match /admin_roles/{uid} {
       allow read: if isSignedIn();
       allow write: if isAdmin() || (isSignedIn() && request.auth.token.email == "admin@al-bashmohandes.com");
@@ -53,24 +53,26 @@ service cloud.firestore {
       }
     }
 
-    // الحل النهائي للأكواد: السماح للطالب بالبحث (list) والتحديث (update) إذا كان الكود متاحاً
+    // الحل النهائي للأكواد: السماح للطالب بالبحث والتحديث لتفعيل الكورس
     match /access_codes/{codeId} {
       allow read, list: if isSignedIn();
       allow create, delete: if isAdmin();
-      // السماح بتحديث الكود "فقط" إذا كانت حالته الحالية غير مستخدم
+      // السماح بالتحديث فقط إذا كان الكود غير مستخدم
       allow update: if isSignedIn() && resource.data.isUsed == false;
     }
 
     // بيانات الطلاب واشتراكاتهم: الطالب يملك صلاحية كاملة على مجلده
     match /students/{studentId} {
-      allow read, write: if isOwner(studentId) || isAdmin();
+      allow read: if isOwner(studentId) || isAdmin();
+      allow write: if isOwner(studentId) || isAdmin();
       
       match /{allSubcollections=**} {
-        allow read, write: if isOwner(studentId) || isAdmin();
+        allow read: if isOwner(studentId) || isAdmin();
+        allow write: if isOwner(studentId) || isAdmin();
       }
     }
 
-    // دعم استعلامات المجموعات للمشرفين
+    // دعم استعلامات المجموعات للمشرفين (Collection Groups)
     match /{path=**}/quiz_attempts/{id} {
       allow read, list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
     }
