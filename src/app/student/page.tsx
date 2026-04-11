@@ -20,20 +20,19 @@ export default function StudentDashboard() {
   }, []);
 
   const studentRef = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) return null;
+    if (!firestore || isUserLoading || !user?.uid) return null;
     return doc(firestore, 'students', user.uid);
-  }, [firestore, user?.uid]);
+  }, [firestore, user?.uid, isUserLoading]);
 
   const enrollmentsRef = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) return null;
+    if (!firestore || isUserLoading || !user?.uid) return null;
     return collection(firestore, 'students', user.uid, 'enrollments');
-  }, [firestore, user?.uid]);
+  }, [firestore, user?.uid, isUserLoading]);
 
   const notificationsRef = useMemoFirebase(() => {
-    if (!firestore) return null;
-    // الإشعارات عامة الآن، لذا لا نشترط وجود مستخدم هنا لبدء الاستعلام
+    if (!firestore || isUserLoading) return null;
     return query(collection(firestore, 'notifications'), orderBy('createdAt', 'desc'), limit(5));
-  }, [firestore]);
+  }, [firestore, isUserLoading]);
 
   const { data: studentProfile, isLoading: isProfileLoading } = useDoc(studentRef);
   const { data: enrollments, isLoading: isEnrollmentsLoading } = useCollection(enrollmentsRef);

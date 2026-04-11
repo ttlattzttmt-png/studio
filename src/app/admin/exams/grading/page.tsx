@@ -34,11 +34,11 @@ export default function AdminGradingPage() {
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // جلب كافة محاولات الطلاب لحظياً باستخدام Collection Group
+  // جلب كافة محاولات الطلاب لحظياً باستخدام Collection Group - فقط للمشرفين
   const attemptsRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || isUserLoading || !user) return null;
     return collectionGroup(firestore, 'quiz_attempts');
-  }, [firestore, user]);
+  }, [firestore, user, isUserLoading]);
 
   const { data: attempts, isLoading } = useCollection(attemptsRef);
 

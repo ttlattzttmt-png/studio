@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Video, Ticket, ClipboardList, TrendingUp, Loader2, Clock } from 'lucide-react';
+import { Users, Video, Ticket, ClipboardList, TrendingUp, Loader2, Clock, Megaphone } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
 
@@ -21,19 +21,19 @@ export default function AdminOverview() {
   }, []);
 
   const studentsRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || isUserLoading || !user) return null;
     return query(collection(firestore, 'students'), orderBy('registrationDate', 'desc'));
-  }, [firestore, user]);
+  }, [firestore, user, isUserLoading]);
 
   const coursesRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || isUserLoading || !user) return null;
     return collection(firestore, 'courses');
-  }, [firestore, user]);
+  }, [firestore, user, isUserLoading]);
 
   const codesRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || isUserLoading || !user) return null;
     return collection(firestore, 'access_codes');
-  }, [firestore, user]);
+  }, [firestore, user, isUserLoading]);
 
   const { data: students, isLoading: isStudentsLoading } = useCollection(studentsRef);
   const { data: courses, isLoading: isCoursesLoading } = useCollection(coursesRef);

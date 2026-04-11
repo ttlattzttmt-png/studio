@@ -8,7 +8,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && (
-        request.auth.token.email.lower() == "admin@al-bashmohandes.com" ||
+        (request.auth.token.email != null && request.auth.token.email.lower() == "admin@al-bashmohandes.com") ||
         exists(/databases/$(database)/documents/admin_roles/$(request.auth.uid))
       );
     }
@@ -17,7 +17,7 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // الإشعارات العامة: قراءة للجميع، كتابة للمسؤول فقط
+    // الإشعارات العامة: قراءة للجميع
     match /notifications/{id} {
       allow read, list: if true;
       allow write: if isAdmin();
@@ -36,7 +36,7 @@ service cloud.firestore {
     match /students/{studentId} {
       allow get, update: if isOwner(studentId) || isAdmin();
       allow list: if isAdmin();
-      allow create: if isOwner(studentId);
+      allow create: if isSignedIn() && request.auth.uid == studentId;
       allow delete: if isAdmin();
 
       match /enrollments/{enrollmentId} {
@@ -58,7 +58,7 @@ service cloud.firestore {
       }
     }
 
-    // دعم استعلامات المجموعات (Collection Group) للمسؤول والمالك
+    // دعم استعلامات المجموعات (Collection Group) للمسؤول
     match /{path=**}/quiz_attempts/{attemptId} {
       allow read, list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
     }
