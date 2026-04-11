@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Ticket, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
-import { collection, query, where, getDocs, doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, updateDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
@@ -23,16 +23,16 @@ export default function RedeemCodePage() {
     
     setIsSubmitting(true);
     try {
+      // 1. البحث عن الكود في قاعدة البيانات
       const codesRef = collection(firestore, 'access_codes');
-      // البحث عن الكود غير المستخدم
-      const q = query(codesRef, where('code', '==', code.trim()), where('isUsed', '==', false));
+      const q = query(codesRef, where('code', '==', code.trim().toUpperCase()), where('isUsed', '==', false));
       const querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {
         toast({
           variant: "destructive",
           title: "كود غير صالح",
-          description: "هذا الكود غير موجود أو تم استخدامه مسبقاً أو غير مخصص لهذا الغرض."
+          description: "هذا الكود غير موجود أو تم استخدامه مسبقاً."
         });
         setIsSubmitting(false);
         return;
@@ -42,9 +42,20 @@ export default function RedeemCodePage() {
       const codeData = codeDoc.data();
       const courseId = codeData.courseId;
 
-      // تفعيل الكورس للطالب في ملفه الشخصي
-      const enrollmentRef = doc(firestore, 'students', user.uid, 'enrollments', courseId);
+      if (!courseId) {
+        throw new Error("هذا الكود غير مرتبط بأي كورس حالياً.");
+      }
+
+      // 2. التحقق من وجود الكورس أولاً
+      const courseRef = doc(firestore, 'courses', courseId);
+      const courseSnap = await getDoc(courseRef);
       
+      if (!courseSnap.exists()) {
+        throw new Error("الكورس المرتبط بهذا الكود لم يعد متاحاً.");
+      }
+
+      // 3. إنشاء اشتراك الطالب (Enrollment)
+      const enrollmentRef = doc(firestore, 'students', user.uid, 'enrollments', courseId);
       await setDoc(enrollmentRef, {
         id: courseId,
         studentId: user.uid,
@@ -55,11 +66,11 @@ export default function RedeemCodePage() {
         progressPercentage: 0
       });
 
-      // تحديث حالة الكود ليصبح مستخدماً
+      // 4. تحديث حالة الكود ليصبح مستخدماً (بشكل متزامن)
       await updateDoc(doc(firestore, 'access_codes', codeDoc.id), {
         isUsed: true,
         usedByStudentId: user.uid,
-        usedAt: new Date().toISOString()
+        usedAt: serverTimestamp()
       });
 
       toast({
@@ -73,7 +84,7 @@ export default function RedeemCodePage() {
       toast({
         variant: "destructive",
         title: "خطأ في التفعيل",
-        description: "حدث خطأ فني أثناء التفعيل. يرجى التواصل مع الدعم الفني."
+        description: e.message || "حدث خطأ فني أثناء التفعيل. يرجى التأكد من اتصال الإنترنت."
       });
     } finally {
       setIsSubmitting(false);

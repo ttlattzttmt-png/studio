@@ -34,27 +34,26 @@ service cloud.firestore {
     }
 
     match /students/{studentId} {
-      allow get, update: if isOwner(studentId) || isAdmin();
+      allow get, update, create: if isOwner(studentId) || isAdmin();
       allow list: if isAdmin();
-      allow create: if isSignedIn() && request.auth.uid == studentId;
       allow delete: if isAdmin();
 
       match /enrollments/{enrollmentId} {
         allow read, list: if isOwner(studentId) || isAdmin();
-        allow write: if isAdmin() || isOwner(studentId);
+        allow write: if isOwner(studentId) || isAdmin();
       }
       match /quiz_attempts/{attemptId} {
         allow read, list: if isOwner(studentId) || isAdmin();
-        allow write: if isAdmin() || isOwner(studentId);
+        allow write: if isOwner(studentId) || isAdmin();
         
         match /answers/{answerId} {
           allow read, list: if isOwner(studentId) || isAdmin();
-          allow write: if isAdmin() || isOwner(studentId);
+          allow write: if isOwner(studentId) || isAdmin();
         }
       }
       match /video_progress/{progressId} {
         allow read, list: if isOwner(studentId) || isAdmin();
-        allow write: if isAdmin() || isOwner(studentId);
+        allow write: if isOwner(studentId) || isAdmin();
       }
     }
 
@@ -89,9 +88,10 @@ service cloud.firestore {
     }
 
     match /access_codes/{accessCodeId} {
-      allow get, list: if isSignedIn(); // تم السماح بالبحث (list) للطلاب لتفعيل الأكواد
+      allow get, list: if isSignedIn();
       allow create, delete: if isAdmin();
-      allow update: if isAdmin() || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isUsed', 'usedByStudentId', 'usedAt']));
+      // السماح للطالب بتحديث الكود عند استخدامه
+      allow update: if isSignedIn();
     }
   }
 }
