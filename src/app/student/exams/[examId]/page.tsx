@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -13,22 +14,19 @@ import {
   Clock, 
   ChevronLeft,
   ChevronRight,
-  Upload,
+  Link as LinkIcon,
   CheckCircle2,
-  FileImage,
-  Trash2
+  ImageIcon
 } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, addDoc, doc, getDocs, query, orderBy, where, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
-import Image from 'next/image';
 
 export default function TakeExamPage() {
   const { examId } = useParams();
   const router = useRouter();
   const { user, isUserLoading } = useUser();
-  const { firestore, storage } = useFirebase();
+  const { firestore } = useFirebase();
   const { toast } = useToast();
 
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
@@ -36,8 +34,6 @@ export default function TakeExamPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [courseId, setCourseId] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const findCourse = async () => {
@@ -85,20 +81,8 @@ export default function TakeExamPage() {
   const { data: questions, isLoading: isQsLoading } = useCollection(questionsRef);
   const currentQuestion = questions?.[activeQuestionIndex];
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!currentQuestion) return;
-    const file = e.target.files?.[0] || null;
-    setAnswers({
-      ...answers,
-      [currentQuestion.id]: {
-        ...answers[currentQuestion.id],
-        essayFile: file
-      }
-    });
-  };
-
   const handleSubmit = async () => {
-    if (isSubmitting || !firestore || !user || !questions || !courseId || !storage) return;
+    if (isSubmitting || !firestore || !user || !questions || !courseId) return;
     setIsSubmitting(true);
     
     try {
@@ -119,19 +103,6 @@ export default function TakeExamPage() {
         const studentAns = answers[q.id] || {};
         let isCorrect = false;
         let scoreAchieved = 0;
-        let essayFileUrl = '';
-
-        // رفع الملف إذا وجد
-        if (studentAns.essayFile) {
-          try {
-            const fileRef = ref(storage, `students/${user.uid}/attempts/${attemptRef.id}/${q.id}_${Date.now()}`);
-            const uploadSnap = await uploadBytes(fileRef, studentAns.essayFile);
-            essayFileUrl = await getDownloadURL(uploadSnap.ref);
-          } catch (fileError) {
-            console.error("Error uploading student file:", fileError);
-            // نستمر في المعالجة حتى لو فشل رفع ملف واحد
-          }
-        }
 
         if (q.questionType === 'MCQ') {
           const optsSnap = await getDocs(collection(firestore, 'courses', courseId, 'content', examId as string, 'questions', q.id, 'options'));
@@ -148,7 +119,7 @@ export default function TakeExamPage() {
           questionType: q.questionType,
           mcqSelectedOptionId: studentAns.mcqOptionId || null,
           essayAnswerText: studentAns.essayText || '',
-          essayAnswerFileUrl: essayFileUrl,
+          essayAnswerFileUrl: studentAns.essayImageUrl || '', // رابط الصورة حقه
           isCorrect: q.questionType === 'MCQ' ? isCorrect : false,
           scoreAchieved: q.questionType === 'MCQ' ? scoreAchieved : 0,
           maxPoints: q.points
@@ -163,14 +134,14 @@ export default function TakeExamPage() {
         isGraded: questions.every(q => q.questionType === 'MCQ')
       });
 
-      toast({ title: "تم تسليم الامتحان بنجاح", description: "تم حفظ الإجابات ورفع الملفات المرفقة." });
+      toast({ title: "تم تسليم الامتحان بنجاح", description: "تم حفظ إجاباتك بنجاح." });
       router.push('/student/exams');
     } catch (e: any) {
       console.error("Submission Error:", e);
       toast({ 
         variant: "destructive", 
         title: "فشل التسليم", 
-        description: e.message || "تأكد من اتصالك ومن تفعيل خدمات الرفع." 
+        description: "حدث خطأ في الاتصال، يرجى المحاولة مرة أخرى." 
       });
     } finally {
       setIsSubmitting(false);
@@ -197,7 +168,7 @@ export default function TakeExamPage() {
         <div className="flex items-center gap-2">
            <span className="text-xs text-muted-foreground hidden sm:block">سؤال {activeQuestionIndex + 1} من {questions?.length}</span>
            <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-primary text-primary-foreground font-bold px-8 shadow-lg shadow-primary/20">
-             {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin ml-2" /> جاري الرفع والتسليم...</> : "إنهاء وتسليم"}
+             {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin ml-2" /> جاري التسليم...</> : "إنهاء وتسليم"}
            </Button>
         </div>
       </div>
@@ -213,12 +184,10 @@ export default function TakeExamPage() {
               <CardContent className="p-8 space-y-8 text-right">
                 {currentQuestion.questionImageUrl && (
                   <div className="relative w-full h-[400px] bg-black/5 rounded-2xl overflow-hidden border border-dashed border-primary/20">
-                    <Image 
+                    <img 
                       src={currentQuestion.questionImageUrl} 
-                      alt="Question Image" 
-                      fill 
-                      className="object-contain" 
-                      unoptimized 
+                      alt="Question" 
+                      className="w-full h-full object-contain" 
                     />
                   </div>
                 )}
@@ -236,10 +205,10 @@ export default function TakeExamPage() {
                 ) : (
                   <div className="space-y-6">
                     <div className="space-y-2">
-                      <Label className="text-sm font-bold block mb-2">أكتب إجابتك هنا:</Label>
+                      <Label className="text-sm font-bold block mb-2">أكتب إجابتك هنا (اختياري إذا ستقوم برفع صورة):</Label>
                       <Textarea 
                         placeholder="ابدأ الكتابة هنا..." 
-                        className="min-h-[250px] text-lg bg-background border-primary/10 focus:border-primary"
+                        className="min-h-[200px] text-lg bg-background border-primary/10 focus:border-primary"
                         value={answers[currentQuestion.id]?.essayText || ''}
                         onChange={(e) => setAnswers({...answers, [currentQuestion.id]: { ...answers[currentQuestion.id], essayText: e.target.value }})}
                       />
@@ -247,38 +216,17 @@ export default function TakeExamPage() {
                     
                     <div className="p-6 bg-secondary/20 rounded-2xl border-2 border-dashed border-primary/20 space-y-4">
                       <div className="flex items-center gap-2 text-primary font-bold">
-                        <Upload className="w-5 h-5" />
-                        <span>ارفع ملف حلك اليدوي (صورة)</span>
+                        <ImageIcon className="w-5 h-5" />
+                        <span>أو ألصق رابط صورة حلك اليدوي هنا (Google Drive / Link)</span>
                       </div>
-                      
-                      <div className="flex flex-col gap-4">
-                        <Button 
-                          variant="outline" 
-                          onClick={() => fileInputRef.current?.click()}
-                          className="h-16 text-lg gap-3 border-primary/30"
-                        >
-                          {answers[currentQuestion.id]?.essayFile ? (
-                            <><CheckCircle2 className="text-accent" /> {answers[currentQuestion.id].essayFile.name}</>
-                          ) : (
-                            <><FileImage className="w-6 h-6" /> اختر صورة من جهازك</>
-                          )}
-                        </Button>
-                        <input 
-                          type="file" 
-                          ref={fileInputRef} 
-                          className="hidden" 
-                          accept="image/*"
-                          onChange={handleFileChange}
+                      <div className="relative">
+                        <LinkIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input 
+                          placeholder="رابط الصورة المباشر..." 
+                          className="pr-10 text-right bg-background border-primary/10"
+                          value={answers[currentQuestion.id]?.essayImageUrl || ''}
+                          onChange={(e) => setAnswers({...answers, [currentQuestion.id]: { ...answers[currentQuestion.id], essayImageUrl: e.target.value }})}
                         />
-                        {answers[currentQuestion.id]?.essayFile && (
-                          <Button 
-                            variant="ghost" 
-                            className="text-destructive self-center" 
-                            onClick={() => setAnswers({...answers, [currentQuestion.id]: { ...answers[currentQuestion.id], essayFile: null }})}
-                          >
-                            <Trash2 className="w-4 h-4 ml-2" /> حذف الملف المختار
-                          </Button>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -302,7 +250,7 @@ export default function TakeExamPage() {
                   <button 
                     key={i} 
                     onClick={() => setActiveQuestionIndex(i)}
-                    className={`w-3 h-3 rounded-full transition-all ${i === activeQuestionIndex ? 'bg-primary scale-125' : (answers[questions[i].id]?.mcqOptionId || answers[questions[i].id]?.essayText || answers[questions[i].id]?.essayFile) ? 'bg-accent' : 'bg-muted hover:bg-muted-foreground'}`} 
+                    className={`w-3 h-3 rounded-full transition-all ${i === activeQuestionIndex ? 'bg-primary scale-125' : (answers[questions[i].id]?.mcqOptionId || answers[questions[i].id]?.essayText || answers[questions[i].id]?.essayImageUrl) ? 'bg-accent' : 'bg-muted hover:bg-muted-foreground'}`} 
                   />
                 ))}
               </div>

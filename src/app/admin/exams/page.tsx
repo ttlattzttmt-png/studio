@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,13 +24,12 @@ import {
   Trash2, 
   Settings2,
   Megaphone,
-  CheckCircle2,
-  Upload,
-  AlertCircle
+  Link as LinkIcon,
+  AlertCircle,
+  Image as ImageIcon
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, orderBy, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 
@@ -223,7 +222,7 @@ export default function AdminExams() {
         <DialogContent className="max-w-4xl bg-card h-[90vh] overflow-hidden flex flex-col p-0 text-right">
           <DialogHeader className="p-6 border-b">
             <DialogTitle className="flex items-center gap-2 justify-end">
-              <Settings2 className="w-5 h-5 text-primary" /> تعديل الأسئلة والملفات: {selectedExamForQuestions?.title}
+              <Settings2 className="w-5 h-5 text-primary" /> تعديل الأسئلة: {selectedExamForQuestions?.title}
             </DialogTitle>
           </DialogHeader>
           <div className="flex-grow overflow-y-auto p-6">
@@ -236,15 +235,14 @@ export default function AdminExams() {
 }
 
 function QuestionManager({ exam }: { exam: any }) {
-  const { firestore, storage } = useFirebase();
+  const { firestore } = useFirebase();
   const { user } = useUser();
   const { toast } = useToast();
   const [isAdding, setIsAdding] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [newQuestion, setNewQuestion] = useState({ 
     text: '', 
+    imageUrl: '',
     type: 'MCQ', 
     points: '1', 
     options: ['', '', '', ''], 
@@ -259,29 +257,18 @@ function QuestionManager({ exam }: { exam: any }) {
   const { data: questions } = useCollection(questionsRef);
 
   const handleAddQuestion = async () => {
-    if (!firestore || !exam || !storage || !user || (!newQuestion.text && !selectedFile)) {
-      toast({ variant: "destructive", title: "بيانات ناقصة", description: "يرجى كتابة نص السؤال أو اختيار صورة على الأقل." });
+    if (!firestore || !exam || !user || (!newQuestion.text && !newQuestion.imageUrl)) {
+      toast({ variant: "destructive", title: "بيانات ناقصة", description: "يرجى كتابة نص السؤال أو وضع رابط صورة على الأقل." });
       return;
     }
     
     setIsAdding(true);
     try {
-      let imageUrl = '';
-      if (selectedFile) {
-        // إنشاء مسار بسيط ومباشر للرفع لضمان أعلى توافقية
-        const storagePath = `exams/${exam.id}/q_${Date.now()}_${selectedFile.name.replace(/\s+/g, '_')}`;
-        const fileRef = ref(storage, storagePath);
-        
-        // الرفع المباشر بدون تعقيدات Metadata
-        const uploadResult = await uploadBytes(fileRef, selectedFile);
-        imageUrl = await getDownloadURL(uploadResult.ref);
-      }
-
       // حفظ بيانات السؤال في الفايرستور
       const qRef = await addDoc(collection(firestore, 'courses', exam.courseId, 'content', exam.id, 'questions'), {
         courseContentId: exam.id,
         questionText: newQuestion.text || '',
-        questionImageUrl: imageUrl,
+        questionImageUrl: newQuestion.imageUrl || '',
         questionType: newQuestion.type,
         points: Number(newQuestion.points),
         orderIndex: Date.now(),
@@ -298,19 +285,17 @@ function QuestionManager({ exam }: { exam: any }) {
         }
       }
       
-      toast({ title: "تم الحفظ بنجاح", description: "تم رفع الملف وحفظ بيانات السؤال بالكامل." });
+      toast({ title: "تم الحفظ بنجاح", description: "تم حفظ بيانات السؤال بنجاح." });
       
       // ريست للفورم
-      setNewQuestion({ text: '', type: 'MCQ', points: '1', options: ['', '', '', ''], correctIndex: 0 });
-      setSelectedFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      setNewQuestion({ text: '', imageUrl: '', type: 'MCQ', points: '1', options: ['', '', '', ''], correctIndex: 0 });
       
     } catch (e: any) { 
-      console.error("Upload Error:", e);
+      console.error("Save Error:", e);
       toast({ 
         variant: "destructive", 
-        title: "فشل الرفع والحفظ", 
-        description: "حدث خطأ أثناء الاتصال بالخادم. يرجى التأكد من اتصالك بالإنترنت."
+        title: "فشل الحفظ", 
+        description: "حدث خطأ أثناء الاتصال بالخادم."
       });
     } finally { 
       setIsAdding(false); 
@@ -341,36 +326,28 @@ function QuestionManager({ exam }: { exam: any }) {
              </Select>
           </div>
           
-          <Textarea 
-            placeholder="اكتب نص السؤال هنا..." 
-            className="text-right min-h-[100px] bg-background border-primary/10" 
-            value={newQuestion.text} 
-            onChange={(e) => setNewQuestion({...newQuestion, text: e.target.value})} 
-          />
+          <div className="space-y-2">
+            <Label className="text-xs font-bold text-right block">نص السؤال</Label>
+            <Textarea 
+              placeholder="اكتب نص السؤال هنا..." 
+              className="text-right min-h-[100px] bg-background border-primary/10" 
+              value={newQuestion.text} 
+              onChange={(e) => setNewQuestion({...newQuestion, text: e.target.value})} 
+            />
+          </div>
           
           <div className="space-y-2">
-            <Label className="text-xs font-bold flex items-center gap-2 justify-end">صورة السؤال (من الجهاز)</Label>
-            <div className="flex items-center gap-4 flex-row-reverse">
-              <Button 
-                variant="outline" 
-                onClick={() => fileInputRef.current?.click()}
-                className="h-12 flex-grow gap-2 border-primary/20 hover:border-primary bg-background overflow-hidden"
-              >
-                {selectedFile ? <><CheckCircle2 className="w-4 h-4 text-accent" /> {selectedFile.name}</> : <><Upload className="w-4 h-4" /> اختر ملف صورة</>}
-              </Button>
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                className="hidden" 
-                accept="image/*"
+            <Label className="text-xs font-bold text-right block">رابط صورة السؤال (Google Drive / Direct Link)</Label>
+            <div className="relative">
+              <ImageIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input 
+                placeholder="ألصق رابط الصورة هنا..." 
+                className="pr-10 text-right bg-background border-primary/10"
+                value={newQuestion.imageUrl}
+                onChange={(e) => setNewQuestion({...newQuestion, imageUrl: e.target.value})}
               />
-              {selectedFile && (
-                <Button variant="ghost" size="icon" onClick={() => setSelectedFile(null)} className="text-destructive">
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              )}
             </div>
+            <p className="text-[10px] text-muted-foreground text-right italic">* اتركها فارغة إذا لم يوجد صورة.</p>
           </div>
 
           {newQuestion.type === 'MCQ' && (
@@ -408,7 +385,7 @@ function QuestionManager({ exam }: { exam: any }) {
                <Input type="number" value={newQuestion.points} onChange={(e) => setNewQuestion({...newQuestion, points: e.target.value})} className="text-center h-10" />
             </div>
             <Button onClick={handleAddQuestion} disabled={isAdding} className="flex-grow h-10 bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20">
-              {isAdding ? <><Loader2 className="w-4 h-4 animate-spin ml-2" /> جاري الرفع والحفظ...</> : "حفظ السؤال والملف الآن"}
+              {isAdding ? <><Loader2 className="w-4 h-4 animate-spin ml-2" /> جاري الحفظ...</> : "حفظ السؤال الآن"}
             </Button>
           </div>
         </CardContent>
@@ -433,7 +410,7 @@ function QuestionManager({ exam }: { exam: any }) {
               <p className="font-bold text-right mb-3 leading-relaxed">{i+1}. {q.questionText}</p>
               {q.questionImageUrl && (
                 <div className="relative w-full h-48 rounded-xl overflow-hidden border border-dashed border-primary/10 bg-secondary/5">
-                   <Image src={q.questionImageUrl} alt="" fill className="object-contain" unoptimized />
+                   <img src={q.questionImageUrl} alt="" className="w-full h-full object-contain" />
                 </div>
               )}
             </CardContent>
