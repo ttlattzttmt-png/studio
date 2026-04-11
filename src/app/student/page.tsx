@@ -129,7 +129,9 @@ export default function StudentDashboard() {
               <h4 className="font-bold">هل لديك كود تفعيل؟</h4>
               <p className="text-xs text-muted-foreground">اكتب الكود الذي استلمته من السكرتارية لتفعيل الكورس فوراً.</p>
               <Input placeholder="ENG-XXXX-XXXX" className="bg-background border-primary/20 text-center font-mono font-bold" />
-              <Button className="w-full bg-primary text-primary-foreground font-bold">تفعيل الآن</Button>
+              <Link href="/student/redeem" className="block w-full">
+                <Button className="w-full bg-primary text-primary-foreground font-bold">تفعيل الآن</Button>
+              </Link>
            </Card>
 
            <Card className="bg-card">
