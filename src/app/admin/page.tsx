@@ -1,10 +1,20 @@
+
+"use client";
+
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Video, Ticket, ClipboardList, TrendingUp } from 'lucide-react';
+import { Users, Video, Ticket, ClipboardList, TrendingUp, Loader2 } from 'lucide-react';
 
 export default function AdminOverview() {
+  const [currentTime, setCurrentTime] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCurrentTime(new Date().toLocaleTimeString('ar-EG'));
+  }, []);
+
   const stats = [
     { title: 'إجمالي الطلاب', val: '0', icon: <Users className="text-blue-500" />, trend: 'بداية جديدة' },
-    { title: 'الكورسات المفعلة', val: '2', icon: <Video className="text-primary" />, trend: 'كورسات تجريبية' },
+    { title: 'الكورسات المفعلة', val: '2', icon: <Video className="text-primary" />, trend: 'كورسين تجريبيين' },
     { title: 'الأكواد النشطة', val: '0', icon: <Ticket className="text-accent" />, trend: '0% استهلاك' },
     { title: 'تسليمات الامتحانات', val: '0', icon: <ClipboardList className="text-purple-500" />, trend: 'لا توجد تسليمات' },
   ];
@@ -13,8 +23,8 @@ export default function AdminOverview() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <h1 className="text-4xl font-headline font-bold">لوحة تحكم البشمهندس</h1>
-        <div className="bg-primary/10 text-primary px-4 py-2 rounded-xl text-sm font-bold border border-primary/20">
-          آخر تحديث: {new Date().toLocaleTimeString('ar-EG')}
+        <div className="bg-primary/10 text-primary px-4 py-2 rounded-xl text-sm font-bold border border-primary/20 min-w-[150px] text-center">
+          {currentTime ? `آخر تحديث: ${currentTime}` : <Loader2 className="w-4 h-4 animate-spin mx-auto" />}
         </div>
       </div>
 
