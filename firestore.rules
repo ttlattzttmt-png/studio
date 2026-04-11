@@ -3,7 +3,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * Al-Bashmohandes Platform Security Rules - Final Production Version
+     * Al-Bashmohandes Platform Security Rules - Final Stable Version
      */
 
     // --- Helper Functions ---
@@ -15,7 +15,7 @@ service cloud.firestore {
     // التحقق من أن المستخدم هو المسؤول
     function isAdmin() {
       return isSignedIn() && (
-        (request.auth.token.email != null && request.auth.token.email.lower() == "admin@al-bashmohandes.com") ||
+        request.auth.token.email.lower() == "admin@al-bashmohandes.com" ||
         exists(/databases/$(database)/documents/admin_roles/$(request.auth.uid))
       );
     }
@@ -32,20 +32,20 @@ service cloud.firestore {
       );
     }
 
-    // --- Collection Group Rules (Must be defined to allow collectionGroup queries) ---
+    // --- Collection Group Rules (Critical for Admin Grading) ---
     
     match /{path=**}/quiz_attempts/{attemptId} {
-      allow read: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
-      allow write: if isAdmin() || (isSignedIn() && request.resource.data.studentId == request.auth.uid);
-    }
-    
-    match /{path=**}/enrollments/{enrollmentId} {
-      allow read: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
-      allow write: if isAdmin() || (isSignedIn() && request.resource.data.studentId == request.auth.uid);
+      allow read, list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
+      allow write: if isAdmin() || (isSignedIn() && (resource == null || resource.data.studentId == request.auth.uid));
     }
     
     match /{path=**}/answers/{answerId} {
-      allow read: if isAdmin() || (isSignedIn() && (resource == null || resource.data.studentId == request.auth.uid));
+      allow read, list: if isAdmin() || (isSignedIn() && (resource == null || resource.data.studentId == request.auth.uid));
+      allow write: if isAdmin() || (isSignedIn() && (request.resource == null || request.resource.data.studentId == request.auth.uid));
+    }
+    
+    match /{path=**}/enrollments/{enrollmentId} {
+      allow read, list: if isAdmin() || (isSignedIn() && (resource == null || resource.data.studentId == request.auth.uid));
       allow write: if isAdmin() || (isSignedIn() && (request.resource == null || request.resource.data.studentId == request.auth.uid));
     }
 
@@ -97,33 +97,6 @@ service cloud.firestore {
       allow list: if isAdmin();
       allow create, delete: if isAdmin();
       allow update: if isAdmin() || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isUsed', 'usedByStudentId', 'usedAt']));
-    }
-
-    match /students/{studentId}/enrollments/{enrollmentId} {
-      allow get, list: if isOwner(studentId) || isAdmin();
-      allow create: if isOwner(studentId);
-      allow update: if isOwner(studentId) || isAdmin();
-      allow delete: if isAdmin();
-    }
-
-    match /students/{studentId}/video_progress/{progressId} {
-      allow get, list: if isOwner(studentId) || isAdmin();
-      allow create, update: if isOwner(studentId);
-      allow delete: if isAdmin();
-    }
-
-    match /students/{studentId}/quiz_attempts/{attemptId} {
-      allow get, list: if isOwner(studentId) || isAdmin();
-      allow create: if isOwner(studentId);
-      allow update: if isOwner(studentId) || isAdmin();
-      allow delete: if isAdmin();
-
-      match /answers/{answerId} {
-        allow get, list: if isOwner(studentId) || isAdmin();
-        allow create: if isOwner(studentId);
-        allow update: if isOwner(studentId) || isAdmin();
-        allow delete: if isAdmin();
-      }
     }
 
     match /notifications/{id} {

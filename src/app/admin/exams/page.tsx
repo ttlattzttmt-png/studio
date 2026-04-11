@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -61,10 +60,8 @@ export default function AdminExams() {
   
   const examsRef = useMemoFirebase(() => {
     if (!firestore || !activeCourseId) return null;
-    return query(
-      collection(firestore, 'courses', activeCourseId, 'content'),
-      orderBy('createdAt', 'desc')
-    );
+    // استعلام بسيط لتجنب أخطاء الفهارس
+    return collection(firestore, 'courses', activeCourseId, 'content');
   }, [firestore, activeCourseId]);
 
   const { data: allContent, isLoading: isExamsLoading } = useCollection(examsRef);
@@ -89,7 +86,7 @@ export default function AdminExams() {
         createdAt: serverTimestamp(),
         course_uploadedByAdminUserId: user.uid
       });
-      toast({ title: "تم إنشاء الاختبار", description: "يمكنك الآن البدء في إضافة الأسئلة." });
+      toast({ title: "تم إنشاء الاختبار", description: "يمكنك الآن إضافة الأسئلة." });
       setFormData({ ...formData, title: '', description: '' });
     } catch (e) {
       console.error(e);
@@ -122,7 +119,7 @@ export default function AdminExams() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-4xl font-headline font-bold mb-2">بناء الاختبارات الاحترافي</h1>
-          <p className="text-muted-foreground">تحكم كامل في الأسئلة المصورة، المقالية، وموعد إعلان النتائج.</p>
+          <p className="text-muted-foreground">تحكم كامل في الأسئلة المصورة والمقالية لحظياً.</p>
         </div>
         
         <Dialog>
@@ -133,7 +130,7 @@ export default function AdminExams() {
           </DialogTrigger>
           <DialogContent className="bg-card">
             <DialogHeader><DialogTitle className="text-2xl font-bold">إنشاء اختبار جديد</DialogTitle></DialogHeader>
-            <div className="space-y-4 py-4 text-right">
+            <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label className="text-sm font-bold">اختر الكورس</Label>
                 <Select value={formData.courseId} onValueChange={(v) => setFormData({...formData, courseId: v})}>
@@ -143,8 +140,8 @@ export default function AdminExams() {
                   </SelectContent>
                 </Select>
               </div>
-              <Input placeholder="عنوان الاختبار (مثال: اختبار الفيزياء - الفصل الأول)" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="h-12" />
-              <Textarea placeholder="وصف الاختبار أو تعليمات للطلاب" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
+              <Input placeholder="عنوان الاختبار" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="h-12" />
+              <Textarea placeholder="وصف الاختبار" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -159,14 +156,14 @@ export default function AdminExams() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-bold">درجة النجاح %</Label>
-                  <Input type="number" placeholder="50" value={formData.passMark} onChange={(e) => setFormData({...formData, passMark: e.target.value})} className="h-12" />
+                  <Input type="number" value={formData.passMark} onChange={(e) => setFormData({...formData, passMark: e.target.value})} className="h-12" />
                 </div>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-secondary/20 rounded-xl">
                 <div className="space-y-0.5">
                   <Label className="text-base font-bold">إظهار النتيجة فوراً</Label>
-                  <p className="text-xs text-muted-foreground">عند التفعيل، سيرى الطالب درجته بمجرد الضغط على تسليم.</p>
+                  <p className="text-xs text-muted-foreground">سيظهر للطالب درجته بمجرد التسليم.</p>
                 </div>
                 <Switch 
                   checked={formData.allowInstantResults} 
@@ -182,7 +179,7 @@ export default function AdminExams() {
       </div>
 
       <Card className="bg-card border-primary/10">
-        <CardHeader className="border-b bg-secondary/20">
+        <CardHeader className="border-b bg-secondary/10">
           <div className="flex items-center gap-4">
             <span className="text-sm font-bold">تصفية حسب الكورس:</span>
             <Select value={activeCourseId} onValueChange={setActiveCourseId}>
@@ -207,40 +204,31 @@ export default function AdminExams() {
               <p>لا توجد اختبارات في هذا الكورس بعد.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {exams.map((exam) => (
                 <Card key={exam.id} className="bg-card hover:border-primary/20 transition-all group border-primary/5 relative overflow-hidden">
-                  <div className={`absolute top-0 right-0 w-1.5 h-full ${exam.allowInstantResultsDisplay ? 'bg-accent' : 'bg-destructive'}`} title={exam.allowInstantResultsDisplay ? 'النتائج تظهر فوراً' : 'النتائج محجوبة'} />
+                  <div className={`absolute top-0 right-0 w-1.5 h-full ${exam.allowInstantResultsDisplay ? 'bg-accent' : 'bg-destructive'}`} />
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                       <ClipboardList className="w-6 h-6" />
                     </div>
-                    <div className="flex gap-1">
-                       <span className={`text-[10px] font-bold px-2 py-1 rounded ${exam.contentType === 'Exam' ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'}`}>
-                         {exam.contentType === 'Exam' ? 'امتحان' : 'كويز'}
-                       </span>
-                       <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => handleDeleteExam(exam.courseId, exam.id)}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
+                    <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => handleDeleteExam(exam.courseId, exam.id)}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </CardHeader>
-                  <CardContent>
-                    <h3 className="text-xl font-bold mb-1">{exam.title}</h3>
-                    <p className="text-xs text-muted-foreground mb-4 line-clamp-1">{exam.description || 'لا يوجد وصف'}</p>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <h3 className="text-xl font-bold truncate">{exam.title}</h3>
+                      <p className="text-xs text-muted-foreground line-clamp-1">{exam.description || 'بدون وصف'}</p>
+                    </div>
                     
-                    <div className="flex flex-col gap-2 mb-6">
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1"><HelpCircle className="w-3 h-3" /> النجاح: {exam.passMarkPercentage}%</span>
-                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(exam.createdAt?.toDate ? exam.createdAt.toDate() : Date.now()).toLocaleDateString('ar-EG')}</span>
-                      </div>
-                      <div className="flex items-center justify-between p-2 rounded bg-secondary/10 border border-primary/5">
-                        <span className="text-[10px] font-bold">عرض النتائج فوراً:</span>
-                        <Switch 
-                          checked={exam.allowInstantResultsDisplay} 
-                          onCheckedChange={() => toggleInstantResults(exam)}
-                          className="scale-75"
-                        />
-                      </div>
+                    <div className="flex items-center justify-between p-2 rounded bg-secondary/10 border border-primary/5">
+                      <span className="text-[10px] font-bold">النتائج الفورية:</span>
+                      <Switch 
+                        checked={exam.allowInstantResultsDisplay} 
+                        onCheckedChange={() => toggleInstantResults(exam)}
+                        className="scale-75"
+                      />
                     </div>
 
                     <div className="flex gap-2">
@@ -258,13 +246,13 @@ export default function AdminExams() {
       </Card>
 
       <Dialog open={!!selectedExamForQuestions} onOpenChange={() => setSelectedExamForQuestions(null)}>
-        <DialogContent className="max-w-5xl bg-card border-primary/20 h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader className="border-b pb-4 px-6 pt-6">
+        <DialogContent className="max-w-5xl bg-card border-primary/20 h-[90vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="border-b p-6">
             <DialogTitle className="text-2xl font-bold flex items-center gap-2">
               <Settings2 className="w-6 h-6 text-primary" /> تعديل أسئلة: {selectedExamForQuestions?.title}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex-grow overflow-y-auto px-6 py-4">
+          <div className="flex-grow overflow-y-auto p-6">
              {selectedExamForQuestions && <QuestionManager exam={selectedExamForQuestions} />}
           </div>
         </DialogContent>
@@ -289,7 +277,7 @@ function QuestionManager({ exam }: { exam: any }) {
 
   const questionsRef = useMemoFirebase(() => {
     if (!firestore || !exam) return null;
-    return query(collection(firestore, 'courses', exam.courseId, 'content', exam.id, 'questions'), orderBy('orderIndex', 'asc'));
+    return collection(firestore, 'courses', exam.courseId, 'content', exam.id, 'questions');
   }, [firestore, exam]);
 
   const { data: questions, isLoading } = useCollection(questionsRef);
@@ -298,7 +286,7 @@ function QuestionManager({ exam }: { exam: any }) {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 800000) {
-        toast({ variant: "destructive", title: "حجم كبير", description: "يرجى اختيار صورة بحجم أقل من 800 كيلوبايت لضمان سرعة التحميل." });
+        toast({ variant: "destructive", title: "حجم كبير", description: "الصورة أكبر من 800 كيلوبايت." });
         return;
       }
       const reader = new FileReader();
@@ -319,7 +307,7 @@ function QuestionManager({ exam }: { exam: any }) {
         questionImageUrl: newQuestion.imageUrl,
         questionType: newQuestion.type,
         points: Number(newQuestion.points),
-        orderIndex: (questions?.length || 0) + 1,
+        orderIndex: Date.now(),
         createdAt: serverTimestamp()
       });
 
@@ -346,16 +334,16 @@ function QuestionManager({ exam }: { exam: any }) {
     if (!firestore || !exam) return;
     try {
       await deleteDoc(doc(firestore, 'courses', exam.courseId, 'content', exam.id, 'questions', qId));
-      toast({ title: "تم الحذف", description: "تم حذف السؤال من الاختبار." });
+      toast({ title: "تم الحذف", description: "تم حذف السؤال بنجاح." });
     } catch (e) { console.error(e); }
   };
 
   return (
     <div className="space-y-8">
-      <Card className="bg-secondary/20 border-dashed border-primary/20">
+      <Card className="bg-secondary/10 border-dashed border-primary/20">
         <CardContent className="p-6 space-y-6">
           <div className="flex items-center justify-between">
-            <h4 className="font-bold flex items-center gap-2"><Plus className="w-4 h-4" /> إضافة سؤال جديد</h4>
+            <h4 className="font-bold flex items-center gap-2 text-primary"><Plus className="w-4 h-4" /> إضافة سؤال جديد</h4>
             <div className="flex gap-2">
               <Select value={newQuestion.type} onValueChange={(v) => setNewQuestion({...newQuestion, type: v})}>
                 <SelectTrigger className="w-32 bg-background h-10"><SelectValue /></SelectTrigger>
@@ -370,20 +358,19 @@ function QuestionManager({ exam }: { exam: any }) {
 
           <div className="space-y-4">
              <Textarea 
-              placeholder="اكتب نص السؤال هنا..." 
+              placeholder="اكتب نص السؤال..." 
               value={newQuestion.text} 
               onChange={(e) => setNewQuestion({...newQuestion, text: e.target.value})}
-              className="bg-background min-h-[100px] text-lg"
+              className="bg-background min-h-[100px]"
             />
             <div className="space-y-2">
-              <Label className="text-xs font-bold flex items-center gap-2"><ImageIcon className="w-3 h-3"/> صورة السؤال (اختياري)</Label>
               <div className="flex items-center gap-4">
                 <Button 
                   variant="outline" 
                   className="h-12 border-dashed border-primary/30 flex-grow gap-2"
                   onClick={() => document.getElementById('question-image-upload')?.click()}
                 >
-                  <Upload className="w-4 h-4" /> {newQuestion.imageUrl ? "تغيير الصورة المرفوعة" : "رفع صورة للسؤال من جهازك"}
+                  <Upload className="w-4 h-4" /> {newQuestion.imageUrl ? "تغيير الصورة" : "إرفاق صورة للسؤال"}
                 </Button>
                 {newQuestion.imageUrl && (
                   <Button variant="ghost" size="icon" onClick={() => setNewQuestion({...newQuestion, imageUrl: ''})} className="text-destructive h-12 w-12">
@@ -391,15 +378,9 @@ function QuestionManager({ exam }: { exam: any }) {
                   </Button>
                 )}
               </div>
-              <input 
-                id="question-image-upload"
-                type="file" 
-                accept="image/*"
-                className="hidden" 
-                onChange={handleFileUpload}
-              />
+              <input id="question-image-upload" type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
               {newQuestion.imageUrl && (
-                <div className="relative w-full h-48 rounded-xl overflow-hidden border-2 border-primary/20 shadow-inner mt-4">
+                <div className="relative w-full h-48 rounded-xl overflow-hidden border-2 border-primary/10 mt-2">
                   <Image src={newQuestion.imageUrl} alt="Preview" fill className="object-contain bg-background" unoptimized />
                 </div>
               )}
@@ -407,58 +388,53 @@ function QuestionManager({ exam }: { exam: any }) {
           </div>
 
           {newQuestion.type === 'MCQ' && (
-            <div className="space-y-3">
-              <p className="text-xs font-bold text-muted-foreground">الاختيارات (حدد الإجابة الصحيحة):</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {newQuestion.options.map((opt, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <button 
-                      onClick={() => setNewQuestion({...newQuestion, correctIndex: i})}
-                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${newQuestion.correctIndex === i ? 'bg-primary border-primary text-primary-foreground' : 'border-muted'}`}
-                    >
-                      {newQuestion.correctIndex === i && <CheckCircle2 className="w-4 h-4" />}
-                    </button>
-                    <Input 
-                      placeholder={`اختيار ${i+1}`} 
-                      value={opt} 
-                      onChange={(e) => {
-                        const newOpts = [...newQuestion.options];
-                        newOpts[i] = e.target.value;
-                        setNewQuestion({...newQuestion, options: newOpts});
-                      }}
-                      className="bg-background"
-                    />
-                  </div>
-                ))}
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {newQuestion.options.map((opt, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setNewQuestion({...newQuestion, correctIndex: i})}
+                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${newQuestion.correctIndex === i ? 'bg-primary border-primary text-primary-foreground' : 'border-muted'}`}
+                  >
+                    {newQuestion.correctIndex === i && <CheckCircle2 className="w-4 h-4" />}
+                  </button>
+                  <Input 
+                    placeholder={`اختيار ${i+1}`} 
+                    value={opt} 
+                    onChange={(e) => {
+                      const newOpts = [...newQuestion.options];
+                      newOpts[i] = e.target.value;
+                      setNewQuestion({...newQuestion, options: newOpts});
+                    }}
+                    className="bg-background"
+                  />
+                </div>
+              ))}
             </div>
           )}
 
-          <Button onClick={handleAddQuestion} disabled={isAdding || !newQuestion.text} className="w-full bg-primary text-primary-foreground font-bold h-12 shadow-lg shadow-primary/10">
-            {isAdding ? <Loader2 className="w-5 h-5 animate-spin" /> : "إضافة السؤال للاختبار"}
+          <Button onClick={handleAddQuestion} disabled={isAdding || !newQuestion.text} className="w-full bg-primary font-bold h-12 shadow-lg">
+            {isAdding ? <Loader2 className="w-5 h-5 animate-spin" /> : "إضافة السؤال"}
           </Button>
         </CardContent>
       </Card>
 
       <div className="space-y-4">
-        <h3 className="font-bold border-r-4 border-primary pr-3">بنك الأسئلة الحالي ({questions?.length || 0} أسئلة)</h3>
+        <h3 className="font-bold border-r-4 border-primary pr-3">بنك الأسئلة الحالي ({questions?.length || 0})</h3>
         {isLoading ? <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /> : 
-        !questions || questions.length === 0 ? <p className="text-center text-muted-foreground italic py-10">لا توجد أسئلة مضافة حالياً.</p> :
+        !questions || questions.length === 0 ? <p className="text-center text-muted-foreground italic py-10">لا توجد أسئلة مضافة.</p> :
         questions.map((q, i) => (
-          <Card key={q.id} className="p-6 bg-card border rounded-xl group relative hover:border-primary/30 transition-colors">
+          <Card key={q.id} className="p-6 bg-card border rounded-xl group hover:border-primary/30 transition-all">
             <div className="flex justify-between mb-4">
-              <span className="text-xs font-bold bg-primary/10 text-primary px-3 py-1 rounded-full">سؤال {i+1} - {q.questionType === 'MCQ' ? 'اختياري' : 'مقالي'} ({q.points} نقاط)</span>
+              <span className="text-xs font-bold bg-primary/10 text-primary px-3 py-1 rounded-full">سؤال {i+1} - {q.questionType === 'MCQ' ? 'اختياري' : 'مقالي'}</span>
               <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleDeleteQuestion(q.id)}>
                 <Trash2 className="w-4 h-4" />
               </Button>
             </div>
             <div className="flex flex-col md:flex-row gap-6">
-              <div className="flex-grow">
-                 <p className="font-bold text-lg leading-relaxed">{q.questionText}</p>
-              </div>
+              <p className="font-bold flex-grow text-lg">{q.questionText}</p>
               {q.questionImageUrl && (
-                <div className="relative w-full md:w-48 h-32 rounded-lg overflow-hidden border">
-                  <Image src={q.questionImageUrl} alt="" fill className="object-contain bg-secondary/10" unoptimized />
+                <div className="relative w-full md:w-48 h-32 rounded-lg overflow-hidden border bg-background">
+                  <Image src={q.questionImageUrl} alt="" fill className="object-contain" unoptimized />
                 </div>
               )}
             </div>
