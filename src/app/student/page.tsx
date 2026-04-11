@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -30,9 +31,10 @@ export default function StudentDashboard() {
   }, [firestore, user?.uid]);
 
   const notificationsRef = useMemoFirebase(() => {
-    if (!firestore) return null;
+    // تم إضافة شرط التحقق من المستخدم لمنع خطأ الصلاحيات عند التحميل
+    if (!firestore || !user) return null;
     return query(collection(firestore, 'notifications'), orderBy('createdAt', 'desc'), limit(5));
-  }, [firestore]);
+  }, [firestore, user]);
 
   const { data: studentProfile, isLoading: isProfileLoading } = useDoc(studentRef);
   const { data: enrollments, isLoading: isEnrollmentsLoading } = useCollection(enrollmentsRef);

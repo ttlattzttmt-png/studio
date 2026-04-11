@@ -31,7 +31,7 @@ import Image from 'next/image';
 export default function TakeExamPage() {
   const { examId } = useParams();
   const router = useRouter();
-  const { user } = useUser();
+  const { user, isUserLoading: isAuthLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
 
@@ -57,13 +57,17 @@ export default function TakeExamPage() {
     findCourse();
   }, [firestore, examId]);
 
-  const examRef = useMemoFirebase(() => courseId ? doc(firestore!, 'courses', courseId, 'content', examId as string) : null, [firestore, courseId, examId]);
+  const examRef = useMemoFirebase(() => {
+    if (!firestore || !courseId || !examId || !user) return null;
+    return doc(firestore, 'courses', courseId, 'content', examId as string);
+  }, [firestore, courseId, examId, user]);
+  
   const { data: exam, isLoading: isExamLoading } = useDoc(examRef);
 
   const questionsRef = useMemoFirebase(() => {
-    if (!firestore || !courseId || !examId) return null;
+    if (!firestore || !courseId || !examId || !user) return null;
     return query(collection(firestore, 'courses', courseId, 'content', examId as string, 'questions'), orderBy('orderIndex', 'asc'));
-  }, [firestore, courseId, examId]);
+  }, [firestore, courseId, examId, user]);
 
   const { data: questions, isLoading: isQsLoading } = useCollection(questionsRef);
 
@@ -71,9 +75,9 @@ export default function TakeExamPage() {
 
   // جلب الخيارات للسؤال الحالي
   const optionsRef = useMemoFirebase(() => {
-    if (!firestore || !courseId || !examId || !currentQuestion || currentQuestion.questionType !== 'MCQ') return null;
+    if (!firestore || !courseId || !examId || !currentQuestion || currentQuestion.questionType !== 'MCQ' || !user) return null;
     return collection(firestore, 'courses', courseId, 'content', examId as string, 'questions', currentQuestion.id, 'options');
-  }, [firestore, courseId, examId, currentQuestion]);
+  }, [firestore, courseId, examId, currentQuestion, user]);
 
   const { data: options } = useCollection(optionsRef);
 
@@ -104,7 +108,6 @@ export default function TakeExamPage() {
     setIsSubmitting(true);
     
     try {
-      // 1. إنشاء محاولة الطالب
       const attemptRef = await addDoc(collection(firestore, 'students', user.uid, 'quiz_attempts'), {
         studentId: user.uid,
         courseContentId: examId,
@@ -116,9 +119,7 @@ export default function TakeExamPage() {
         course_uploadedByAdminUserId: exam.course_uploadedByAdminUserId
       });
 
-      // 2. حفظ الإجابات
       let totalScore = 0;
-      let mcqCorrect = 0;
 
       for (const question of questions) {
         const studentAnswer = answers[question.id] || {};
@@ -132,7 +133,6 @@ export default function TakeExamPage() {
             isCorrect = true;
             scoreAchieved = question.points;
             totalScore += scoreAchieved;
-            mcqCorrect++;
           }
         }
 
@@ -148,7 +148,6 @@ export default function TakeExamPage() {
         });
       }
 
-      // 3. تحديث نتيجة المحاولة إذا كان التصحيح فورياً
       if (exam.allowInstantResultsDisplay) {
         const totalPoints = questions.reduce((sum, q) => sum + q.points, 0);
         const finalScorePercentage = Math.round((totalScore / totalPoints) * 100);
@@ -173,8 +172,18 @@ export default function TakeExamPage() {
     }
   };
 
-  if (isExamLoading || isQsLoading) {
+  if (isAuthLoading || isExamLoading || isQsLoading) {
     return <div className="flex items-center justify-center min-h-screen"><Loader2 className="w-12 h-12 animate-spin text-primary" /></div>;
+  }
+
+  if (!user) {
+    return (
+      <div className="container mx-auto p-8 text-center space-y-4">
+        <AlertCircle className="w-16 h-16 text-destructive mx-auto" />
+        <h1 className="text-2xl font-bold">يرجى تسجيل الدخول أولاً لتأدية الامتحان.</h1>
+        <Button onClick={() => router.push('/login')}>تسجيل الدخول</Button>
+      </div>
+    );
   }
 
   if (!exam || !questions || questions.length === 0) {
@@ -189,7 +198,6 @@ export default function TakeExamPage() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
       <div className="sticky top-0 z-50 bg-card border-b p-4 shadow-sm">
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -218,7 +226,6 @@ export default function TakeExamPage() {
 
       <main className="container mx-auto p-4 md:p-8">
         <div className="max-w-4xl mx-auto space-y-8">
-          {/* Question Card */}
           <Card className="bg-card border-primary/10 shadow-xl animate-in fade-in slide-in-from-bottom-4">
             <CardHeader className="border-b bg-secondary/10">
               <div className="flex justify-between items-center">
@@ -231,7 +238,6 @@ export default function TakeExamPage() {
             <CardContent className="p-8 space-y-8">
               <div className="space-y-6">
                 <h2 className="text-2xl font-bold leading-relaxed">{currentQuestion?.questionText}</h2>
-                
                 {currentQuestion?.questionImageUrl && (
                   <div className="relative w-full aspect-video md:aspect-[21/9] rounded-2xl overflow-hidden border-4 border-secondary/50 shadow-inner">
                     <Image 
@@ -274,15 +280,13 @@ export default function TakeExamPage() {
                       <Label className="text-lg font-bold flex items-center gap-2">
                         <ImageIcon className="w-5 h-5 text-primary" /> أو صور إجابتك من الكراسة وارفعها هنا:
                       </Label>
-                      <p className="text-xs text-muted-foreground">إذا قمت بحل السؤال في ورقة خارجية، قم بتصويرها ورفعها مباشرة.</p>
-                      
                       <div className="flex items-center gap-4">
                         <Button 
                           variant="outline" 
                           className="h-12 border-dashed border-primary/30 flex-grow gap-2"
                           onClick={() => document.getElementById(`upload-${currentQuestion.id}`)?.click()}
                         >
-                          <Upload className="w-4 h-4" /> {answers[currentQuestion.id]?.essayFileUrl ? "تغيير الصورة المرفوعة" : "رفع صورة الحل من جهازك"}
+                          <Upload className="w-4 h-4" /> {answers[currentQuestion.id]?.essayFileUrl ? "تغيير الصورة المرفوعة" : "رفع صورة الحل"}
                         </Button>
                         {answers[currentQuestion.id]?.essayFileUrl && (
                           <Button variant="ghost" size="icon" onClick={() => handleAnswerChange(currentQuestion.id, { essayFileUrl: '' })} className="text-destructive h-12 w-12">
@@ -290,7 +294,6 @@ export default function TakeExamPage() {
                           </Button>
                         )}
                       </div>
-                      
                       <input 
                         id={`upload-${currentQuestion.id}`}
                         type="file" 
@@ -298,7 +301,6 @@ export default function TakeExamPage() {
                         className="hidden" 
                         onChange={(e) => handleFileUpload(e, currentQuestion.id)}
                       />
-
                       {answers[currentQuestion.id]?.essayFileUrl && (
                         <div className="relative w-full h-64 rounded-xl overflow-hidden border-2 border-primary/20 shadow-inner mt-4">
                           <Image src={answers[currentQuestion.id]!.essayFileUrl!} alt="Preview" fill className="object-contain bg-background" unoptimized />
@@ -311,7 +313,6 @@ export default function TakeExamPage() {
             </CardContent>
           </Card>
 
-          {/* Navigation */}
           <div className="flex justify-between items-center">
             <Button 
               variant="outline" 
@@ -322,7 +323,6 @@ export default function TakeExamPage() {
             >
               <ChevronRight className="w-5 h-5 ml-2" /> السؤال السابق
             </Button>
-            
             <div className="flex gap-2">
               {questions.map((_, i) => (
                 <button 
@@ -332,7 +332,6 @@ export default function TakeExamPage() {
                 />
               ))}
             </div>
-
             <Button 
               variant="outline" 
               size="lg"

@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -51,7 +52,6 @@ service cloud.firestore {
       allow create: if isOwner(studentId);
       allow delete: if isAdmin();
 
-      // المجموعات الفرعية داخل ملف الطالب
       match /enrollments/{enrollmentId} {
         allow read, list, write: if isOwner(studentId) || isAdmin();
       }
@@ -71,7 +71,7 @@ service cloud.firestore {
       allow write: if isAdmin();
 
       match /content/{contentId} {
-        allow read, list: if true; // السماح برؤية عناوين المحتوى للجميع، والتحقق من Enrollment يتم في الواجهة أو لقراءة التفاصيل
+        allow read, list: if true;
         allow write: if isAdmin();
         
         match /questions/{questionId} {
