@@ -7,7 +7,7 @@ import { Navbar } from '@/components/ui/navbar';
 import { Footer } from '@/components/ui/footer';
 import { Button } from '@/components/ui/button';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { ArrowLeft, BookOpen, Video, Award, Users, Star, Loader2, MonitorSmartphone, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, BookOpen, Video, Award, Users, Star, Loader2 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
 
@@ -34,16 +34,6 @@ export default function Home() {
       <Navbar />
       
       <main className="flex-grow pt-16">
-        {/* Mobile View Alert */}
-        <div className="md:hidden bg-primary text-primary-foreground p-4 text-center animate-pulse border-b border-primary/20">
-          <div className="container mx-auto flex items-center justify-center gap-3">
-            <AlertTriangle className="w-5 h-5 shrink-0" />
-            <p className="text-sm font-bold leading-tight">
-              يا بشمهندس، لضمان أفضل تجربة تعليمية، يرجى تفعيل <span className="underline">"وضع سطح المكتب" (Desktop Site)</span> من إعدادات المتصفح.
-            </p>
-          </div>
-        </div>
-
         {/* Hero Section */}
         <section className="relative h-[80vh] flex items-center overflow-hidden">
           <div className="absolute inset-0 z-0">

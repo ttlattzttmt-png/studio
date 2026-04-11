@@ -62,10 +62,10 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
 
   const NavContent = () => (
     <div className="flex flex-col h-full bg-card">
-      <div className="p-6 flex items-center gap-3 border-b">
+      <Link href={isAdmin ? '/admin' : '/student'} className="p-6 flex items-center gap-3 border-b hover:bg-secondary/20 transition-colors">
         <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold">ب</div>
         <span className="text-xl font-headline font-bold">البشمهندس</span>
-      </div>
+      </Link>
 
       <nav className="flex-grow p-4 space-y-2 overflow-y-auto">
         {links.map((link) => (
@@ -116,10 +116,10 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
     <>
       {/* Mobile Top Nav */}
       <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b z-50 px-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <Link href={isAdmin ? '/admin' : '/student'} className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold">ب</div>
           <span className="text-lg font-headline font-bold">البشمهندس</span>
-        </div>
+        </Link>
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon">
