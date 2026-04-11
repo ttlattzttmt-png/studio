@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -46,11 +47,15 @@ export default function StudentDashboard() {
     );
   }
 
+  if (!user) return <div className="p-20 text-center text-muted-foreground italic">يرجى تسجيل الدخول أولاً.</div>;
+
+  const firstName = studentProfile?.name ? studentProfile.name.split(' ')[0] : 'المجتهد';
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="text-right">
-          <h1 className="text-4xl font-headline font-bold mb-2">أهلاً بك، يا بشمهندس {studentProfile?.name?.split(' ')[0] || 'المجتهد'}</h1>
+          <h1 className="text-4xl font-headline font-bold mb-2">أهلاً بك، يا بشمهندس {firstName}</h1>
           <p className="text-muted-foreground">كل دروسك وامتحاناتك هنا، جاهز للتفوق؟</p>
         </div>
         <div className="flex items-center gap-3 bg-card p-4 rounded-2xl border border-primary/20 shadow-lg shadow-primary/5">

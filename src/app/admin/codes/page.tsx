@@ -15,20 +15,20 @@ import {
   DialogTrigger,
   DialogFooter
 } from "@/components/ui/dialog";
-import { Search, Filter, Download, Plus, Ticket, Loader2, Trash2, CheckCircle2 } from 'lucide-react';
+import { Search, Plus, Ticket, Loader2, Trash2 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 export default function ManageCodes() {
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [genData, setGenData] = useState({ courseId: '', count: '10' });
 
-  // جلب الأكواد والكورسات لحظياً - مع اشتراط وجود المستخدم لتجنب أخطاء الصلاحيات
+  // جلب الأكواد والكورسات لحظياً - مع اشتراط وجود المستخدم لتجنب أخطاء الصلاحيات قبل تسجيل الدخول
   const codesRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(collection(firestore, 'access_codes'), orderBy('createdAt', 'desc'));
@@ -86,7 +86,8 @@ export default function ManageCodes() {
     available: codes?.filter(c => !c.isUsed).length || 0
   };
 
-  if (!user) return <div className="p-20 text-center text-muted-foreground">جاري التحقق من الصلاحيات...</div>;
+  if (isUserLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
+  if (!user) return <div className="p-20 text-center text-muted-foreground italic">يرجى تسجيل الدخول كمسؤول أولاً.</div>;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -95,40 +96,38 @@ export default function ManageCodes() {
           <h1 className="text-4xl font-headline font-bold mb-2">أكواد التفعيل</h1>
           <p className="text-muted-foreground">أنت المسؤول الوحيد عن إنشاء وتوزيع هذه الأكواد.</p>
         </div>
-        <div className="flex gap-4">
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button className="h-14 px-8 bg-primary text-primary-foreground font-bold rounded-xl gap-2 text-lg shadow-lg">
-                <Plus className="w-6 h-6" /> توليد أكواد جديدة
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-card">
-              <DialogHeader><DialogTitle className="text-2xl font-bold text-right">توليد أكواد دفع</DialogTitle></DialogHeader>
-              <div className="space-y-6 py-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold">اختر الكورس المستهدف</label>
-                  <Select value={genData.courseId} onValueChange={(v) => setGenData({...genData, courseId: v})}>
-                    <SelectTrigger className="h-12 bg-background"><SelectValue placeholder="اختر الكورس" /></SelectTrigger>
-                    <SelectContent>
-                      {courses?.map(course => (
-                        <SelectItem key={course.id} value={course.id}>{course.title}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold">عدد الأكواد المطلوب توليدها</label>
-                  <Input type="number" value={genData.count} onChange={(e) => setGenData({...genData, count: e.target.value})} className="h-12 bg-background" />
-                </div>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button className="h-14 px-8 bg-primary text-primary-foreground font-bold rounded-xl gap-2 text-lg shadow-lg">
+              <Plus className="w-6 h-6" /> توليد أكواد جديدة
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="bg-card">
+            <DialogHeader><DialogTitle className="text-2xl font-bold text-right">توليد أكواد دفع</DialogTitle></DialogHeader>
+            <div className="space-y-6 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-bold">اختر الكورس المستهدف</label>
+                <Select value={genData.courseId} onValueChange={(v) => setGenData({...genData, courseId: v})}>
+                  <SelectTrigger className="h-12 bg-background"><SelectValue placeholder="اختر الكورس" /></SelectTrigger>
+                  <SelectContent>
+                    {courses?.map(course => (
+                      <SelectItem key={course.id} value={course.id}>{course.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <DialogFooter>
-                <Button onClick={handleGenerateCodes} disabled={isGenerating || !genData.courseId} className="w-full h-12 bg-primary font-bold">
-                  {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : "ابدأ التوليد الآن"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold">عدد الأكواد المطلوب توليدها</label>
+                <Input type="number" value={genData.count} onChange={(e) => setGenData({...genData, count: e.target.value})} className="h-12 bg-background" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={handleGenerateCodes} disabled={isGenerating || !genData.courseId} className="w-full h-12 bg-primary font-bold">
+                {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : "ابدأ التوليد الآن"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -152,7 +151,7 @@ export default function ManageCodes() {
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input 
               placeholder="بحث عن كود معين..." 
-              className="pr-10 bg-background border-primary/10" 
+              className="pr-10 bg-background border-primary/10 text-right" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />

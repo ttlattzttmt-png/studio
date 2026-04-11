@@ -13,6 +13,7 @@ export default function AdminOverview() {
   const { user, isUserLoading } = useUser();
 
   useEffect(() => {
+    // حل مشكلة Hydration باستخدام useEffect للوقت
     const updateTime = () => {
       setCurrentTime(new Date().toLocaleTimeString('ar-EG'));
     };
@@ -21,7 +22,7 @@ export default function AdminOverview() {
     return () => clearInterval(timer);
   }, []);
 
-  // جلب البيانات اللحظية للإحصائيات - لا يتم الاستعلام إلا إذا وجد مستخدم
+  // جلب البيانات اللحظية للإحصائيات - لا يتم الاستعلام إلا إذا وجد مستخدم (أدمن) مؤكد
   const studentsRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return collection(firestore, 'students');
@@ -69,6 +70,7 @@ export default function AdminOverview() {
   ];
 
   if (isUserLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
+  if (!user) return <div className="p-20 text-center text-muted-foreground italic">يرجى تسجيل الدخول كمسؤول أولاً.</div>;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">

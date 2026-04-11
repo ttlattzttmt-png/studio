@@ -29,13 +29,13 @@ import Image from 'next/image';
 
 export default function AdminGradingPage() {
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // جلب كافة محاولات الطلاب لحظياً باستخدام Collection Group - مع اشتراط وجود المستخدم
+  // جلب كافة محاولات الطلاب لحظياً باستخدام Collection Group - لا يبدأ الاستعلام إلا بعد تأكيد هوية الأدمن
   const attemptsRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return collectionGroup(firestore, 'quiz_attempts');
@@ -92,7 +92,8 @@ export default function AdminGradingPage() {
     }
   };
 
-  if (!user) return <div className="p-20 text-center text-muted-foreground">جاري التحقق من الصلاحيات...</div>;
+  if (isUserLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
+  if (!user) return <div className="p-20 text-center text-muted-foreground italic">يرجى تسجيل الدخول كمسؤول أولاً.</div>;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -102,7 +103,6 @@ export default function AdminGradingPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* قائمة المحاولات */}
         <Card className="lg:col-span-1 bg-card border-primary/10 h-fit">
           <CardHeader className="border-b">
             <div className="relative">
@@ -148,7 +148,6 @@ export default function AdminGradingPage() {
           </CardContent>
         </Card>
 
-        {/* تفاصيل الإجابات */}
         <div className="lg:col-span-2">
           {selectedAttempt ? (
             <AttemptDetails 
