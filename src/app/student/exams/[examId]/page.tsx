@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { 
   Loader2, 
   Send, 
@@ -21,7 +22,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, addDoc, doc, getDocs, query, orderBy, where, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, getDocs, query, orderBy, where, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 
@@ -37,7 +38,6 @@ export default function TakeExamPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [courseId, setCourseId] = useState<string | null>(null);
   
-  // نظام التايمر
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
   useEffect(() => {
@@ -101,11 +101,11 @@ export default function TakeExamPage() {
         gradeReleased: false
       });
 
-      let totalScore = 0;
-      let totalPoints = 0;
+      let totalScoreAchieved = 0;
+      let totalMaxPoints = 0;
 
       for (const q of questions) {
-        totalPoints += q.points;
+        totalMaxPoints += q.points;
         const studentAns = answers[q.id] || {};
         let isCorrect = false;
         let scoreAchieved = 0;
@@ -116,7 +116,7 @@ export default function TakeExamPage() {
           if (correctOpt && correctOpt.id === studentAns.mcqOptionId) {
             isCorrect = true;
             scoreAchieved = q.points;
-            totalScore += scoreAchieved;
+            totalScoreAchieved += scoreAchieved;
           }
         }
 
@@ -125,15 +125,17 @@ export default function TakeExamPage() {
           questionType: q.questionType,
           mcqSelectedOptionId: studentAns.mcqOptionId || null,
           essayAnswerText: studentAns.essayText || '',
-          essayAnswerFileUrl: studentAns.essayFileUrl || '', // حفظ رابط صورة الحل
+          essayAnswerFileUrl: studentAns.essayFileUrl || '',
           isCorrect: q.questionType === 'MCQ' ? isCorrect : false,
-          scoreAchieved: q.questionType === 'MCQ' ? scoreAchieved : 0
+          scoreAchieved: q.questionType === 'MCQ' ? scoreAchieved : 0,
+          maxPoints: q.points // حفظ النقاط القصوى للسؤال لسهولة الحساب لاحقاً
         });
       }
 
-      const finalScore = Math.round((totalScore / totalPoints) * 100);
+      const finalScorePercentage = totalMaxPoints > 0 ? Math.round((totalScoreAchieved / totalMaxPoints) * 100) : 0;
+      
       await updateDoc(doc(firestore, 'students', user.uid, 'quiz_attempts', attemptRef.id), {
-        score: finalScore,
+        score: finalScorePercentage,
         isGraded: questions.every(q => q.questionType === 'MCQ')
       });
 
@@ -160,13 +162,13 @@ export default function TakeExamPage() {
       <div className="sticky top-0 z-50 bg-card border-b p-4 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="text-xl font-bold bg-primary/10 px-4 py-2 rounded-xl text-primary flex items-center gap-2">
-            <Clock className="w-5 h-5" /> {timeLeft ? formatTime(timeLeft) : '--:--'}
+            <Clock className="w-5 h-5" /> {timeLeft !== null ? formatTime(timeLeft) : '--:--'}
           </div>
           <h1 className="font-bold text-lg hidden md:block">{exam?.title}</h1>
         </div>
         <div className="flex items-center gap-2">
            <span className="text-xs text-muted-foreground hidden sm:block">سؤال {activeQuestionIndex + 1} من {questions?.length}</span>
-           <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-primary font-bold px-8 shadow-lg shadow-primary/20">
+           <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-primary text-primary-foreground font-bold px-8 shadow-lg shadow-primary/20">
              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "إنهاء وتسليم"}
            </Button>
         </div>
@@ -201,7 +203,7 @@ export default function TakeExamPage() {
                     examId={examId as string} 
                     questionId={currentQuestion.id} 
                     selectedId={answers[currentQuestion.id]?.mcqOptionId}
-                    onSelect={(id) => setAnswers({...answers, [currentQuestion.id]: { mcqOptionId: id }})}
+                    onSelect={(id: string) => setAnswers({...answers, [currentQuestion.id]: { mcqOptionId: id }})}
                   />
                 ) : (
                   <div className="space-y-6">
@@ -220,18 +222,13 @@ export default function TakeExamPage() {
                         <Upload className="w-5 h-5" />
                         <span>أو ارفع صورة لحلك اليدوي</span>
                       </div>
-                      <p className="text-xs text-muted-foreground">إذا قمت بحل السؤال في ورقة خارجية، يمكنك تصويرها ووضع رابط الصورة هنا (عبر أي موقع لرفع الصور أو تزويدنا بالرابط):</p>
+                      <p className="text-xs text-muted-foreground">إذا قمت بحل السؤال في ورقة خارجية، يمكنك تصويرها ووضع رابط الصورة هنا:</p>
                       <Input 
                         placeholder="ضع رابط الصورة المرفوعة هنا..." 
                         className="bg-background text-right"
                         value={answers[currentQuestion.id]?.essayFileUrl || ''}
                         onChange={(e) => setAnswers({...answers, [currentQuestion.id]: { ...answers[currentQuestion.id], essayFileUrl: e.target.value }})}
                       />
-                      {answers[currentQuestion.id]?.essayFileUrl && (
-                        <div className="relative w-full h-32 rounded-lg overflow-hidden border">
-                          <Image src={answers[currentQuestion.id].essayFileUrl} alt="" fill className="object-contain" unoptimized />
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}

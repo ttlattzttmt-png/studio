@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -21,7 +22,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useDoc, useUser } from '@/firebase';
-import { collectionGroup, query, updateDoc, doc, collection, where } from 'firebase/firestore';
+import { collectionGroup, query, updateDoc, doc, collection, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeEssayAnswer } from '@/ai/flows/admin-essay-answer-analyzer';
 import Image from 'next/image';
@@ -34,7 +35,6 @@ export default function AdminGradingPage() {
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // جلب كافة محاولات الطلاب لحظياً باستخدام Collection Group - فقط للمشرفين
   const attemptsRef = useMemoFirebase(() => {
     if (!firestore || isUserLoading || !user) return null;
     return collectionGroup(firestore, 'quiz_attempts');
@@ -79,12 +79,32 @@ export default function AdminGradingPage() {
   const handleReleaseGrades = async (attempt: any) => {
     if (!firestore) return;
     try {
+      // 1. جلب كافة إجابات الطالب لهذه المحاولة
+      const answersRef = collection(firestore, 'students', attempt.studentId, 'quiz_attempts', attempt.id, 'answers');
+      const answersSnap = await getDocs(answersRef);
+      
+      let totalScoreAchieved = 0;
+      let totalMaxPoints = 0;
+
+      answersSnap.forEach(doc => {
+        const data = doc.data();
+        totalScoreAchieved += (data.scoreAchieved || 0);
+        totalMaxPoints += (data.maxPoints || 0);
+      });
+
+      // 2. إعادة حساب النسبة المئوية النهائية
+      const finalPercentage = totalMaxPoints > 0 ? Math.round((totalScoreAchieved / totalMaxPoints) * 100) : 0;
+
+      // 3. تحديث المحاولة بالدرجة النهائية وتفعيل الظهور للطالب
       const attemptRef = doc(firestore, 'students', attempt.studentId, 'quiz_attempts', attempt.id);
       await updateDoc(attemptRef, { 
         isGraded: true,
+        score: finalPercentage,
         gradeReleaseDate: new Date().toISOString()
       });
-      toast({ title: "تم الاعتماد", description: "النتيجة أصبحت متاحة للطالب الآن." });
+
+      toast({ title: "تم الاعتماد", description: `النتيجة النهائية (${finalPercentage}%) أصبحت متاحة للطالب الآن.` });
+      setSelectedAttempt({...attempt, isGraded: true, score: finalPercentage});
     } catch (e) { 
       console.error(e); 
       toast({ variant: "destructive", title: "خطأ", description: "فشل اعتماد النتيجة." });
@@ -197,14 +217,13 @@ function AttemptDetails({ attempt, onAnalyzeAI, onGrade, onRelease, isAnalyzing 
       <CardHeader className="border-b bg-secondary/5 flex flex-row items-center justify-between p-6">
         <div>
           <CardTitle className="text-2xl font-bold text-primary">مراجعة إجابات الطالب</CardTitle>
-          <p className="text-xs text-muted-foreground">معرف المحاولة: {attempt.id}</p>
+          <p className="text-xs text-muted-foreground">الحالة: {attempt.isGraded ? `تم الاعتماد بنسبة ${attempt.score}%` : 'بانتظار المراجعة والاعتماد'}</p>
         </div>
         <Button 
           onClick={() => onRelease(attempt)} 
-          disabled={attempt.isGraded} 
           className="bg-accent hover:bg-accent/90 text-white font-bold h-12 px-6 gap-2"
         >
-          <CheckCircle className="w-5 h-5" /> اعتماد النتيجة
+          <CheckCircle className="w-5 h-5" /> اعتماد النتيجة النهائية
         </Button>
       </CardHeader>
       <CardContent className="p-6 max-h-[70vh] overflow-y-auto space-y-6">
@@ -215,14 +234,17 @@ function AttemptDetails({ attempt, onAnalyzeAI, onGrade, onRelease, isAnalyzing 
             {answers?.map((answer, i) => (
               <Card key={answer.id} className="bg-background border-primary/5 overflow-hidden">
                 <div className="p-4 bg-secondary/10 border-b flex justify-between items-center">
-                  <Badge variant="outline" className="border-primary/30 text-primary">
-                    سؤال {i+1} - {answer.questionType === 'MCQ' ? 'اختياري' : 'مقالي'}
-                  </Badge>
+                  <div className="flex gap-2 items-center">
+                    <Badge variant="outline" className="border-primary/30 text-primary">
+                      سؤال {i+1} ({answer.maxPoints || 1} ن)
+                    </Badge>
+                    <span className="text-xs font-bold">{answer.questionType === 'MCQ' ? 'اختياري' : 'مقالي'}</span>
+                  </div>
                   <div className="flex gap-2">
                     <Button 
                       size="sm" 
                       variant={answer.isCorrect ? 'default' : 'outline'} 
-                      onClick={() => onGrade(answer, true, 1)}
+                      onClick={() => onGrade(answer, true, answer.maxPoints || 1)}
                       className={answer.isCorrect ? 'bg-accent text-white' : ''}
                     >
                       <CheckCircle2 className="w-4 h-4 ml-1" /> صحيح
