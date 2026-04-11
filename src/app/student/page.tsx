@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Play, Trophy, ArrowLeft, Loader2, User, Megaphone, Clock } from 'lucide-react';
+import { Play, Trophy, ArrowLeft, Loader2, User, Megaphone, Clock, BookOpen, Star } from 'lucide-react';
 import Link from 'next/link';
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, orderBy, limit } from 'firebase/firestore';
@@ -14,6 +14,11 @@ export default function StudentDashboard() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const [redeemCode, setRedeemCode] = useState('');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const studentRef = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
@@ -34,7 +39,7 @@ export default function StudentDashboard() {
   const { data: enrollments, isLoading: isEnrollmentsLoading } = useCollection(enrollmentsRef);
   const { data: notifications, isLoading: isNotificationsLoading } = useCollection(notificationsRef);
 
-  if (isUserLoading || isProfileLoading) {
+  if (!mounted || isUserLoading || isProfileLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -47,7 +52,7 @@ export default function StudentDashboard() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-headline font-bold mb-2">أهلاً بك، يا بشمهندس {studentProfile?.name?.split(' ')[0] || 'المجتهد'}</h1>
-          <p className="text-muted-foreground">تابع دروسك وامتحاناتك من هنا بكل سهولة وبشكل لحظي.</p>
+          <p className="text-muted-foreground">كل دروسك وامتحاناتك هنا، جاهز للتفوق؟</p>
         </div>
         <div className="flex items-center gap-3 bg-card p-4 rounded-2xl border border-primary/20 shadow-lg shadow-primary/5">
           <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
@@ -62,11 +67,11 @@ export default function StudentDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-           <Card className="bg-card border-primary/10 overflow-hidden">
+           <Card className="bg-card border-primary/10 overflow-hidden shadow-sm">
              <div className="h-2 bg-primary" />
-             <CardHeader className="flex flex-row items-center justify-between">
+             <CardHeader>
                <CardTitle className="text-xl font-bold flex items-center gap-2">
-                 <User className="w-5 h-5 text-primary" /> ملف الطالب الشخصي
+                 <User className="w-5 h-5 text-primary" /> بياناتك الأكاديمية
                </CardTitle>
              </CardHeader>
              <CardContent>
@@ -94,7 +99,7 @@ export default function StudentDashboard() {
            <div>
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-headline font-bold">كورساتي المفعلة</h2>
-                <Link href="/student/my-courses" className="text-primary hover:underline text-sm font-bold flex items-center gap-1">عرض جميع الكورسات <ArrowLeft className="w-4 h-4" /></Link>
+                <Link href="/student/my-courses" className="text-primary hover:underline text-sm font-bold flex items-center gap-1">عرض الكل <ArrowLeft className="w-4 h-4" /></Link>
               </div>
               
               {isEnrollmentsLoading ? (
@@ -108,7 +113,7 @@ export default function StudentDashboard() {
                            <div className="w-12 h-12 rounded-xl bg-primary/10 group-hover:bg-primary transition-colors flex items-center justify-center">
                              <Play className="w-6 h-6 text-primary group-hover:text-primary-foreground" />
                            </div>
-                           <span className={`text-[10px] font-bold px-2 py-1 rounded shadow-sm ${enrollment.isCompleted ? 'bg-accent text-accent-foreground' : 'bg-secondary text-foreground'}`}>
+                           <span className={`text-[10px] font-bold px-2 py-1 rounded ${enrollment.isCompleted ? 'bg-accent text-accent-foreground' : 'bg-secondary text-foreground'}`}>
                              {enrollment.isCompleted ? 'مكتمل' : 'قيد الدراسة'}
                            </span>
                          </div>
@@ -116,9 +121,9 @@ export default function StudentDashboard() {
                          <div className="w-full h-2 bg-secondary rounded-full overflow-hidden mb-2">
                            <div className="h-full bg-primary" style={{ width: `${enrollment.progressPercentage}%` }} />
                          </div>
-                         <div className="flex items-center justify-between">
-                           <span className="text-[10px] text-muted-foreground font-medium">تقدمك الدراسي</span>
-                           <span className="text-[10px] font-black text-primary">{enrollment.progressPercentage}%</span>
+                         <div className="flex items-center justify-between text-[10px] font-bold">
+                           <span className="text-muted-foreground">تقدمك الدراسي</span>
+                           <span className="text-primary">{enrollment.progressPercentage}%</span>
                          </div>
                       </CardContent>
                     </Card>
@@ -127,8 +132,8 @@ export default function StudentDashboard() {
               ) : (
                 <div className="p-16 text-center bg-secondary/10 rounded-3xl border-2 border-dashed border-primary/10">
                   <Play className="w-12 h-12 text-primary/20 mx-auto mb-4" />
-                  <p className="text-muted-foreground font-medium mb-6">أنت غير مشترك في أي كورس حالياً. ابدأ بتفعيل كودك الآن.</p>
-                  <Link href="/student/redeem"><Button className="bg-primary text-primary-foreground font-bold h-12 px-8 rounded-xl shadow-lg shadow-primary/20">تفعيل كود كورس جديد</Button></Link>
+                  <p className="text-muted-foreground font-medium mb-6">لم تقم بتفعيل أي كورس بعد.</p>
+                  <Link href="/student/redeem"><Button className="bg-primary text-primary-foreground font-bold h-12 px-8 rounded-xl">تفعيل أول كورس الآن</Button></Link>
                 </div>
               )}
            </div>
@@ -137,8 +142,8 @@ export default function StudentDashboard() {
         <div className="space-y-8">
            <Card className="bg-primary text-primary-foreground p-8 rounded-3xl shadow-2xl shadow-primary/20 relative overflow-hidden group">
               <div className="relative z-10 space-y-4">
-                <h4 className="text-xl font-bold">تفعيل اشتراك جديد</h4>
-                <p className="text-sm opacity-90 leading-relaxed">أدخل كود الكورس الذي استلمته لتفعيل المحتوى فوراً.</p>
+                <h4 className="text-xl font-bold flex items-center gap-2"><Star className="w-5 h-5" /> تفعيل كورس جديد</h4>
+                <p className="text-sm opacity-90 leading-relaxed">أدخل الكود الذي استلمته لتفعيل المحتوى فوراً.</p>
                 <Input 
                   placeholder="ENG-XXXX-XXXX" 
                   value={redeemCode}
@@ -147,7 +152,7 @@ export default function StudentDashboard() {
                 />
                 <Button 
                   onClick={() => window.location.href=`/student/redeem?code=${redeemCode}`}
-                  className="w-full h-12 bg-white text-primary font-bold hover:bg-white/90 shadow-xl"
+                  className="w-full h-12 bg-white text-primary font-bold hover:bg-white/90"
                 >
                   تفعيل الآن
                 </Button>
@@ -167,17 +172,17 @@ export default function StudentDashboard() {
                 ) : !notifications || notifications.length === 0 ? (
                   <div className="text-center py-12">
                     <Megaphone className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-10" />
-                    <p className="text-xs text-muted-foreground italic">لا توجد رسائل أو تنبيهات عامة حالياً.</p>
+                    <p className="text-xs text-muted-foreground italic">لا توجد رسائل حالياً.</p>
                   </div>
                 ) : (
                   <div className="divide-y">
                     {notifications.map((notif: any) => (
-                      <div key={notif.id} className="p-5 hover:bg-secondary/10 transition-colors border-r-4 border-transparent hover:border-primary">
+                      <div key={notif.id} className="p-5 hover:bg-secondary/10 transition-colors">
                         <h5 className="text-sm font-bold text-primary mb-1">{notif.title}</h5>
-                        <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">{notif.message}</p>
-                        <div className="mt-3 flex items-center gap-2 text-[9px] text-muted-foreground bg-secondary/20 w-fit px-2 py-1 rounded-full">
+                        <p className="text-xs text-muted-foreground line-clamp-3">{notif.message}</p>
+                        <div className="mt-2 flex items-center gap-1 text-[9px] text-muted-foreground italic">
                           <Clock className="w-3 h-3" />
-                          <span className="font-bold">{notif.createdAt?.toDate ? notif.createdAt.toDate().toLocaleString('ar-EG') : 'جاري الإرسال...'}</span>
+                          <span>{notif.createdAt?.toDate ? notif.createdAt.toDate().toLocaleString('ar-EG') : 'الآن'}</span>
                         </div>
                       </div>
                     ))}
