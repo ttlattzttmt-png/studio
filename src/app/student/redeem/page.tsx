@@ -65,15 +65,18 @@ export default function RedeemCodePage() {
 
       const courseTitle = courseSnap.data().title;
 
-      // 3. تحديث حالة الكود (تم منح الصلاحية في القواعد الآن)
-      await updateDoc(doc(firestore, 'access_codes', codeDoc.id), {
+      // 3. تحديث حالة الكود
+      // نستخدم updateDoc مباشرة لأن القواعد الآن تسمح للطالب بتحديث الكود المتاح
+      const codeDocRef = doc(firestore, 'access_codes', codeDoc.id);
+      await updateDoc(codeDocRef, {
         isUsed: true,
         usedByStudentId: user.uid,
         usedAt: serverTimestamp()
       });
 
-      // 4. تفعيل الكورس للطالب
-      await setDoc(doc(firestore, 'students', user.uid, 'enrollments', courseId), {
+      // 4. تفعيل الكورس للطالب في مجلده الخاص
+      const enrollmentRef = doc(firestore, 'students', user.uid, 'enrollments', courseId);
+      await setDoc(enrollmentRef, {
         id: courseId,
         studentId: user.uid,
         courseId: courseId,
@@ -90,11 +93,11 @@ export default function RedeemCodePage() {
       
       router.push('/student/my-courses');
     } catch (e: any) {
-      console.error("Redeem error:", e);
+      console.error("Redeem error details:", e);
       toast({
         variant: "destructive",
-        title: "خطأ في الصلاحيات",
-        description: "تأكد من تسجيل الدخول والمحاولة مرة أخرى."
+        title: "فشل التفعيل",
+        description: "حدث خطأ في الصلاحيات. يرجى محاولة تسجيل الخروج والدخول مرة أخرى."
       });
     } finally {
       setIsSubmitting(false);

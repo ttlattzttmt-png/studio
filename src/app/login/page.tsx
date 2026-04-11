@@ -55,6 +55,7 @@ export default function LoginPage() {
         
         if (!adminRoleSnap.exists()) {
           // تأكيد دور المسؤول في Firestore
+          // القواعد الآن تسمح لبريد admin@al-bashmohandes.com بإنشاء هذا السجل
           await setDoc(adminRoleRef, { role: 'admin', createdAt: serverTimestamp() });
           await setDoc(doc(firestore, 'admin_users', uid), {
             id: uid,
