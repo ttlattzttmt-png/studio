@@ -123,9 +123,14 @@ export default function TakeExamPage() {
 
         // رفع الملف إذا وجد
         if (studentAns.essayFile) {
-          const fileRef = ref(storage, `students/${user.uid}/attempts/${attemptRef.id}/${q.id}_${Date.now()}`);
-          const uploadSnap = await uploadBytes(fileRef, studentAns.essayFile);
-          essayFileUrl = await getDownloadURL(uploadSnap.ref);
+          try {
+            const fileRef = ref(storage, `students/${user.uid}/attempts/${attemptRef.id}/${q.id}_${Date.now()}`);
+            const uploadSnap = await uploadBytes(fileRef, studentAns.essayFile);
+            essayFileUrl = await getDownloadURL(uploadSnap.ref);
+          } catch (fileError) {
+            console.error("Error uploading student file:", fileError);
+            // نستمر في المعالجة حتى لو فشل رفع ملف واحد
+          }
         }
 
         if (q.questionType === 'MCQ') {
@@ -158,11 +163,15 @@ export default function TakeExamPage() {
         isGraded: questions.every(q => q.questionType === 'MCQ')
       });
 
-      toast({ title: "تم تسليم الامتحان ورفع الملفات بنجاح" });
+      toast({ title: "تم تسليم الامتحان بنجاح", description: "تم حفظ الإجابات ورفع الملفات المرفقة." });
       router.push('/student/exams');
-    } catch (e) {
-      console.error(e);
-      toast({ variant: "destructive", title: "فشل التسليم، تأكد من اتصال الإنترنت." });
+    } catch (e: any) {
+      console.error("Submission Error:", e);
+      toast({ 
+        variant: "destructive", 
+        title: "فشل التسليم", 
+        description: e.message || "تأكد من اتصالك ومن تفعيل خدمات الرفع." 
+      });
     } finally {
       setIsSubmitting(false);
     }

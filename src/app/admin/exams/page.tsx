@@ -236,6 +236,7 @@ export default function AdminExams() {
 
 function QuestionManager({ exam }: { exam: any }) {
   const { firestore, storage } = useFirebase();
+  const { user } = useUser();
   const { toast } = useToast();
   const [isAdding, setIsAdding] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -257,17 +258,21 @@ function QuestionManager({ exam }: { exam: any }) {
   const { data: questions } = useCollection(questionsRef);
 
   const handleAddQuestion = async () => {
-    if (!firestore || !exam || !storage || (!newQuestion.text && !selectedFile)) return;
+    if (!firestore || !exam || !storage || !user || (!newQuestion.text && !selectedFile)) return;
     setIsAdding(true);
     try {
       let imageUrl = '';
       if (selectedFile) {
+        // إنشاء مرجع للملف في الاستورج
         const storagePath = `exams/${exam.id}/questions/${Date.now()}_${selectedFile.name}`;
         const fileRef = ref(storage, storagePath);
+        
+        // محاولة الرفع
         const uploadResult = await uploadBytes(fileRef, selectedFile);
         imageUrl = await getDownloadURL(uploadResult.ref);
       }
 
+      // حفظ بيانات السؤال في الفايرستور
       const qRef = await addDoc(collection(firestore, 'courses', exam.courseId, 'content', exam.id, 'questions'), {
         courseContentId: exam.id,
         questionText: newQuestion.text,
@@ -287,13 +292,17 @@ function QuestionManager({ exam }: { exam: any }) {
           });
         }
       }
-      toast({ title: "تم إضافة السؤال والملف بنجاح" });
+      toast({ title: "تم الحفظ بنجاح", description: "تم رفع الصورة وحفظ بيانات السؤال." });
       setNewQuestion({ text: '', type: 'MCQ', points: '1', options: ['', '', '', ''], correctIndex: 0 });
       setSelectedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
-    } catch (e) { 
-      console.error(e);
-      toast({ variant: "destructive", title: "خطأ في الرفع، تأكد من اتصالك." });
+    } catch (e: any) { 
+      console.error("Upload Error:", e);
+      toast({ 
+        variant: "destructive", 
+        title: "فشل الرفع", 
+        description: e.message || "تأكد من تفعيل Storage في الكونسول ومن اتصالك." 
+      });
     } finally { 
       setIsAdding(false); 
     }
@@ -337,7 +346,7 @@ function QuestionManager({ exam }: { exam: any }) {
                 onClick={() => fileInputRef.current?.click()}
                 className="h-12 flex-grow gap-2 border-primary/20 hover:border-primary"
               >
-                {selectedFile ? <><CheckCircle2 className="w-4 h-4 text-accent" /> {selectedFile.name}</> : <><Upload className="w-4 h-4" /> اختر ملف من الجهاز</>}
+                {selectedFile ? <><CheckCircle2 className="w-4 h-4 text-accent" /> {selectedFile.name}</> : <><Upload className="w-4 h-4" /> اختر صورة من الجهاز</>}
               </Button>
               <input 
                 type="file" 
