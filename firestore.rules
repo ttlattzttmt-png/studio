@@ -1,10 +1,9 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * Al-Bashmohandes Platform Security Rules - Final Stable Version
+     * Al-Bashmohandes Platform Security Rules - Final Version
      */
 
     // --- Helper Functions ---
@@ -16,7 +15,7 @@ service cloud.firestore {
     // التحقق من أن المستخدم هو المسؤول
     function isAdmin() {
       return isSignedIn() && (
-        request.auth.token.email.lower() == "admin@al-bashmohandes.com" ||
+        (request.auth.token.email != null && request.auth.token.email.lower() == "admin@al-bashmohandes.com") ||
         exists(/databases/$(database)/documents/admin_roles/$(request.auth.uid))
       );
     }
@@ -33,7 +32,21 @@ service cloud.firestore {
       );
     }
 
-    // --- Collection Rules ---
+    // --- Collection Group Rules (CRITICAL for Admin Grading/Monitoring) ---
+    
+    match /{path=**}/quiz_attempts/{attemptId} {
+      allow list, get: if isAdmin();
+    }
+    
+    match /{path=**}/enrollments/{enrollmentId} {
+      allow list, get: if isAdmin();
+    }
+    
+    match /{path=**}/answers/{answerId} {
+      allow list, get: if isAdmin();
+    }
+
+    // --- Standard Collection Rules ---
 
     match /admin_roles/{uid} {
       allow get: if isSignedIn();

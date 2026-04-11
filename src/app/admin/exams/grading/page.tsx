@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -7,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
 import { 
   Loader2, 
   CheckCircle2, 
@@ -19,7 +19,7 @@ import {
   BrainCircuit
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collectionGroup, query, where, orderBy, updateDoc, doc, collection } from 'firebase/firestore';
+import { collectionGroup, query, orderBy, updateDoc, doc, collection } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeEssayAnswer } from '@/ai/flows/admin-essay-answer-analyzer';
 import Image from 'next/image';
@@ -32,6 +32,7 @@ export default function AdminGradingPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // جلب كافة محاولات الطلاب (Collection Group)
+  // تم تبسيط الاستعلام لتجنب الحاجة لفهارس مركبة معقدة حالياً
   const attemptsRef = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collectionGroup(firestore, 'quiz_attempts'), orderBy('submittedAt', 'desc'));
@@ -47,10 +48,8 @@ export default function AdminGradingPage() {
   const handleGradeAnswer = async (answer: any, isCorrect: boolean, score: number) => {
     if (!firestore || !selectedAttempt) return;
     try {
-      // 1. تحديث الإجابة الفردية
       const answerRef = doc(firestore, 'students', selectedAttempt.studentId, 'quiz_attempts', selectedAttempt.id, 'answers', answer.id);
       await updateDoc(answerRef, { isCorrect, scoreAchieved: score });
-      
       toast({ title: "تم التقييم", description: "تم حفظ درجة السؤال." });
     } catch (e) { console.error(e); }
   };
@@ -194,7 +193,7 @@ function AttemptDetails({ attempt, onAnalyzeAI, onGrade, onRelease, isAnalyzing 
                         <div className="p-4 bg-background rounded-xl border">
                           <div className="flex justify-between items-start mb-2">
                             <Label className="text-xs text-primary font-bold">إجابة الطالب النصية:</Label>
-                            <Button size="xs" variant="ghost" className="h-6 text-[10px] gap-1" onClick={() => onAnalyzeAI(answer.essayAnswerText)}>
+                            <Button variant="ghost" className="h-6 text-[10px] gap-1" onClick={() => onAnalyzeAI(answer.essayAnswerText)}>
                               <BrainCircuit className="w-3 h-3" /> تحليل ذكي
                             </Button>
                           </div>
@@ -205,7 +204,7 @@ function AttemptDetails({ attempt, onAnalyzeAI, onGrade, onRelease, isAnalyzing 
                         <div className="space-y-2">
                           <Label className="text-xs text-accent font-bold">الصورة المرفوعة من الطالب:</Label>
                           <div className="relative w-full h-64 bg-background rounded-xl border overflow-hidden">
-                            <Image src={answer.essayAnswerFileUrl} alt="Student Upload" fill className="object-contain" />
+                            <Image src={answer.essayAnswerFileUrl} alt="Student Upload" fill className="object-contain" unoptimized />
                             <a href={answer.essayAnswerFileUrl} target="_blank" className="absolute top-2 left-2 bg-black/50 text-white p-2 rounded-full hover:bg-black">
                               <ExternalLink className="w-4 h-4" />
                             </a>
