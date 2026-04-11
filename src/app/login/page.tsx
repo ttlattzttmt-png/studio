@@ -32,27 +32,32 @@ export default function LoginPage() {
       let userCredential;
       
       try {
+        // محاولة تسجيل الدخول العادية
         userCredential = await signInWithEmailAndPassword(auth, email, password);
       } catch (authError: any) {
-        // سيناريو خاص للأدمن: إذا لم يكن الحساب موجوداً في Firebase Auth، نقوم بإنشائه تلقائياً (للمرة الأولى فقط)
-        if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase() && authError.code === 'auth/user-not-found') {
-           userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        // منطق خاص بالأدمن للمرة الأولى: إذا كان البريد هو بريد المسؤول، نحاول إنشاء الحساب إذا فشل الدخول
+        if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+          try {
+            userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          } catch (createError: any) {
+            // إذا كان البريد مسجلاً مسبقاً وفشل الدخول، نرمي الخطأ الأصلي (كلمة مرور خطأ مثلاً)
+            throw authError;
+          }
         } else {
-           throw authError;
+          throw authError;
         }
       }
 
       const uid = userCredential.user.uid;
 
-      // إذا كان البريد هو بريد المسؤول المخصص، نضمن وجوده في صلاحيات المسؤول في Firestore
+      // التحقق من صلاحيات المسؤول
       if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
         const adminRoleRef = doc(firestore, 'admin_roles', uid);
         const adminRoleSnap = await getDoc(adminRoleRef);
         
         if (!adminRoleSnap.exists()) {
-          // إنشاء صلاحية المسؤول تلقائياً في Firestore
+          // تأكيد صلاحية المسؤول في قاعدة البيانات
           await setDoc(adminRoleRef, { role: 'admin', createdAt: new Date().toISOString() });
-          // وأيضاً إنشاء بروفايل أدمن
           await setDoc(doc(firestore, 'admin_users', uid), {
             id: uid,
             name: 'المشرف العام',
@@ -66,28 +71,26 @@ export default function LoginPage() {
         return;
       }
 
-      // التحقق من صلاحيات المشرف العادية للآخرين (إذا كان مسجلاً كأدمن مسبقاً)
+      // التحقق من صلاحيات المستخدمين الآخرين
       const adminDocRef = doc(firestore, 'admin_roles', uid);
       const adminDoc = await getDoc(adminDocRef);
       
       if (adminDoc.exists()) {
-        toast({ title: "مرحباً بك يا بشمهندس", description: "جاري توجيهك للوحة التحكم..." });
         router.push('/admin');
       } else {
-        toast({ title: "أهلاً بك", description: "جاري الدخول لحساب الطالب..." });
         router.push('/student');
       }
     } catch (error: any) {
       console.error("Login error:", error);
       let errorMessage = "يرجى التأكد من البريد الإلكتروني وكلمة المرور.";
       
-      if (error.code === 'auth/user-not-found') errorMessage = "هذا الحساب غير موجود.";
-      if (error.code === 'auth/wrong-password') errorMessage = "كلمة المرور غير صحيحة.";
-      if (error.code === 'auth/invalid-credential') errorMessage = "بيانات الدخول غير صحيحة.";
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+        errorMessage = "بيانات الدخول غير صحيحة، يرجى المحاولة مرة أخرى.";
+      }
       
       toast({
         variant: "destructive",
-        title: "خطأ في تسجيل الدخول",
+        title: "خطأ في الدخول",
         description: errorMessage
       });
     } finally {
@@ -99,8 +102,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8 bg-card p-10 rounded-3xl border border-primary/10 shadow-2xl relative overflow-hidden">
         <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-primary/5 rounded-full blur-3xl" />
-
+        
         <div className="relative text-center">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-primary/10 text-primary mb-6">
             <ShieldCheck className="w-10 h-10" />
@@ -118,7 +120,7 @@ export default function LoginPage() {
               id="email" 
               type="email" 
               placeholder="example@mail.com" 
-              className="h-12 bg-background border-primary/10 focus:border-primary" 
+              className="h-12 bg-background border-primary/10 focus:border-primary text-right" 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required 
@@ -132,7 +134,7 @@ export default function LoginPage() {
             <Input 
               id="password" 
               type="password" 
-              className="h-12 bg-background border-primary/10 focus:border-primary" 
+              className="h-12 bg-background border-primary/10 focus:border-primary text-right" 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required 
@@ -148,7 +150,7 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        <div className="relative text-center space-y-4 pt-4 border-t">
+        <div className="relative text-center pt-4 border-t">
           <p className="text-sm text-muted-foreground">
             ليس لديك حساب؟{' '}
             <Link href="/register" className="text-primary font-bold hover:underline">
