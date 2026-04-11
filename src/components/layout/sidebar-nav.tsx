@@ -32,10 +32,10 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
   const { user } = useUser();
   const [open, setOpen] = useState(false);
 
-  // تحديث روابط الطالب لتشمل "كورساتي المفعلة" وتوجيهها للوحة التحكم
+  // تحديث روابط الطالب لتشمل "كورساتي المفعلة" وتوجيهها لصفحة dashboard
   const studentLinks = [
     { label: 'لوحة التحكم', icon: <LayoutDashboard className="w-5 h-5" />, href: '/student' },
-    { label: 'كورساتي المفعلة', icon: <Video className="w-5 h-5" />, href: '/student' },
+    { label: 'كورساتي المفعلة', icon: <Video className="w-5 h-5" />, href: '/student/dashboard' },
     { label: 'استكشف الكورسات', icon: <Search className="w-5 h-5" />, href: '/courses' },
     { label: 'سجل درجاتي', icon: <ClipboardList className="w-5 h-5" />, href: '/student/exams' },
   ];
