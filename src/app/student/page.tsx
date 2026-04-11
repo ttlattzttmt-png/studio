@@ -72,7 +72,7 @@ export default function StudentDashboard() {
            <Card className="bg-primary text-primary-foreground p-8 rounded-[2rem] shadow-2xl relative overflow-hidden text-right">
               <div className="relative z-10 space-y-4">
                 <h2 className="text-2xl font-bold">هل تبحث عن كورس جديد؟</h2>
-                <p className="opacity-90 max-w-md">تصفح مكتبة الكورسات المتاحة واطلب الانضمام لأي كورس بضغطة زر واحدة.</p>
+                <p className="opacity-90 max-w-md text-sm leading-relaxed">تصفح مكتبة الكورسات المتاحة واطلب الانضمام لأي كورس بضغطة زر واحدة. بمجرد الطلب سيقوم البشمهندس بتفعيل الكورس لك.</p>
                 <Link href="/courses">
                   <Button className="bg-white text-primary font-bold rounded-xl h-12 px-8 mt-4 hover:bg-white/90">
                     <Search className="w-4 h-4 ml-2" /> استعرض الكورسات الآن
@@ -92,7 +92,7 @@ export default function StudentDashboard() {
                 <div className="p-16 text-center bg-secondary/10 rounded-3xl border-2 border-dashed border-primary/10">
                   <Play className="w-12 h-12 text-primary/20 mx-auto mb-4" />
                   <p className="text-muted-foreground font-medium mb-6">لا توجد دروس مفعلة حالياً.</p>
-                  <Link href="/courses"><Button className="bg-primary text-primary-foreground font-bold">اطلب انضمام لكورس الآن</Button></Link>
+                  <Link href="/courses"><Button className="bg-primary text-primary-foreground font-bold rounded-xl">اطلب انضمام لكورس الآن</Button></Link>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -126,12 +126,12 @@ export default function StudentDashboard() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {pendingEnrollments.map(en => (
-                    <div key={en.id} className="p-3 bg-card border rounded-xl text-xs flex justify-between items-center">
+                    <div key={en.id} className="p-3 bg-card border rounded-xl text-xs flex justify-between items-center hover:border-accent/30 transition-colors">
                       <span className="font-bold">{en.courseTitle || en.courseId}</span>
-                      <span className="text-[9px] text-muted-foreground">قيد المراجعة...</span>
+                      <span className="text-[9px] text-accent font-bold animate-pulse">جاري المراجعة...</span>
                     </div>
                   ))}
-                  <p className="text-[9px] text-muted-foreground pt-2">سيتم تفعيل الكورسات أعلاه بواسطة البشمهندس خلال وقت قصير.</p>
+                  <p className="text-[9px] text-muted-foreground pt-2 font-medium">سيتم تفعيل الكورسات أعلاه بواسطة البشمهندس خلال وقت قصير. لا داعي للقلق!</p>
                 </CardContent>
              </Card>
            )}

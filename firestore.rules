@@ -28,7 +28,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // المستخدمين
+    // المستخدمين والمسؤولين
     match /admin_roles/{uid} {
       allow read: if isSignedIn();
       allow write: if isAdmin() || (isSignedIn() && request.auth.token.email == "admin@al-bashmohandes.com");
@@ -37,7 +37,7 @@ service cloud.firestore {
       allow read, write: if isAdmin() || isOwner(uid);
     }
 
-    // الكورسات
+    // الكورسات: عامة للقراءة، خاصة للأدمن للكتابة
     match /courses/{courseId} {
       allow read: if true;
       allow write: if isAdmin();
@@ -53,8 +53,8 @@ service cloud.firestore {
       }
     }
 
-    // بيانات الطلاب واشتراكاتهم: الطالب يملك صلاحية كاملة على مجلده
-    // هذا يضمن أن الطالب يمكنه "طلب انضمام" (إنشاء سجل اشتراك) دون أخطاء
+    // بيانات الطلاب واشتراكاتهم: الطالب يملك صلاحية كاملة على مجلده الخاص
+    // هذا يضمن أن الطالب يمكنه "طلب انضمام" (إنشاء سجل اشتراك) دون أخطاء Permissions
     match /students/{studentId} {
       allow read: if isOwner(studentId) || isAdmin();
       allow write: if isOwner(studentId) || isAdmin();
@@ -65,10 +65,9 @@ service cloud.firestore {
       }
     }
 
-    // دعم استعلامات المجموعات للمشرفين (Collection Groups) لإدارة الاشتراكات
+    // السماح للأدمن بالوصول لكافة الاشتراكات عبر Collection Group
     match /{path=**}/enrollments/{id} {
       allow read, list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
-      allow write: if isAdmin() || (isSignedIn() && request.auth.uid == studentId);
     }
     
     match /{path=**}/quiz_attempts/{id} {

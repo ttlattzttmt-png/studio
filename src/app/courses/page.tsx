@@ -53,8 +53,8 @@ export default function CoursesPage() {
 
     setIsRequesting(course.id);
     try {
-      // إنشاء طلب اشتراك بحالة "pending"
-      // بما أن الطالب يكتب في مجلده الخاص، القواعد لن ترفض ذلك أبداً
+      // إنشاء طلب اشتراك بحالة "pending" في مجلد الطالب الخاص
+      // بما أن الطالب يكتب في مجلده، فلن تظهر رسالة Permission Denied أبداً
       await setDoc(doc(firestore, 'students', user.uid, 'enrollments', course.id), {
         id: course.id,
         courseId: course.id,
@@ -81,7 +81,7 @@ export default function CoursesPage() {
   const getCourseStatus = (courseId: string) => {
     const enrollment = myEnrollments?.find(e => e.courseId === courseId);
     if (!enrollment) return 'none';
-    return enrollment.status || (enrollment.enrollmentDate ? 'active' : 'none');
+    return enrollment.status || 'pending';
   };
 
   const filteredCourses = courses?.filter(course => 

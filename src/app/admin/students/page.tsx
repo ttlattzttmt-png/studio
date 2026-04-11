@@ -60,12 +60,13 @@ export default function AdminStudents() {
   const handleActivateEnrollment = async (enrollment: any) => {
     if (!firestore) return;
     try {
-      // تحديث حالة الاشتراك في مسار الطالب
+      // تحديث حالة الاشتراك في مسار الطالب ليكون "مفعل"
       const enRef = doc(firestore, 'students', enrollment.studentId, 'enrollments', enrollment.id);
       await updateDoc(enRef, { status: 'active', activationDate: new Date().toISOString() });
       toast({ title: "تم التفعيل", description: "الكورس متاح للطالب الآن." });
     } catch (e) {
       console.error(e);
+      toast({ variant: "destructive", title: "خطأ", description: "فشل تفعيل الاشتراك." });
     }
   };
 
@@ -74,7 +75,7 @@ export default function AdminStudents() {
     try {
       const enRef = doc(firestore, 'students', enrollment.studentId, 'enrollments', enrollment.id);
       await deleteDoc(enRef);
-      toast({ title: "تم الرفض", description: "تم حذف طلب الانضمام." });
+      toast({ title: "تم الرفض", description: "تم حذف طلب الانضمام بنجاح." });
     } catch (e) { console.error(e); }
   };
 
@@ -88,7 +89,7 @@ export default function AdminStudents() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-4xl font-headline font-bold mb-2">إدارة الطلاب والاشتراكات</h1>
-          <p className="text-muted-foreground">راجع طلبات الانضمام وفعّل الكورسات للطلاب يدوياً.</p>
+          <p className="text-muted-foreground">راجع طلبات الانضمام وفعّل الكورسات للطلاب يدوياً بضغطة زر.</p>
         </div>
       </div>
 
@@ -105,20 +106,20 @@ export default function AdminStudents() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {pendingRequests.map((req) => (
-                <Card key={req.id} className="bg-card shadow-sm border-primary/10">
+                <Card key={req.id} className="bg-card shadow-sm border-primary/10 hover:border-primary/30 transition-all">
                   <CardContent className="p-4 space-y-3">
                     <div className="flex justify-between items-start">
                       <StudentBrief studentId={req.studentId} />
-                      <Badge variant="outline" className="text-[10px]">طلب جديد</Badge>
+                      <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">طلب جديد</Badge>
                     </div>
-                    <div className="bg-secondary/20 p-2 rounded text-xs font-bold">
+                    <div className="bg-secondary/20 p-2 rounded text-xs font-bold border border-primary/5">
                       كورس: {req.courseTitle || req.courseId}
                     </div>
                     <div className="flex gap-2 pt-2">
-                      <Button onClick={() => handleActivateEnrollment(req)} className="flex-grow bg-accent text-white h-9 text-xs gap-1">
-                        <CheckCircle className="w-3 h-3" /> تفعيل
+                      <Button onClick={() => handleActivateEnrollment(req)} className="flex-grow bg-accent text-white hover:bg-accent/90 h-10 text-xs gap-1 font-bold">
+                        <CheckCircle className="w-3 h-3" /> تفعيل الآن
                       </Button>
-                      <Button onClick={() => handleDeleteRequest(req)} variant="ghost" className="text-destructive h-9 text-xs">
+                      <Button onClick={() => handleDeleteRequest(req)} variant="ghost" className="text-destructive h-10 text-xs">
                         رفض
                       </Button>
                     </div>
@@ -135,8 +136,8 @@ export default function AdminStudents() {
           <div className="relative w-full max-w-md">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input 
-              placeholder="بحث عن طالب..." 
-              className="pr-10 bg-background border-primary/10" 
+              placeholder="بحث عن طالب بالاسم أو الهاتف..." 
+              className="pr-10 bg-background border-primary/10 text-right" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -154,14 +155,16 @@ export default function AdminStudents() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={4} className="text-center py-8">جاري التحميل...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={4} className="text-center py-12"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+              ) : filteredStudents?.length === 0 ? (
+                <TableRow><TableCell colSpan={4} className="text-center py-12 text-muted-foreground">لا يوجد طلاب مطابقين للبحث.</TableCell></TableRow>
               ) : filteredStudents?.map((student) => (
-                <TableRow key={student.id} className="group">
+                <TableRow key={student.id} className="group hover:bg-secondary/5 transition-colors">
                   <TableCell className="font-bold">{student.name}</TableCell>
                   <TableCell>{student.academicYear}</TableCell>
                   <TableCell>{student.studentPhoneNumber}</TableCell>
                   <TableCell className="text-left">
-                    <Button variant="secondary" size="sm" onClick={() => setSelectedStudent(student)}>
+                    <Button variant="secondary" size="sm" onClick={() => setSelectedStudent(student)} className="font-bold text-xs gap-1">
                       التفاصيل <ChevronLeft className="w-4 h-4" />
                     </Button>
                   </TableCell>
@@ -180,13 +183,13 @@ export default function AdminStudents() {
           {selectedStudent && (
             <div className="space-y-6 py-4">
               <div className="grid grid-cols-2 gap-4">
-                 <div className="p-3 bg-secondary/20 rounded-xl">
-                   <p className="text-[10px] text-muted-foreground">الهاتف</p>
-                   <p className="font-bold">{selectedStudent.studentPhoneNumber}</p>
+                 <div className="p-4 bg-secondary/10 rounded-2xl border border-primary/5">
+                   <p className="text-[10px] text-muted-foreground font-bold mb-1">هاتف الطالب</p>
+                   <p className="font-bold text-lg">{selectedStudent.studentPhoneNumber}</p>
                  </div>
-                 <div className="p-3 bg-secondary/20 rounded-xl">
-                   <p className="text-[10px] text-muted-foreground">ولي الأمر</p>
-                   <p className="font-bold">{selectedStudent.parentPhoneNumber}</p>
+                 <div className="p-4 bg-secondary/10 rounded-2xl border border-primary/5">
+                   <p className="text-[10px] text-muted-foreground font-bold mb-1">هاتف ولي الأمر</p>
+                   <p className="font-bold text-lg">{selectedStudent.parentPhoneNumber}</p>
                  </div>
               </div>
               <StudentSubData studentId={selectedStudent.id} />
@@ -217,16 +220,20 @@ function StudentSubData({ studentId }: { studentId: string }) {
 
   return (
     <div className="space-y-4">
-      <h3 className="font-bold border-r-4 border-primary pr-3">الاشتراكات الحالية</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+      <h3 className="font-bold border-r-4 border-primary pr-3">الاشتراكات والطلبات الحالية</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {enrollments?.map(en => (
-          <div key={en.id} className="p-3 border rounded-xl flex justify-between items-center bg-background">
-            <span className="text-xs font-bold">{en.courseTitle || en.courseId}</span>
-            <Badge variant={en.status === 'active' ? 'default' : 'secondary'}>
+          <div key={en.id} className="p-4 border rounded-2xl flex justify-between items-center bg-background/50 hover:border-primary/30 transition-all">
+            <div className="flex flex-col">
+              <span className="text-sm font-bold">{en.courseTitle || 'كورس'}</span>
+              <span className="text-[9px] text-muted-foreground">معرف: {en.courseId}</span>
+            </div>
+            <Badge variant={en.status === 'active' ? 'default' : 'secondary'} className={en.status === 'active' ? 'bg-accent text-white' : ''}>
               {en.status === 'active' ? 'مفعل' : 'انتظار'}
             </Badge>
           </div>
         ))}
+        {!enrollments || enrollments.length === 0 && <p className="text-xs text-muted-foreground italic">لا يوجد اشتراكات بعد.</p>}
       </div>
     </div>
   );
