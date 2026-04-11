@@ -3,7 +3,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * Al-Bashmohandes Platform Security Rules
+     * Al-Bashmohandes Platform Security Rules - Final Stable Version
      */
 
     // --- Helper Functions ---
@@ -12,10 +12,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // التحقق من أن المستخدم هو المسؤول (عن طريق البريد أو سجل الصلاحيات)
     function isAdmin() {
       return isSignedIn() && (
-        exists(/databases/$(database)/documents/admin_roles/$(request.auth.uid)) ||
-        request.auth.token.email == "admin@al-bashmohandes.com"
+        request.auth.token.email == "admin@al-bashmohandes.com" ||
+        exists(/databases/$(database)/documents/admin_roles/$(request.auth.uid))
       );
     }
 
@@ -23,9 +24,12 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Checks if the current user has an enrollment document for a specific course
+    // التحقق من اشتراك الطالب في الكورس
     function isEnrolled(courseId) {
-      return isSignedIn() && exists(/databases/$(database)/documents/students/$(request.auth.uid)/enrollments/$(courseId));
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/students/$(request.auth.uid)/enrollments/$(courseId)) ||
+        isAdmin()
+      );
     }
 
     // --- Collection Rules ---
@@ -33,15 +37,14 @@ service cloud.firestore {
     match /admin_roles/{uid} {
       allow get: if isSignedIn();
       allow list: if isAdmin();
-      allow create: if isSignedIn() && request.auth.uid == uid && request.auth.token.email == "admin@al-bashmohandes.com";
-      allow update, delete: if false;
+      // السماح للمسؤول الأول بإنشاء سجله الخاص
+      allow create: if isSignedIn() && (request.auth.uid == uid && request.auth.token.email == "admin@al-bashmohandes.com");
+      allow update, delete: if isAdmin();
     }
 
     match /admin_users/{adminUserId} {
-      allow get: if isSignedIn();
-      allow list: if isAdmin();
-      allow create: if isOwner(adminUserId) && (isAdmin() || request.auth.token.email == "admin@al-bashmohandes.com");
-      allow update: if isAdmin() && isOwner(adminUserId);
+      allow get, list: if isAdmin();
+      allow create, update: if isAdmin() && isOwner(adminUserId);
       allow delete: if isAdmin();
     }
 
@@ -49,14 +52,13 @@ service cloud.firestore {
       allow get: if isOwner(studentId) || isAdmin();
       allow list: if isAdmin();
       allow create: if isOwner(studentId);
-      allow update: if (isOwner(studentId) || isAdmin());
+      allow update: if isOwner(studentId) || isAdmin();
       allow delete: if isAdmin();
     }
 
     match /courses/{courseId} {
       allow get, list: if true;
-      allow create: if isAdmin();
-      allow update, delete: if isAdmin();
+      allow create, update, delete: if isAdmin();
 
       match /content/{contentId} {
         allow get, list: if isAdmin() || isEnrolled(courseId);

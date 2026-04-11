@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -9,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ShieldCheck, Lock, User, Loader2 } from 'lucide-react';
 import { useFirebase } from '@/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 
@@ -35,12 +34,12 @@ export default function LoginPage() {
         // محاولة تسجيل الدخول
         userCredential = await signInWithEmailAndPassword(auth, email, password);
       } catch (authError: any) {
-        // إذا كان بريد الأدمن ولم يتم إنشاؤه بعد، نقوم بإنشائه تلقائياً (للمرة الأولى فقط)
+        // إذا كان بريد الأدمن المخصص ولم يتم إنشاؤه بعد (المرة الأولى فقط)
         if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase() && (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential')) {
           try {
             userCredential = await createUserWithEmailAndPassword(auth, email, password);
           } catch (createError) {
-            throw authError; // إذا فشل الإنشاء أيضاً نرجع للخطأ الأصلي
+            throw authError;
           }
         } else {
           throw authError;
@@ -49,14 +48,14 @@ export default function LoginPage() {
 
       const uid = userCredential.user.uid;
 
-      // منطق خاص بالأدمن
+      // منطق التحقق والتوجيه للمسؤول
       if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
         const adminRoleRef = doc(firestore, 'admin_roles', uid);
         const adminRoleSnap = await getDoc(adminRoleRef);
         
         if (!adminRoleSnap.exists()) {
-          // تأكيد دور الأدمن في Firestore
-          await setDoc(adminRoleRef, { role: 'admin', createdAt: new Date().toISOString() });
+          // تأكيد دور المسؤول في Firestore
+          await setDoc(adminRoleRef, { role: 'admin', createdAt: serverTimestamp() });
           await setDoc(doc(firestore, 'admin_users', uid), {
             id: uid,
             name: 'المشرف العام',
@@ -65,12 +64,12 @@ export default function LoginPage() {
           });
         }
         
-        toast({ title: "مرحباً بك يا بشمهندس", description: "جاري توجيهك للوحة التحكم..." });
+        toast({ title: "مرحباً بك يا بشمهندس", description: "جاري فتح لوحة التحكم..." });
         router.push('/admin');
         return;
       }
 
-      // التحقق من نوع المستخدم (طالب أم أدمن) للتوجيه
+      // التحقق من نوع المستخدم للتوجيه (طالب أم مسؤول)
       const adminDocRef = doc(firestore, 'admin_roles', uid);
       const adminDoc = await getDoc(adminDocRef);
       
