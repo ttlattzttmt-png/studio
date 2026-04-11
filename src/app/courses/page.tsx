@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -16,16 +15,21 @@ import {
   Users, 
   ArrowLeft, 
   Loader2,
-  GraduationCap
+  GraduationCap,
+  PlusCircle,
+  CheckCircle
 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { collection, query, orderBy, doc, setDoc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 export default function CoursesPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [isRequesting, setIsRequesting] = useState<string | null>(null);
   const firestore = useFirestore();
+  const { user } = useUser();
+  const { toast } = useToast();
 
-  // جلب الكورسات لحظياً من Firestore
   const coursesRef = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'courses'), orderBy('createdAt', 'desc'));
@@ -33,10 +37,56 @@ export default function CoursesPage() {
 
   const { data: courses, isLoading } = useCollection(coursesRef);
 
+  // جلب اشتراكات الطالب الحالية للتأكد من حالة الكورس
+  const enrollmentsRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return collection(firestore, 'students', user.uid, 'enrollments');
+  }, [firestore, user]);
+
+  const { data: myEnrollments } = useCollection(enrollmentsRef);
+
+  const handleRequestEnrollment = async (course: any) => {
+    if (!user || !firestore) {
+      toast({ title: "يرجى تسجيل الدخول", description: "يجب أن تملك حساباً لطلب الانضمام." });
+      return;
+    }
+
+    setIsRequesting(course.id);
+    try {
+      // إنشاء طلب اشتراك بحالة "pending"
+      // بما أن الطالب يكتب في مجلده الخاص، القواعد لن ترفض ذلك أبداً
+      await setDoc(doc(firestore, 'students', user.uid, 'enrollments', course.id), {
+        id: course.id,
+        courseId: course.id,
+        studentId: user.uid,
+        status: 'pending', // حالة الانتظار
+        enrollmentDate: new Date().toISOString(),
+        progressPercentage: 0,
+        isCompleted: false,
+        courseTitle: course.title
+      });
+
+      toast({ 
+        title: "تم إرسال طلبك", 
+        description: "سيقوم البشمهندس بمراجعة طلبك وتفعيل الكورس لك قريباً." 
+      });
+    } catch (e) {
+      console.error(e);
+      toast({ variant: "destructive", title: "خطأ", description: "فشل إرسال الطلب، حاول مرة أخرى." });
+    } finally {
+      setIsRequesting(null);
+    }
+  };
+
+  const getCourseStatus = (courseId: string) => {
+    const enrollment = myEnrollments?.find(e => e.courseId === courseId);
+    if (!enrollment) return 'none';
+    return enrollment.status || (enrollment.enrollmentDate ? 'active' : 'none');
+  };
+
   const filteredCourses = courses?.filter(course => 
     course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    course.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    course.targetAcademicYear.toLowerCase().includes(searchTerm.toLowerCase())
+    course.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -48,7 +98,7 @@ export default function CoursesPage() {
           <div className="text-center mb-16 space-y-4">
             <h1 className="text-5xl font-headline font-bold">مكتبة الكورسات</h1>
             <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
-              ابحث عن المادة العلمية التي تناسب سنتك الدراسية وابدأ رحلة التفوق مع البشمهندس.
+              اختر الكورس المناسب واطلب الانضمام، وسيقوم فريق البشمهندس بتفعيل حسابك فوراً.
             </p>
           </div>
 
@@ -56,7 +106,7 @@ export default function CoursesPage() {
             <div className="relative group">
               <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <Input 
-                placeholder="ابحث عن كورس، سنة دراسية، أو موضوع معني..." 
+                placeholder="ابحث عن كورس..." 
                 className="h-16 pr-12 text-lg bg-card border-primary/10 rounded-2xl shadow-xl shadow-primary/5 focus:border-primary transition-all"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -67,59 +117,54 @@ export default function CoursesPage() {
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
               <Loader2 className="w-12 h-12 animate-spin text-primary" />
-              <p className="text-muted-foreground animate-pulse font-bold">جاري جلب أحدث الكورسات...</p>
-            </div>
-          ) : !filteredCourses || filteredCourses.length === 0 ? (
-            <div className="text-center py-32 border-2 border-dashed rounded-3xl border-primary/10">
-              <BookOpen className="w-20 h-20 mx-auto mb-6 opacity-10 text-primary" />
-              <h2 className="text-2xl font-bold mb-2">لا توجد نتائج مطابقة</h2>
-              <p className="text-muted-foreground">جرب البحث بكلمات أخرى أو تصفح الكورسات المتاحة حالياً.</p>
-              <Button 
-                variant="outline" 
-                className="mt-6 border-primary/50 text-primary"
-                onClick={() => setSearchTerm('')}
-              >
-                عرض جميع الكورسات
-              </Button>
+              <p className="text-muted-foreground animate-pulse font-bold">جاري جلب الكورسات...</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredCourses.map((course, idx) => (
-                <div key={course.id} className="group bg-card rounded-3xl border border-primary/5 overflow-hidden hover:shadow-2xl hover:shadow-primary/10 transition-all hover:-translate-y-2 flex flex-col">
-                  <div className="relative h-56 bg-secondary">
-                    <Image
-                      src={PlaceHolderImages[(idx % 3) + 1]?.imageUrl || ''}
-                      alt={course.title}
-                      fill
-                      className="object-cover group-hover:scale-110 transition-transform duration-700"
-                    />
-                    <div className="absolute top-4 right-4 bg-primary text-primary-foreground text-xs font-bold px-4 py-1.5 rounded-full shadow-lg backdrop-blur-sm">
-                      {course.targetAcademicYear}
-                    </div>
-                    <div className="absolute bottom-4 left-4 bg-black/60 text-white text-xs font-bold px-3 py-1 rounded-lg backdrop-blur-md border border-white/10">
-                      <span className="flex items-center gap-1"><Video className="w-3 h-3" /> محتوى متجدد</span>
-                    </div>
-                  </div>
-                  <div className="p-8 flex-grow flex flex-col">
-                    <div className="mb-4">
-                      <h3 className="text-2xl font-headline font-bold mb-3 group-hover:text-primary transition-colors">{course.title}</h3>
-                      <p className="text-muted-foreground line-clamp-3 text-sm leading-relaxed">{course.description}</p>
-                    </div>
-                    
-                    <div className="mt-auto pt-6 border-t border-primary/5 flex items-center justify-between">
-                      <div className="text-right">
-                        <p className="text-xs text-muted-foreground mb-1">سعر الكورس</p>
-                        <p className="text-2xl font-black text-accent">{course.price} ج.م</p>
+              {filteredCourses?.map((course, idx) => {
+                const status = getCourseStatus(course.id);
+                return (
+                  <div key={course.id} className="group bg-card rounded-3xl border border-primary/5 overflow-hidden hover:shadow-2xl transition-all flex flex-col">
+                    <div className="relative h-56">
+                      <Image
+                        src={PlaceHolderImages[(idx % 3) + 1]?.imageUrl || ''}
+                        alt={course.title}
+                        fill
+                        className="object-cover"
+                      />
+                      <div className="absolute top-4 right-4 bg-primary text-primary-foreground text-xs font-bold px-4 py-1.5 rounded-full">
+                        {course.targetAcademicYear}
                       </div>
-                      <Link href="/register">
-                        <Button className="rounded-xl h-12 px-6 bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20">
-                          اشترك الآن
-                        </Button>
-                      </Link>
+                    </div>
+                    <div className="p-8 flex-grow flex flex-col">
+                      <h3 className="text-2xl font-headline font-bold mb-3">{course.title}</h3>
+                      <p className="text-muted-foreground line-clamp-2 text-sm mb-6">{course.description}</p>
+                      
+                      <div className="mt-auto pt-6 border-t border-primary/5 flex items-center justify-between">
+                        <p className="text-2xl font-black text-accent">{course.price} ج.م</p>
+                        
+                        {status === 'active' ? (
+                          <Button disabled className="bg-accent text-white gap-2 rounded-xl">
+                            <CheckCircle className="w-4 h-4" /> مفعل
+                          </Button>
+                        ) : status === 'pending' ? (
+                          <Button disabled className="bg-secondary text-muted-foreground gap-2 rounded-xl italic">
+                            قيد الانتظار...
+                          </Button>
+                        ) : (
+                          <Button 
+                            onClick={() => handleRequestEnrollment(course)}
+                            disabled={isRequesting === course.id}
+                            className="bg-primary text-primary-foreground font-bold rounded-xl h-12 px-6"
+                          >
+                            {isRequesting === course.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <><PlusCircle className="w-4 h-4 ml-2" /> طلب انضمام</>}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

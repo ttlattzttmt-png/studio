@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -11,14 +10,14 @@ import {
   Video, 
   ClipboardList, 
   Users, 
-  Ticket, 
   LogOut,
   BrainCircuit,
   PieChart,
   Megaphone,
   CheckCircle,
   Menu,
-  X
+  ShieldCheck,
+  Search
 } from 'lucide-react';
 import { useAuth, initiateSignOut, useUser } from '@/firebase';
 import { Button } from '@/components/ui/button';
@@ -38,15 +37,14 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
   const studentLinks = [
     { label: 'الرئيسية', icon: <LayoutDashboard className="w-5 h-5" />, href: '/student' },
     { label: 'كورساتي', icon: <BookOpen className="w-5 h-5" />, href: '/student/my-courses' },
+    { label: 'استكشف الكورسات', icon: <Search className="w-5 h-5" />, href: '/courses' },
     { label: 'الامتحانات', icon: <ClipboardList className="w-5 h-5" />, href: '/student/exams' },
-    { label: 'تفعيل كود', icon: <Ticket className="w-5 h-5" />, href: '/student/redeem' },
   ];
 
   const adminLinks = [
     { label: 'لوحة التحكم', icon: <PieChart className="w-5 h-5" />, href: '/admin' },
     { label: 'إدارة الكورسات', icon: <Video className="w-5 h-5" />, href: '/admin/courses' },
-    { label: 'الأكواد', icon: <Ticket className="w-5 h-5" />, href: '/admin/codes' },
-    { label: 'الطلاب', icon: <Users className="w-5 h-5" />, href: '/admin/students' },
+    { label: 'الطلاب والاشتراكات', icon: <Users className="w-5 h-5" />, href: '/admin/students' },
     { label: 'بناء الاختبارات', icon: <ClipboardList className="w-5 h-5" />, href: '/admin/exams' },
     { label: 'مركز التصحيح', icon: <CheckCircle className="w-5 h-5" />, href: '/admin/exams/grading' },
     { label: 'الإشعارات', icon: <Megaphone className="w-5 h-5" />, href: '/admin/notifications' },

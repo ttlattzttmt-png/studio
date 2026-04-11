@@ -28,7 +28,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // الأدوار والمستخدمين
+    // المستخدمين
     match /admin_roles/{uid} {
       allow read: if isSignedIn();
       allow write: if isAdmin() || (isSignedIn() && request.auth.token.email == "admin@al-bashmohandes.com");
@@ -37,13 +37,13 @@ service cloud.firestore {
       allow read, write: if isAdmin() || isOwner(uid);
     }
 
-    // الكورسات ومحتواها
+    // الكورسات
     match /courses/{courseId} {
       allow read: if true;
       allow write: if isAdmin();
 
       match /content/{contentId} {
-        allow read: if true;
+        allow read: if isSignedIn();
         allow write: if isAdmin();
         
         match /{allSubcollections=**} {
@@ -53,15 +53,8 @@ service cloud.firestore {
       }
     }
 
-    // الحل النهائي للأكواد: السماح للطالب بالبحث والتحديث لتفعيل الكورس
-    match /access_codes/{codeId} {
-      allow read, list: if isSignedIn();
-      allow create, delete: if isAdmin();
-      // السماح بالتحديث فقط إذا كان الكود غير مستخدم
-      allow update: if isSignedIn() && resource.data.isUsed == false;
-    }
-
     // بيانات الطلاب واشتراكاتهم: الطالب يملك صلاحية كاملة على مجلده
+    // هذا يضمن أن الطالب يمكنه "طلب انضمام" (إنشاء سجل اشتراك) دون أخطاء
     match /students/{studentId} {
       allow read: if isOwner(studentId) || isAdmin();
       allow write: if isOwner(studentId) || isAdmin();
@@ -72,11 +65,13 @@ service cloud.firestore {
       }
     }
 
-    // دعم استعلامات المجموعات للمشرفين (Collection Groups)
-    match /{path=**}/quiz_attempts/{id} {
-      allow read, list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
-    }
+    // دعم استعلامات المجموعات للمشرفين (Collection Groups) لإدارة الاشتراكات
     match /{path=**}/enrollments/{id} {
+      allow read, list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
+      allow write: if isAdmin() || (isSignedIn() && request.auth.uid == studentId);
+    }
+    
+    match /{path=**}/quiz_attempts/{id} {
       allow read, list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
     }
   }

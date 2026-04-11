@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -6,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { 
   Dialog, 
   DialogContent, 
@@ -23,17 +23,23 @@ import {
   BookOpen, 
   Award,
   Loader2,
-  ChevronLeft
+  ChevronLeft,
+  CheckCircle,
+  XCircle,
+  Clock
 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
+import { collection, collectionGroup, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 export default function AdminStudents() {
   const firestore = useFirestore();
   const { user } = useUser();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   
+  // جلب كافة الطلاب
   const studentsRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return collection(firestore, 'students');
@@ -41,31 +47,95 @@ export default function AdminStudents() {
 
   const { data: students, isLoading } = useCollection(studentsRef);
 
+  // جلب كافة طلبات الاشتراك (Pending) باستخدام Collection Group
+  const enrollmentsRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return collectionGroup(firestore, 'enrollments');
+  }, [firestore, user]);
+
+  const { data: allEnrollments, isLoading: isEnrollingLoading } = useCollection(enrollmentsRef);
+
+  const pendingRequests = allEnrollments?.filter(e => e.status === 'pending');
+
+  const handleActivateEnrollment = async (enrollment: any) => {
+    if (!firestore) return;
+    try {
+      // تحديث حالة الاشتراك في مسار الطالب
+      const enRef = doc(firestore, 'students', enrollment.studentId, 'enrollments', enrollment.id);
+      await updateDoc(enRef, { status: 'active', activationDate: new Date().toISOString() });
+      toast({ title: "تم التفعيل", description: "الكورس متاح للطالب الآن." });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDeleteRequest = async (enrollment: any) => {
+    if (!firestore || !confirm('هل تريد رفض هذا الطلب؟')) return;
+    try {
+      const enRef = doc(firestore, 'students', enrollment.studentId, 'enrollments', enrollment.id);
+      await deleteDoc(enRef);
+      toast({ title: "تم الرفض", description: "تم حذف طلب الانضمام." });
+    } catch (e) { console.error(e); }
+  };
+
   const filteredStudents = students?.filter(s => 
     s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     s.studentPhoneNumber.includes(searchTerm)
   );
 
-  if (!user) return <div className="p-20 text-center text-muted-foreground">جاري التحقق من الصلاحيات...</div>;
-
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-headline font-bold mb-2">إدارة الطلاب</h1>
-          <p className="text-muted-foreground">عرض بيانات جميع الطلاب ومتابعة تقدمهم الدراسي.</p>
+          <h1 className="text-4xl font-headline font-bold mb-2">إدارة الطلاب والاشتراكات</h1>
+          <p className="text-muted-foreground">راجع طلبات الانضمام وفعّل الكورسات للطلاب يدوياً.</p>
         </div>
-        <Button className="h-14 px-8 bg-primary text-primary-foreground font-bold rounded-xl gap-2 text-lg">
-          <UserPlus className="w-6 h-6" /> إضافة طالب يدوي
-        </Button>
       </div>
+
+      {/* قسم طلبات الانضمام الجديدة */}
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader>
+          <CardTitle className="text-xl font-bold flex items-center gap-2">
+            <Clock className="w-5 h-5 text-primary" /> طلبات انتظار التفعيل ({pendingRequests?.length || 0})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!pendingRequests || pendingRequests.length === 0 ? (
+            <p className="text-center py-6 text-muted-foreground italic">لا توجد طلبات معلقة حالياً.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {pendingRequests.map((req) => (
+                <Card key={req.id} className="bg-card shadow-sm border-primary/10">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex justify-between items-start">
+                      <StudentBrief studentId={req.studentId} />
+                      <Badge variant="outline" className="text-[10px]">طلب جديد</Badge>
+                    </div>
+                    <div className="bg-secondary/20 p-2 rounded text-xs font-bold">
+                      كورس: {req.courseTitle || req.courseId}
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <Button onClick={() => handleActivateEnrollment(req)} className="flex-grow bg-accent text-white h-9 text-xs gap-1">
+                        <CheckCircle className="w-3 h-3" /> تفعيل
+                      </Button>
+                      <Button onClick={() => handleDeleteRequest(req)} variant="ghost" className="text-destructive h-9 text-xs">
+                        رفض
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="bg-card">
         <CardHeader className="border-b pb-4">
           <div className="relative w-full max-w-md">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input 
-              placeholder="بحث عن طالب بالاسم أو الهاتف..." 
+              placeholder="بحث عن طالب..." 
               className="pr-10 bg-background border-primary/10" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -79,81 +149,46 @@ export default function AdminStudents() {
                 <TableHead className="text-right">الاسم</TableHead>
                 <TableHead className="text-right">السنة الدراسية</TableHead>
                 <TableHead className="text-right">رقم الهاتف</TableHead>
-                <TableHead className="text-right">هاتف ولي الأمر</TableHead>
                 <TableHead className="text-left">الإجراءات</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-8">جاري التحميل...</TableCell></TableRow>
-              ) : !filteredStudents || filteredStudents.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-8">لا يوجد طلاب مطابقين للبحث.</TableCell></TableRow>
-              ) : (
-                filteredStudents.map((student) => (
-                  <TableRow key={student.id} className="group">
-                    <TableCell className="font-bold">{student.name}</TableCell>
-                    <TableCell>{student.academicYear}</TableCell>
-                    <TableCell>{student.studentPhoneNumber}</TableCell>
-                    <TableCell>{student.parentPhoneNumber}</TableCell>
-                    <TableCell className="text-left">
-                      <Button 
-                        variant="secondary" 
-                        size="sm" 
-                        className="font-bold gap-2"
-                        onClick={() => setSelectedStudent(student)}
-                      >
-                        التفاصيل <ChevronLeft className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
+                <TableRow><TableCell colSpan={4} className="text-center py-8">جاري التحميل...</TableCell></TableRow>
+              ) : filteredStudents?.map((student) => (
+                <TableRow key={student.id} className="group">
+                  <TableCell className="font-bold">{student.name}</TableCell>
+                  <TableCell>{student.academicYear}</TableCell>
+                  <TableCell>{student.studentPhoneNumber}</TableCell>
+                  <TableCell className="text-left">
+                    <Button variant="secondary" size="sm" onClick={() => setSelectedStudent(student)}>
+                      التفاصيل <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
-      {/* نافذة تفاصيل الطالب */}
       <Dialog open={!!selectedStudent} onOpenChange={() => setSelectedStudent(null)}>
-        <DialogContent className="max-w-3xl bg-card border-primary/20 max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl bg-card border-primary/20">
           <DialogHeader className="text-right border-b pb-4">
             <DialogTitle className="text-2xl font-bold text-primary">{selectedStudent?.name}</DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              بيانات الطالب وتاريخ نشاطه على المنصة
-            </DialogDescription>
           </DialogHeader>
-
           {selectedStudent && (
-            <div className="space-y-8 py-4">
-              {/* البيانات الأساسية */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl bg-secondary/30 space-y-1">
-                  <p className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="w-3 h-3" /> البريد الإلكتروني</p>
-                  <p className="font-bold">{selectedStudent.email}</p>
-                </div>
-                <div className="p-4 rounded-xl bg-secondary/30 space-y-1">
-                  <p className="text-xs text-muted-foreground flex items-center gap-1"><GraduationCap className="w-3 h-3" /> السنة الدراسية</p>
-                  <p className="font-bold">{selectedStudent.academicYear}</p>
-                </div>
-                <div className="p-4 rounded-xl bg-secondary/30 space-y-1">
-                  <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3" /> رقم الطالب</p>
-                  <p className="font-bold">{selectedStudent.studentPhoneNumber}</p>
-                </div>
-                <div className="p-4 rounded-xl bg-secondary/30 space-y-1">
-                  <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3" /> هاتف ولي الأمر</p>
-                  <p className="font-bold">{selectedStudent.parentPhoneNumber}</p>
-                </div>
-                <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 space-y-1">
-                  <p className="text-xs text-muted-foreground flex items-center gap-1"><Award className="w-3 h-3" /> نقاط التفوق</p>
-                  <p className="text-xl font-black text-primary">{selectedStudent.points || 0}</p>
-                </div>
-                <div className="p-4 rounded-xl bg-secondary/30 space-y-1">
-                  <p className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="w-3 h-3" /> تاريخ التسجيل</p>
-                  <p className="font-bold">{new Date(selectedStudent.registrationDate).toLocaleDateString('ar-EG')}</p>
-                </div>
+            <div className="space-y-6 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                 <div className="p-3 bg-secondary/20 rounded-xl">
+                   <p className="text-[10px] text-muted-foreground">الهاتف</p>
+                   <p className="font-bold">{selectedStudent.studentPhoneNumber}</p>
+                 </div>
+                 <div className="p-3 bg-secondary/20 rounded-xl">
+                   <p className="text-[10px] text-muted-foreground">ولي الأمر</p>
+                   <p className="font-bold">{selectedStudent.parentPhoneNumber}</p>
+                 </div>
               </div>
-
-              {/* الكورسات المشترك فيها */}
               <StudentSubData studentId={selectedStudent.id} />
             </div>
           )}
@@ -163,63 +198,35 @@ export default function AdminStudents() {
   );
 }
 
-// مكون فرعي لجلب بيانات الكورسات والاختبارات الخاصة بالطالب المحدد
+function StudentBrief({ studentId }: { studentId: string }) {
+  const firestore = useFirestore();
+  const studentRef = useMemoFirebase(() => doc(firestore, 'students', studentId), [firestore, studentId]);
+  const { data: student } = useDoc(studentRef);
+  return (
+    <div className="flex flex-col text-right">
+      <span className="text-sm font-bold truncate">{student?.name || '...'}</span>
+      <span className="text-[10px] text-muted-foreground">{student?.studentPhoneNumber}</span>
+    </div>
+  );
+}
+
 function StudentSubData({ studentId }: { studentId: string }) {
   const firestore = useFirestore();
-  
-  const enrollmentsRef = useMemoFirebase(() => {
-    if (!firestore || !studentId) return null;
-    return collection(firestore, 'students', studentId, 'enrollments');
-  }, [firestore, studentId]);
-
-  const attemptsRef = useMemoFirebase(() => {
-    if (!firestore || !studentId) return null;
-    return collection(firestore, 'students', studentId, 'quiz_attempts');
-  }, [firestore, studentId]);
-
-  const { data: enrollments, isLoading: isEnLoading } = useCollection(enrollmentsRef);
-  const { data: attempts, isLoading: isAtLoading } = useCollection(attemptsRef);
+  const enRef = useMemoFirebase(() => collection(firestore, 'students', studentId, 'enrollments'), [firestore, studentId]);
+  const { data: enrollments } = useCollection(enRef);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div className="space-y-4">
-        <h3 className="text-lg font-bold flex items-center gap-2 border-r-4 border-primary pr-3">
-          <BookOpen className="w-5 h-5 text-primary" /> الكورسات المفعلة
-        </h3>
-        {isEnLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : (
-          <div className="space-y-2">
-            {!enrollments || enrollments.length === 0 ? (
-              <p className="text-sm text-muted-foreground italic">لا توجد اشتراكات مفعلة.</p>
-            ) : (
-              enrollments.map(en => (
-                <div key={en.id} className="p-3 rounded-lg border bg-background flex justify-between items-center">
-                  <span className="text-sm font-bold">كود: {en.courseId}</span>
-                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{en.progressPercentage}%</span>
-                </div>
-              ))
-            )}
+    <div className="space-y-4">
+      <h3 className="font-bold border-r-4 border-primary pr-3">الاشتراكات الحالية</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        {enrollments?.map(en => (
+          <div key={en.id} className="p-3 border rounded-xl flex justify-between items-center bg-background">
+            <span className="text-xs font-bold">{en.courseTitle || en.courseId}</span>
+            <Badge variant={en.status === 'active' ? 'default' : 'secondary'}>
+              {en.status === 'active' ? 'مفعل' : 'انتظار'}
+            </Badge>
           </div>
-        )}
-      </div>
-
-      <div className="space-y-4">
-        <h3 className="text-lg font-bold flex items-center gap-2 border-r-4 border-accent pr-3">
-          <Award className="w-5 h-5 text-accent" /> نتائج الامتحانات
-        </h3>
-        {isAtLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : (
-          <div className="space-y-2">
-            {!attempts || attempts.length === 0 ? (
-              <p className="text-sm text-muted-foreground italic">لا توجد محاولات اختبار.</p>
-            ) : (
-              attempts.map(at => (
-                <div key={at.id} className="p-3 rounded-lg border bg-background flex justify-between items-center">
-                  <span className="text-sm">امتحان: {at.courseContentId}</span>
-                  <span className="text-sm font-black text-accent">{at.score}%</span>
-                </div>
-              ))
-            )}
-          </div>
-        )}
+        ))}
       </div>
     </div>
   );
