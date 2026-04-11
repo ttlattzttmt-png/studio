@@ -3,7 +3,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * Al-Bashmohandes Platform Security Rules - Final Version
+     * Al-Bashmohandes Platform Security Rules - Final Production Version
      */
 
     // --- Helper Functions ---
@@ -32,18 +32,21 @@ service cloud.firestore {
       );
     }
 
-    // --- Collection Group Rules (CRITICAL for Admin Grading/Monitoring) ---
+    // --- Collection Group Rules (Must be defined to allow collectionGroup queries) ---
     
     match /{path=**}/quiz_attempts/{attemptId} {
-      allow list, get: if isAdmin();
+      allow read: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
+      allow write: if isAdmin() || (isSignedIn() && request.resource.data.studentId == request.auth.uid);
     }
     
     match /{path=**}/enrollments/{enrollmentId} {
-      allow list, get: if isAdmin();
+      allow read: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
+      allow write: if isAdmin() || (isSignedIn() && request.resource.data.studentId == request.auth.uid);
     }
     
     match /{path=**}/answers/{answerId} {
-      allow list, get: if isAdmin();
+      allow read: if isAdmin() || (isSignedIn() && (resource == null || resource.data.studentId == request.auth.uid));
+      allow write: if isAdmin() || (isSignedIn() && (request.resource == null || request.resource.data.studentId == request.auth.uid));
     }
 
     // --- Standard Collection Rules ---

@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { 
@@ -16,9 +15,10 @@ import {
   ExternalLink,
   Search,
   CheckCircle,
-  BrainCircuit
+  BrainCircuit,
+  GraduationCap
 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collectionGroup, query, orderBy, updateDoc, doc, collection } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeEssayAnswer } from '@/ai/flows/admin-essay-answer-analyzer';
@@ -32,7 +32,6 @@ export default function AdminGradingPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // جلب كافة محاولات الطلاب (Collection Group)
-  // تم تبسيط الاستعلام لتجنب الحاجة لفهارس مركبة معقدة حالياً
   const attemptsRef = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collectionGroup(firestore, 'quiz_attempts'), orderBy('submittedAt', 'desc'));
@@ -49,7 +48,11 @@ export default function AdminGradingPage() {
     if (!firestore || !selectedAttempt) return;
     try {
       const answerRef = doc(firestore, 'students', selectedAttempt.studentId, 'quiz_attempts', selectedAttempt.id, 'answers', answer.id);
-      await updateDoc(answerRef, { isCorrect, scoreAchieved: score });
+      await updateDoc(answerRef, { 
+        isCorrect, 
+        scoreAchieved: score,
+        updatedAt: new Date().toISOString()
+      });
       toast({ title: "تم التقييم", description: "تم حفظ درجة السؤال." });
     } catch (e) { console.error(e); }
   };
@@ -68,7 +71,15 @@ export default function AdminGradingPage() {
     if (!firestore) return;
     try {
       const attemptRef = doc(firestore, 'students', attempt.studentId, 'quiz_attempts', attempt.id);
-      await updateDoc(attemptRef, { isGraded: true });
+      
+      // حساب الإجمالي قبل الاعتماد
+      const answersRef = collection(firestore, 'students', attempt.studentId, 'quiz_attempts', attempt.id, 'answers');
+      // في نظام حقيقي نستخدم دالة لحساب المجموع، هنا سنعتمد الحالة فقط
+      
+      await updateDoc(attemptRef, { 
+        isGraded: true,
+        gradeReleaseDate: new Date().toISOString()
+      });
       toast({ title: "تم الاعتماد", description: "النتيجة الآن متاحة للطالب." });
     } catch (e) { console.error(e); }
   };
@@ -82,13 +93,13 @@ export default function AdminGradingPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* قائمة المحاولات */}
-        <Card className="lg:col-span-1 bg-card">
+        <Card className="lg:col-span-1 bg-card border-primary/10">
           <CardHeader className="border-b">
             <div className="relative">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input 
                 placeholder="بحث عن طالب أو امتحان..." 
-                className="pr-10 bg-background" 
+                className="pr-10 bg-background border-primary/10" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -105,14 +116,18 @@ export default function AdminGradingPage() {
                   <button 
                     key={attempt.id}
                     onClick={() => setSelectedAttempt(attempt)}
-                    className={`w-full p-6 text-right hover:bg-secondary/10 transition-colors flex flex-col gap-2 ${selectedAttempt?.id === attempt.id ? 'bg-primary/5 border-r-4 border-primary' : ''}`}
+                    className={`w-full p-6 text-right hover:bg-secondary/10 transition-all flex flex-col gap-2 ${selectedAttempt?.id === attempt.id ? 'bg-primary/5 border-r-4 border-primary' : ''}`}
                   >
                     <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-muted-foreground flex items-center gap-1"><User className="w-3 h-3"/> {attempt.studentId}</span>
-                      <Badge variant={attempt.isGraded ? 'default' : 'secondary'}>{attempt.isGraded ? 'مصحح' : 'قيد المراجعة'}</Badge>
+                      <StudentBrief studentId={attempt.studentId} />
+                      <Badge variant={attempt.isGraded ? 'default' : 'secondary'}>
+                        {attempt.isGraded ? 'مصحح' : 'قيد المراجعة'}
+                      </Badge>
                     </div>
-                    <p className="font-bold">امتحان: {attempt.courseContentId}</p>
-                    <span className="text-[10px] text-muted-foreground">{new Date(attempt.submittedAt).toLocaleString('ar-EG')}</span>
+                    <p className="font-bold text-lg mt-2">امتحان ID: {attempt.courseContentId}</p>
+                    <span className="text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full inline-block w-fit">
+                      {new Date(attempt.submittedAt).toLocaleString('ar-EG')}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -123,15 +138,36 @@ export default function AdminGradingPage() {
         {/* تفاصيل الإجابات */}
         <div className="lg:col-span-2">
           {selectedAttempt ? (
-            <AttemptDetails attempt={selectedAttempt} onAnalyzeAI={handleAnalyzeAI} onGrade={handleGradeAnswer} onRelease={handleReleaseGrades} isAnalyzing={isAnalyzing} />
+            <AttemptDetails 
+              attempt={selectedAttempt} 
+              onAnalyzeAI={handleAnalyzeAI} 
+              onGrade={handleGradeAnswer} 
+              onRelease={handleReleaseGrades} 
+              isAnalyzing={isAnalyzing} 
+            />
           ) : (
-            <Card className="h-full flex flex-col items-center justify-center text-muted-foreground p-12 border-dashed">
+            <Card className="h-full flex flex-col items-center justify-center text-muted-foreground p-12 border-dashed border-2">
               <FileText className="w-16 h-16 mb-4 opacity-10" />
-              <p>اختر محاولة طالب من القائمة لبدء التصحيح.</p>
+              <p className="font-bold">اختر محاولة طالب من القائمة لبدء التصحيح والمراجعة.</p>
             </Card>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function StudentBrief({ studentId }: { studentId: string }) {
+  const firestore = useFirestore();
+  const studentRef = useMemoFirebase(() => firestore ? doc(firestore, 'students', studentId) : null, [firestore, studentId]);
+  const { data: student } = useDoc(studentRef);
+
+  return (
+    <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
+      <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] text-primary">
+        {student?.name?.[0] || 'S'}
+      </div>
+      <span className="truncate max-w-[120px]">{student?.name || studentId}</span>
     </div>
   );
 }
@@ -146,10 +182,17 @@ function AttemptDetails({ attempt, onAnalyzeAI, onGrade, onRelease, isAnalyzing 
   const { data: answers, isLoading } = useCollection(answersRef);
 
   return (
-    <Card className="bg-card">
-      <CardHeader className="border-b flex flex-row items-center justify-between">
-        <CardTitle className="text-xl font-bold">مراجعة إجابات الطالب</CardTitle>
-        <Button onClick={() => onRelease(attempt)} disabled={attempt.isGraded} className="bg-accent hover:bg-accent/90 font-bold gap-2">
+    <Card className="bg-card border-primary/10 shadow-xl animate-in zoom-in-95">
+      <CardHeader className="border-b bg-secondary/5 flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="text-xl font-bold">مراجعة إجابات الطالب</CardTitle>
+          <p className="text-xs text-muted-foreground">المحاولة رقم {attempt.attemptNumber} - تم التسليم في {new Date(attempt.submittedAt).toLocaleDateString('ar-EG')}</p>
+        </div>
+        <Button 
+          onClick={() => onRelease(attempt)} 
+          disabled={attempt.isGraded} 
+          className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold gap-2 shadow-lg shadow-accent/20"
+        >
           <CheckCircle className="w-4 h-4" /> اعتماد النتيجة النهائية
         </Button>
       </CardHeader>
@@ -159,57 +202,85 @@ function AttemptDetails({ attempt, onAnalyzeAI, onGrade, onRelease, isAnalyzing 
         ) : (
           <div className="space-y-6">
             {answers?.map((answer, i) => (
-              <Card key={answer.id} className="bg-secondary/5 border-primary/10 overflow-hidden">
+              <Card key={answer.id} className="bg-background border-primary/10 overflow-hidden shadow-sm">
                 <div className="p-4 bg-secondary/10 border-b flex justify-between items-center">
-                  <span className="font-bold">سؤال {i+1} ({answer.questionType === 'MCQ' ? 'اختياري' : 'مقالي'})</span>
+                  <div className="flex items-center gap-2">
+                    <span className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">{i+1}</span>
+                    <span className="font-bold text-sm">نوع السؤال: {answer.questionType === 'MCQ' ? 'اختياري' : 'مقالي'}</span>
+                  </div>
                   <div className="flex gap-2">
                     <Button 
                       size="sm" 
                       variant={answer.isCorrect ? 'default' : 'outline'} 
                       onClick={() => onGrade(answer, true, 1)}
-                      className="h-8 gap-1"
+                      className={`h-9 px-4 gap-2 font-bold ${answer.isCorrect ? 'bg-accent text-white' : ''}`}
                     >
-                      <CheckCircle2 className="w-3 h-3" /> صحيح
+                      <CheckCircle2 className="w-4 h-4" /> صحيح
                     </Button>
                     <Button 
                       size="sm" 
                       variant={answer.isCorrect === false ? 'destructive' : 'outline'} 
                       onClick={() => onGrade(answer, false, 0)}
-                      className="h-8 gap-1"
+                      className="h-9 px-4 gap-2 font-bold"
                     >
-                      <XCircle className="w-3 h-3" /> خطأ
+                      <XCircle className="w-4 h-4" /> خطأ
                     </Button>
                   </div>
                 </div>
-                <CardContent className="p-6 space-y-4">
+                <CardContent className="p-6 space-y-6">
                   {answer.questionType === 'MCQ' ? (
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-bold">الخيار المختار:</p>
-                      <Badge variant="outline">{answer.mcqSelectedOptionId}</Badge>
+                    <div className="flex items-center gap-3">
+                      <p className="text-sm font-bold text-muted-foreground">الخيار الذي اختاره الطالب:</p>
+                      <Badge variant="outline" className="text-lg py-1 px-4 border-primary/50 text-primary">{answer.mcqSelectedOptionId}</Badge>
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                       {answer.essayAnswerText && (
-                        <div className="p-4 bg-background rounded-xl border">
-                          <div className="flex justify-between items-start mb-2">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
                             <Label className="text-xs text-primary font-bold">إجابة الطالب النصية:</Label>
-                            <Button variant="ghost" className="h-6 text-[10px] gap-1" onClick={() => onAnalyzeAI(answer.essayAnswerText)}>
-                              <BrainCircuit className="w-3 h-3" /> تحليل ذكي
+                            <Button 
+                              variant="ghost" 
+                              className="h-8 text-xs gap-2 text-accent" 
+                              onClick={() => onAnalyzeAI(answer.essayAnswerText)}
+                              disabled={isAnalyzing}
+                            >
+                              {isAnalyzing ? <Loader2 className="w-3 h-3 animate-spin" /> : <BrainCircuit className="w-3 h-3" />}
+                              تحليل ذكي للإجابة
                             </Button>
                           </div>
-                          <p className="text-lg leading-relaxed">{answer.essayAnswerText}</p>
+                          <div className="p-4 bg-secondary/10 rounded-xl border border-dashed border-primary/20">
+                            <p className="text-lg leading-relaxed whitespace-pre-wrap">{answer.essayAnswerText}</p>
+                          </div>
                         </div>
                       )}
+                      
                       {answer.essayAnswerFileUrl && (
-                        <div className="space-y-2">
-                          <Label className="text-xs text-accent font-bold">الصورة المرفوعة من الطالب:</Label>
-                          <div className="relative w-full h-64 bg-background rounded-xl border overflow-hidden">
-                            <Image src={answer.essayAnswerFileUrl} alt="Student Upload" fill className="object-contain" unoptimized />
-                            <a href={answer.essayAnswerFileUrl} target="_blank" className="absolute top-2 left-2 bg-black/50 text-white p-2 rounded-full hover:bg-black">
-                              <ExternalLink className="w-4 h-4" />
+                        <div className="space-y-3">
+                          <Label className="text-xs text-accent font-bold flex items-center gap-2">
+                            <FileText className="w-3 h-3" /> صورة الحل المرفوعة (مقالي):
+                          </Label>
+                          <div className="relative w-full h-[400px] bg-secondary/5 rounded-2xl border-2 border-dashed border-accent/30 overflow-hidden group">
+                            <Image 
+                              src={answer.essayAnswerFileUrl} 
+                              alt="Student Answer Image" 
+                              fill 
+                              className="object-contain" 
+                              unoptimized 
+                            />
+                            <a 
+                              href={answer.essayAnswerFileUrl} 
+                              target="_blank" 
+                              className="absolute top-4 left-4 bg-black/70 text-white p-3 rounded-xl hover:bg-black transition-colors flex items-center gap-2"
+                            >
+                              <ExternalLink className="w-4 h-4" /> فتح الصورة كاملة
                             </a>
                           </div>
                         </div>
+                      )}
+                      
+                      {!answer.essayAnswerText && !answer.essayAnswerFileUrl && (
+                        <p className="text-sm italic text-destructive font-bold">لم يقم الطالب بكتابة أو رفع أي إجابة لهذا السؤال.</p>
                       )}
                     </div>
                   )}
