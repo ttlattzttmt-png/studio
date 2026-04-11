@@ -53,7 +53,7 @@ service cloud.firestore {
       }
     }
 
-    // أكواد الوصول (Access Codes): الحل النهائي للصلاحيات
+    // أكواد الوصول (Access Codes): الحل النهائي والمبسط للصلاحيات
     match /access_codes/{codeId} {
       // السماح بالبحث والقراءة لجميع المسجلين للتحقق من الكود
       allow read, list: if isSignedIn();
@@ -63,7 +63,7 @@ service cloud.firestore {
       // هذا هو المفتاح لحل مشكلة الصلاحيات نهائياً
       allow update: if isSignedIn() && (
         isAdmin() || 
-        resource.data.isUsed == false
+        (resource.data.isUsed == false && request.resource.data.isUsed == true)
       );
     }
 

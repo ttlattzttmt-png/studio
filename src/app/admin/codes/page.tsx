@@ -50,6 +50,7 @@ export default function ManageCodes() {
         const randomPart2 = Math.random().toString(36).substring(2, 6).toUpperCase();
         const randomCode = `ENG-${randomPart1}-${randomPart2}`;
         
+        // التأكد من تخزين courseId بشكل صحيح للمزامنة مع صفحة الطالب
         await addDoc(collection(firestore, 'access_codes'), {
           code: randomCode,
           courseId: genData.courseId,
@@ -60,7 +61,7 @@ export default function ManageCodes() {
           usedAt: null
         });
       }
-      toast({ title: "تم التوليد بنجاح", description: `تم إنشاء ${count} كود تفعيل بنجاح.` });
+      toast({ title: "تم التوليد بنجاح", description: `تم إنشاء ${count} كود تفعيل بنجاح للكورس المحدد.` });
       setGenData({ ...genData, courseId: '' });
     } catch (e) {
       console.error(e);
@@ -154,7 +155,7 @@ export default function ManageCodes() {
               {isCodesLoading ? (
                 <TableRow><TableCell colSpan={5} className="text-center py-10"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
               ) : !filteredCodes || filteredCodes.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground">لا توجد أكواد.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground">لا توجد أكواد حالياً.</TableCell></TableRow>
               ) : (
                 filteredCodes.map((c: any) => (
                   <TableRow key={c.id}>
@@ -193,7 +194,7 @@ function CourseName({ courseId }: { courseId: string }) {
   return (
     <div className="flex items-center gap-2">
       <BookOpen className="w-3 h-3 text-primary" />
-      <span className="text-xs font-bold">{course?.title || <span className="opacity-30 italic">جاري التحميل...</span>}</span>
+      <span className="text-xs font-bold">{course?.title || <span className="opacity-30 italic">جاري جلب الاسم...</span>}</span>
     </div>
   );
 }
