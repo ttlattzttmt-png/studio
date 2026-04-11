@@ -1,14 +1,13 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Video, Play, Edit3, Trash2 } from 'lucide-react';
+import { Plus, Video, Edit3, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export default function ManageCourses() {
   const courses = [
-    { id: 1, title: 'الفيزياء الحديثة', students: 150, price: '250 ج.م', year: 'الثالث الثانوي' },
-    { id: 2, title: 'الميكانيكا الأساسية', students: 85, price: '200 ج.م', year: 'الثاني الثانوي' },
-    { id: 3, title: 'أساسيات الرياضيات', students: 300, price: '150 ج.م', year: 'الأول الثانوي' },
+    { id: 1, title: 'كورس الفيزياء التجريبي', students: 0, price: '250 ج.م', year: 'الثالث الثانوي' },
+    { id: 2, title: 'كورس الميكانيكا التجريبي', students: 0, price: '200 ج.م', year: 'الثاني الثانوي' },
   ];
 
   return (
@@ -34,6 +33,7 @@ export default function ManageCourses() {
                     alt={course.title}
                     fill
                     className="object-cover rounded-t-xl md:rounded-r-xl md:rounded-tl-none"
+                    data-ai-hint="physics mathematics"
                    />
                 </div>
                 <div className="flex-grow p-6 flex flex-col justify-between">
@@ -43,7 +43,7 @@ export default function ManageCourses() {
                         {course.year}
                       </span>
                       <h3 className="text-2xl font-bold">{course.title}</h3>
-                      <p className="text-muted-foreground mt-1">تاريخ الإنشاء: 12 أكتوبر 2023</p>
+                      <p className="text-muted-foreground mt-1">جاهز لإضافة المحتوى</p>
                     </div>
                     <div className="text-left">
                       <p className="text-2xl font-black text-primary">{course.price}</p>

@@ -5,15 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Ticket, Search, Filter, Download, Plus } from 'lucide-react';
+import { Search, Filter, Download, Plus, Ticket } from 'lucide-react';
 
 export default function ManageCodes() {
-  const [codes, setCodes] = useState([
-    { id: 1, code: 'ENG-HY-8821', course: 'الفيزياء الحديثة', status: 'نشط', student: '-' },
-    { id: 2, code: 'ENG-MZ-1123', course: 'الفيزياء الحديثة', status: 'مستخدم', student: 'محمد أحمد' },
-    { id: 3, code: 'ENG-LK-9902', course: 'الميكانيكا', status: 'نشط', student: '-' },
-    { id: 4, code: 'ENG-OP-5512', course: 'الرياضيات 1', status: 'منتهي', student: 'خالد يوسف' },
-  ]);
+  const [codes, setCodes] = useState([]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -35,15 +30,15 @@ export default function ManageCodes() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="bg-card">
           <CardHeader><CardTitle className="text-sm text-muted-foreground">إجمالي الأكواد</CardTitle></CardHeader>
-          <CardContent><p className="text-4xl font-bold">1,500</p></CardContent>
+          <CardContent><p className="text-4xl font-bold">0</p></CardContent>
         </Card>
         <Card className="bg-card">
           <CardHeader><CardTitle className="text-sm text-muted-foreground">أكواد مستخدمة</CardTitle></CardHeader>
-          <CardContent><p className="text-4xl font-bold text-accent">1,120</p></CardContent>
+          <CardContent><p className="text-4xl font-bold text-accent">0</p></CardContent>
         </Card>
         <Card className="bg-card">
           <CardHeader><CardTitle className="text-sm text-muted-foreground">أكواد متاحة</CardTitle></CardHeader>
-          <CardContent><p className="text-4xl font-bold text-primary">380</p></CardContent>
+          <CardContent><p className="text-4xl font-bold text-primary">0</p></CardContent>
         </Card>
       </div>
 
@@ -71,25 +66,30 @@ export default function ManageCodes() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {codes.map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell className="font-mono font-bold text-primary">{c.code}</TableCell>
-                  <TableCell>{c.course}</TableCell>
-                  <TableCell>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      c.status === 'نشط' ? 'bg-accent/10 text-accent border border-accent/20' : 
-                      c.status === 'مستخدم' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' : 
-                      'bg-muted text-muted-foreground border'
-                    }`}>
-                      {c.status}
-                    </span>
-                  </TableCell>
-                  <TableCell>{c.student}</TableCell>
-                  <TableCell className="text-left">
-                    <Button variant="ghost" size="sm">إلغاء</Button>
+              {codes.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-20 text-muted-foreground">
+                    <Ticket className="w-12 h-12 mx-auto mb-4 opacity-10" />
+                    لا توجد أكواد حالياً. ابدأ بتوليد أكواد جديدة.
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                codes.map((c: any) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-mono font-bold text-primary">{c.code}</TableCell>
+                    <TableCell>{c.course}</TableCell>
+                    <TableCell>
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-accent/10 text-accent border border-accent/20">
+                        {c.status}
+                      </span>
+                    </TableCell>
+                    <TableCell>{c.student}</TableCell>
+                    <TableCell className="text-left">
+                      <Button variant="ghost" size="sm">إلغاء</Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>

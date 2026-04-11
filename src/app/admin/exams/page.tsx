@@ -7,8 +7,7 @@ import Link from 'next/link';
 
 export default function AdminExams() {
   const exams = [
-    { id: 1, title: 'اختبار الفصل الأول: الفيزياء والكيمياء', course: 'الفيزياء الحديثة', date: '2023-11-15', duration: '60 دقيقة' },
-    { id: 2, title: 'امتحان منتصف الشهر', course: 'الميكانيكا الأساسية', date: '2023-11-20', duration: '45 دقيقة' },
+    { id: 1, title: 'اختبار تجريبي: أساسيات الفيزياء', course: 'كورس الفيزياء التجريبي', date: '2023-12-01', duration: '30 دقيقة' },
   ];
 
   return (
