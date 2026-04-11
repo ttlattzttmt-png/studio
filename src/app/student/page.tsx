@@ -1,12 +1,13 @@
 "use client";
 
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Play, Trophy, ArrowLeft, Loader2, User } from 'lucide-react';
+import { Play, Trophy, ArrowLeft, Loader2, User, Megaphone, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, query, orderBy, limit } from 'firebase/firestore';
 
 export default function StudentDashboard() {
   const { user, isUserLoading } = useUser();
@@ -22,8 +23,14 @@ export default function StudentDashboard() {
     return collection(firestore, 'students', user.uid, 'enrollments');
   }, [firestore, user?.uid]);
 
+  const notificationsRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'notifications'), orderBy('createdAt', 'desc'), limit(5));
+  }, [firestore]);
+
   const { data: studentProfile, isLoading: isProfileLoading } = useDoc(studentRef);
   const { data: enrollments, isLoading: isEnrollmentsLoading } = useCollection(enrollmentsRef);
+  const { data: notifications, isLoading: isNotificationsLoading } = useCollection(notificationsRef);
 
   if (isUserLoading || isProfileLoading) {
     return (
@@ -102,7 +109,7 @@ export default function StudentDashboard() {
                              {enrollment.isCompleted ? 'مكتمل' : 'قيد الدراسة'}
                            </span>
                          </div>
-                         <h4 className="text-lg font-bold mb-4">كود الكورس: {enrollment.courseId}</h4>
+                         <h4 className="text-lg font-bold mb-4">كورس: {enrollment.courseId}</h4>
                          <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
                            <div className="h-full bg-primary" style={{ width: `${enrollment.progressPercentage}%` }} />
                          </div>
@@ -134,11 +141,32 @@ export default function StudentDashboard() {
            </Card>
 
            <Card className="bg-card">
-             <CardHeader className="border-b"><CardTitle className="text-lg font-bold">آخر التنبيهات</CardTitle></CardHeader>
-             <CardContent className="p-4">
-                <div className="text-center py-4">
-                  <p className="text-xs text-muted-foreground italic">لا توجد رسائل جديدة حالياً.</p>
-                </div>
+             <CardHeader className="border-b flex flex-row items-center justify-between">
+               <CardTitle className="text-lg font-bold flex items-center gap-2">
+                 <Megaphone className="w-5 h-5 text-primary" /> آخر التنبيهات
+               </CardTitle>
+             </CardHeader>
+             <CardContent className="p-0">
+                {isNotificationsLoading ? (
+                  <div className="p-6 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-primary" /></div>
+                ) : !notifications || notifications.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-xs text-muted-foreground italic">لا توجد رسائل جديدة حالياً.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {notifications.map((notif: any) => (
+                      <div key={notif.id} className="p-4 hover:bg-secondary/10 transition-colors">
+                        <h5 className="text-sm font-bold text-primary mb-1">{notif.title}</h5>
+                        <p className="text-xs text-muted-foreground line-clamp-2">{notif.message}</p>
+                        <div className="mt-2 flex items-center gap-1 text-[9px] text-muted-foreground">
+                          <Clock className="w-3 h-3" />
+                          <span>{notif.createdAt?.toDate ? notif.createdAt.toDate().toLocaleDateString('ar-EG') : 'الآن'}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
              </CardContent>
            </Card>
         </div>
