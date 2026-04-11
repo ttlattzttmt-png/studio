@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -124,7 +125,7 @@ export default function StudentDashboard() {
               ) : (
                 <div className="p-12 text-center bg-secondary/10 rounded-3xl border border-dashed">
                   <p className="text-muted-foreground mb-4">أنت غير مشترك في أي كورس حالياً.</p>
-                  <Link href="/courses"><Button variant="outline">تصفح الكورسات المتاحة</Button></Link>
+                  <Link href="/student/redeem"><Button variant="outline">تفعيل كود كورس</Button></Link>
                 </div>
               )}
            </div>
