@@ -28,9 +28,16 @@ export default function ManageCodes() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [genData, setGenData] = useState({ courseId: '', count: '10' });
 
-  // جلب الأكواد والكورسات لحظياً
-  const codesRef = useMemoFirebase(() => firestore ? query(collection(firestore, 'access_codes'), orderBy('createdAt', 'desc')) : null, [firestore]);
-  const coursesRef = useMemoFirebase(() => firestore ? collection(firestore, 'courses') : null, [firestore]);
+  // جلب الأكواد والكورسات لحظياً - مع اشتراط وجود المستخدم لتجنب أخطاء الصلاحيات
+  const codesRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'access_codes'), orderBy('createdAt', 'desc'));
+  }, [firestore, user]);
+
+  const coursesRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return collection(firestore, 'courses');
+  }, [firestore, user]);
 
   const { data: codes, isLoading: isCodesLoading } = useCollection(codesRef);
   const { data: courses } = useCollection(coursesRef);
@@ -78,6 +85,8 @@ export default function ManageCodes() {
     used: codes?.filter(c => c.isUsed).length || 0,
     available: codes?.filter(c => !c.isUsed).length || 0
   };
+
+  if (!user) return <div className="p-20 text-center text-muted-foreground">جاري التحقق من الصلاحيات...</div>;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">

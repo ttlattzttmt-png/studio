@@ -25,18 +25,19 @@ import {
   Loader2,
   ChevronLeft
 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection } from 'firebase/firestore';
 
 export default function AdminStudents() {
   const firestore = useFirestore();
+  const { user } = useUser();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   
   const studentsRef = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return collection(firestore, 'students');
-  }, [firestore]);
+  }, [firestore, user]);
 
   const { data: students, isLoading } = useCollection(studentsRef);
 
@@ -44,6 +45,8 @@ export default function AdminStudents() {
     s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     s.studentPhoneNumber.includes(searchTerm)
   );
+
+  if (!user) return <div className="p-20 text-center text-muted-foreground">جاري التحقق من الصلاحيات...</div>;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -20,7 +21,7 @@ import {
   ClipboardList,
   AlertCircle
 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useDoc, useUser } from '@/firebase';
 import { collectionGroup, query, updateDoc, doc, collection } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeEssayAnswer } from '@/ai/flows/admin-essay-answer-analyzer';
@@ -28,16 +29,17 @@ import Image from 'next/image';
 
 export default function AdminGradingPage() {
   const firestore = useFirestore();
+  const { user } = useUser();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // جلب كافة محاولات الطلاب لحظياً باستخدام Collection Group
+  // جلب كافة محاولات الطلاب لحظياً باستخدام Collection Group - مع اشتراط وجود المستخدم
   const attemptsRef = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return collectionGroup(firestore, 'quiz_attempts');
-  }, [firestore]);
+  }, [firestore, user]);
 
   const { data: attempts, isLoading } = useCollection(attemptsRef);
 
@@ -89,6 +91,8 @@ export default function AdminGradingPage() {
       toast({ variant: "destructive", title: "خطأ", description: "فشل اعتماد النتيجة." });
     }
   };
+
+  if (!user) return <div className="p-20 text-center text-muted-foreground">جاري التحقق من الصلاحيات...</div>;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
