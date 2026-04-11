@@ -29,11 +29,13 @@ export default function RedeemCodePage() {
     
     setIsSubmitting(true);
     try {
-      // 1. البحث عن الكود
+      const cleanCode = code.trim().toUpperCase();
+      
+      // 1. البحث عن الكود في مجموعة الأكواد
       const codesRef = collection(firestore, 'access_codes');
       const q = query(
         codesRef, 
-        where('code', '==', code.trim().toUpperCase()), 
+        where('code', '==', cleanCode), 
         where('isUsed', '==', false)
       );
       
@@ -43,7 +45,7 @@ export default function RedeemCodePage() {
         toast({
           variant: "destructive",
           title: "كود غير صالح",
-          description: "الكود خاطئ أو تم استخدامه مسبقاً."
+          description: "هذا الكود خاطئ، أو تم استخدامه مسبقاً، أو غير مخصص لهذا الكورس."
         });
         setIsSubmitting(false);
         return;
@@ -51,22 +53,29 @@ export default function RedeemCodePage() {
 
       const codeDoc = querySnapshot.docs[0];
       const codeData = codeDoc.data();
-      const courseId = codeData.courseId;
+      const targetCourseId = codeData.courseId;
 
-      // 2. التحقق من الكورس
-      const courseRef = doc(firestore, 'courses', courseId);
+      if (!targetCourseId) {
+        throw new Error("الكود غير مرتبط بأي كورس.");
+      }
+
+      // 2. جلب بيانات الكورس للتأكد من وجوده
+      const courseRef = doc(firestore, 'courses', targetCourseId);
       const courseSnap = await getDoc(courseRef);
       
       if (!courseSnap.exists()) {
-        toast({ variant: "destructive", title: "خطأ", description: "الكورس المرتبط بهذا الكود غير موجود." });
+        toast({ 
+          variant: "destructive", 
+          title: "خطأ في البيانات", 
+          description: "الكورس المرتبط بهذا الكود لم يعد متاحاً." 
+        });
         setIsSubmitting(false);
         return;
       }
 
       const courseTitle = courseSnap.data().title;
 
-      // 3. تحديث حالة الكود
-      // نستخدم updateDoc مباشرة لأن القواعد الآن تسمح للطالب بتحديث الكود المتاح
+      // 3. تحديث الكود ليصبح "مستخدماً" (تتم عبر القواعد الأمنية الجديدة)
       const codeDocRef = doc(firestore, 'access_codes', codeDoc.id);
       await updateDoc(codeDocRef, {
         isUsed: true,
@@ -74,12 +83,12 @@ export default function RedeemCodePage() {
         usedAt: serverTimestamp()
       });
 
-      // 4. تفعيل الكورس للطالب في مجلده الخاص
-      const enrollmentRef = doc(firestore, 'students', user.uid, 'enrollments', courseId);
+      // 4. إنشاء الاشتراك للطالب في مجلده الخاص (تزامن لحظي)
+      const enrollmentRef = doc(firestore, 'students', user.uid, 'enrollments', targetCourseId);
       await setDoc(enrollmentRef, {
-        id: courseId,
+        id: targetCourseId,
         studentId: user.uid,
-        courseId: courseId,
+        courseId: targetCourseId,
         enrollmentDate: new Date().toISOString(),
         accessCodeId: codeDoc.id,
         isCompleted: false,
@@ -88,16 +97,21 @@ export default function RedeemCodePage() {
 
       toast({
         title: "تم التفعيل بنجاح!",
-        description: `تم فتح كورس ${courseTitle} بنجاح.`
+        description: `أهلاً بك في كورس: ${courseTitle}. تم فتح المحتوى لك الآن.`
       });
       
+      // توجيه الطالب لصفحة كورساتي لمشاهدة الكورس الجديد فوراً
       router.push('/student/my-courses');
     } catch (e: any) {
-      console.error("Redeem error details:", e);
+      console.error("Redeem operation failed:", e);
+      let msg = "حدث خطأ غير متوقع أثناء التفعيل.";
+      if (e.message?.includes('permission')) {
+        msg = "فشل التفعيل بسبب قيود الصلاحيات. يرجى التأكد من تسجيل الدخول بشكل صحيح.";
+      }
       toast({
         variant: "destructive",
         title: "فشل التفعيل",
-        description: "حدث خطأ في الصلاحيات. يرجى محاولة تسجيل الخروج والدخول مرة أخرى."
+        description: msg
       });
     } finally {
       setIsSubmitting(false);
@@ -125,7 +139,7 @@ export default function RedeemCodePage() {
             <Ticket className="w-10 h-10" />
           </div>
           <CardTitle className="text-3xl font-headline font-bold">تفعيل كود الكورس</CardTitle>
-          <p className="text-muted-foreground text-sm mt-3">أدخل الكود المكون من 12 خانة لفتح محتواك التعليمي.</p>
+          <p className="text-muted-foreground text-sm mt-3">أدخل الكود المكون من 12 خانة لفتح محتواك التعليمي فوراً.</p>
         </CardHeader>
         <CardContent className="space-y-6 pb-10">
           <Input 
@@ -145,7 +159,7 @@ export default function RedeemCodePage() {
         </CardContent>
       </Card>
       <div className="mt-8 text-center space-y-2">
-        <p className="text-muted-foreground text-sm">تواجه مشكلة؟ تواصل مع الدعم الفني</p>
+        <p className="text-muted-foreground text-sm">تواجه مشكلة؟ فريق الدعم جاهز لمساعدتك</p>
         <p className="text-primary font-bold">واتساب: 01008006562</p>
       </div>
     </div>

@@ -14,7 +14,7 @@ import {
   DialogTrigger,
   DialogFooter
 } from "@/components/ui/dialog";
-import { Search, Plus, Ticket, Loader2, Trash2, BookOpen } from 'lucide-react';
+import { Search, Plus, Ticket, Loader2, Trash2, BookOpen, User } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -46,7 +46,6 @@ export default function ManageCodes() {
     try {
       const count = parseInt(genData.count);
       for (let i = 0; i < count; i++) {
-        // إنشاء كود بصيغة واضحة وuppercase لضمان التوافق
         const randomPart1 = Math.random().toString(36).substring(2, 6).toUpperCase();
         const randomPart2 = Math.random().toString(36).substring(2, 6).toUpperCase();
         const randomCode = `ENG-${randomPart1}-${randomPart2}`;
@@ -61,11 +60,11 @@ export default function ManageCodes() {
           usedAt: null
         });
       }
-      toast({ title: "تم التوليد بنجاح", description: `تم إنشاء ${count} كود تفعيل للكورس المحدد.` });
+      toast({ title: "تم التوليد بنجاح", description: `تم إنشاء ${count} كود تفعيل بنجاح.` });
       setGenData({ ...genData, courseId: '' });
     } catch (e) {
       console.error(e);
-      toast({ variant: "destructive", title: "خطأ في التوليد", description: "فشل إنشاء الأكواد. يرجى التحقق من الصلاحيات." });
+      toast({ variant: "destructive", title: "خطأ في التوليد", description: "فشل إنشاء الأكواد." });
     } finally {
       setIsGenerating(false);
     }
@@ -73,19 +72,18 @@ export default function ManageCodes() {
 
   const handleDeleteCode = async (id: string) => {
     if (!firestore) return;
-    if (!confirm('هل أنت متأكد من حذف هذا الكود؟ لن يتمكن أي طالب من استخدامه بعد الآن.')) return;
+    if (!confirm('هل أنت متأكد من حذف هذا الكود؟')) return;
     try {
       await deleteDoc(doc(firestore, 'access_codes', id));
-      toast({ title: "تم الحذف", description: "تم حذف كود التفعيل بنجاح." });
+      toast({ title: "تم الحذف", description: "تم حذف الكود بنجاح." });
     } catch (e) { 
       console.error(e);
-      toast({ variant: "destructive", title: "خطأ", description: "لا يمكن حذف كود مستخدم أو غير موجود." });
     }
   };
 
   const filteredCodes = codes?.filter(c => 
     c.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.courseId?.toLowerCase().includes(searchTerm.toLowerCase())
+    c.usedByStudentId?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (isUserLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
@@ -94,20 +92,20 @@ export default function ManageCodes() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-headline font-bold mb-2">إدارة أكواد التفعيل</h1>
-          <p className="text-muted-foreground">أنشئ أكواداً جديدة ووزعها على الطلاب لتفعيل الكورسات.</p>
+          <h1 className="text-4xl font-headline font-bold mb-2">إدارة الأكواد والمزامنة</h1>
+          <p className="text-muted-foreground">أنشئ أكواداً لفتح كورسات محددة وتابع من استخدمها لحظياً.</p>
         </div>
         <Dialog>
           <DialogTrigger asChild>
             <Button className="h-14 px-8 bg-primary text-primary-foreground font-bold rounded-xl gap-2 text-lg shadow-lg">
-              <Plus className="w-6 h-6" /> توليد أكواد دفع
+              <Plus className="w-6 h-6" /> توليد أكواد جديدة
             </Button>
           </DialogTrigger>
           <DialogContent className="bg-card">
-            <DialogHeader><DialogTitle className="text-2xl font-bold text-right">توليد أكواد دفع</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle className="text-2xl font-bold text-right">توليد أكواد لفتح كورس</DialogTitle></DialogHeader>
             <div className="space-y-6 py-4">
               <div className="space-y-2 text-right">
-                <label className="text-sm font-bold">اختر الكورس المستهدف</label>
+                <label className="text-sm font-bold">الكورس المستهدف</label>
                 <Select value={genData.courseId} onValueChange={(v) => setGenData({...genData, courseId: v})}>
                   <SelectTrigger className="h-12 bg-background"><SelectValue placeholder="اختر الكورس" /></SelectTrigger>
                   <SelectContent>
@@ -118,14 +116,12 @@ export default function ManageCodes() {
                 </Select>
               </div>
               <div className="space-y-2 text-right">
-                <label className="text-sm font-bold">عدد الأكواد المطلوب توليدها</label>
+                <label className="text-sm font-bold">كمية الأكواد</label>
                 <Input type="number" value={genData.count} onChange={(e) => setGenData({...genData, count: e.target.value})} className="h-12 bg-background" />
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={handleGenerateCodes} disabled={isGenerating || !genData.courseId} className="w-full h-12 bg-primary font-bold">
-                {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : "ابدأ التوليد الآن"}
-              </Button>
+              <Button onClick={handleGenerateCodes} disabled={isGenerating || !genData.courseId} className="w-full h-12 bg-primary font-bold">توليد الآن</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -136,7 +132,7 @@ export default function ManageCodes() {
           <div className="relative w-full md:w-96">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input 
-              placeholder="بحث عن كود أو معرف كورس..." 
+              placeholder="بحث عن كود أو طالب..." 
               className="pr-10 bg-background border-primary/10 text-right" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -147,23 +143,22 @@ export default function ManageCodes() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="text-right">كود التفعيل</TableHead>
+                <TableHead className="text-right">الكود</TableHead>
                 <TableHead className="text-right">الكورس المرتبط</TableHead>
-                <TableHead className="text-right">الحالة</TableHead>
+                <TableHead className="text-right">حالة الاستخدام</TableHead>
+                <TableHead className="text-right">بواسطة طالب</TableHead>
                 <TableHead className="text-left">الإجراءات</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isCodesLoading ? (
-                <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="text-center py-10"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
               ) : !filteredCodes || filteredCodes.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center py-20 text-muted-foreground">لا توجد أكواد حالياً.</TableCell>
-                </TableRow>
+                <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground">لا توجد أكواد.</TableCell></TableRow>
               ) : (
                 filteredCodes.map((c: any) => (
                   <TableRow key={c.id}>
-                    <TableCell className="font-mono font-bold text-primary select-all cursor-copy">{c.code}</TableCell>
+                    <TableCell className="font-mono font-bold text-primary">{c.code}</TableCell>
                     <TableCell>
                       <CourseName courseId={c.courseId} />
                     </TableCell>
@@ -171,6 +166,9 @@ export default function ManageCodes() {
                       <span className={`px-3 py-1 rounded-full text-[10px] font-bold border ${c.isUsed ? 'bg-accent/10 text-accent border-accent/20' : 'bg-primary/10 text-primary border-primary/20'}`}>
                         {c.isUsed ? 'مستخدم' : 'متاح'}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      {c.isUsed ? <StudentName studentId={c.usedByStudentId} /> : <span className="text-xs opacity-30 italic">---</span>}
                     </TableCell>
                     <TableCell className="text-left">
                       <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteCode(c.id)}>
@@ -190,13 +188,19 @@ export default function ManageCodes() {
 
 function CourseName({ courseId }: { courseId: string }) {
   const firestore = useFirestore();
-  const courseRef = useMemoFirebase(() => firestore ? doc(firestore, 'courses', courseId) : null, [firestore, courseId]);
+  const courseRef = useMemoFirebase(() => courseId ? doc(firestore, 'courses', courseId) : null, [firestore, courseId]);
   const { data: course } = useDoc(courseRef);
+  return <div className="text-xs font-bold">{course?.title || <span className="opacity-30 italic">غير معروف</span>}</div>;
+}
 
+function StudentName({ studentId }: { studentId: string }) {
+  const firestore = useFirestore();
+  const studentRef = useMemoFirebase(() => studentId ? doc(firestore, 'students', studentId) : null, [firestore, studentId]);
+  const { data: student } = useDoc(studentRef);
   return (
-    <div className="flex items-center gap-2 text-xs font-bold">
-      <BookOpen className="w-3 h-3 text-muted-foreground" />
-      {course?.title || <span className="text-[10px] opacity-50 italic">جاري جلب الاسم...</span>}
+    <div className="flex items-center gap-1 text-[10px] text-accent font-bold">
+      <User className="w-3 h-3" />
+      {student?.name || 'طالب مجهول'}
     </div>
   );
 }
