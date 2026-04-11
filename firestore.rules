@@ -2,10 +2,12 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // دالة التحقق من تسجيل الدخول
     function isSignedIn() {
       return request.auth != null;
     }
 
+    // دالة التحقق من كونه مسؤول (Admin)
     function isAdmin() {
       return isSignedIn() && (
         (request.auth.token.email != null && request.auth.token.email.lower() == "admin@al-bashmohandes.com") ||
@@ -13,61 +15,30 @@ service cloud.firestore {
       );
     }
 
+    // دالة التحقق من ملكية البيانات (Path-based ownership)
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // الإشعارات العامة: قراءة للجميع، كتابة للمسؤول
+    // --- القواعد الأساسية ---
+
+    // الإشعارات: قراءة للجميع، كتابة للمسؤول
     match /notifications/{id} {
       allow read, list: if true;
       allow write: if isAdmin();
     }
 
-    // أدوار المسؤولين
+    // أدوار ومستخدمي الإدارة
     match /admin_roles/{uid} {
-      allow get: if isSignedIn();
-      allow list, write: if isAdmin();
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /admin_users/{uid} {
+      allow read: if isAdmin() || isOwner(uid);
+      allow write: if isAdmin();
     }
 
-    // بيانات المسؤولين
-    match /admin_users/{adminUserId} {
-      allow read, list: if isAdmin();
-      allow write: if isAdmin() && isOwner(adminUserId);
-    }
-
-    // بيانات الطلاب والاشتراكات
-    match /students/{studentId} {
-      allow get, update, create: if isOwner(studentId) || isAdmin();
-      allow list: if isAdmin();
-      allow delete: if isAdmin();
-
-      match /enrollments/{enrollmentId} {
-        allow read, list, write: if isOwner(studentId) || isAdmin();
-      }
-      match /quiz_attempts/{attemptId} {
-        allow read, list, write: if isOwner(studentId) || isAdmin();
-        
-        match /answers/{answerId} {
-          allow read, list, write: if isOwner(studentId) || isAdmin();
-        }
-      }
-      match /video_progress/{progressId} {
-        allow read, list, write: if isOwner(studentId) || isAdmin();
-      }
-    }
-
-    // دعم استعلامات المجموعات (Collection Group) للمسؤول والطلاب
-    match /{path=**}/quiz_attempts/{attemptId} {
-      allow read, list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
-    }
-    match /{path=**}/answers/{answerId} {
-      allow read, list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
-    }
-    match /{path=**}/enrollments/{enrollmentId} {
-      allow read, list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
-    }
-
-    // الكورسات والمحتوى: قراءة للجميع، كتابة للمسؤول
+    // الكورسات ومحتواها: قراءة للجميع، كتابة للمسؤول
     match /courses/{courseId} {
       allow read, list: if true;
       allow write: if isAdmin();
@@ -87,10 +58,31 @@ service cloud.firestore {
       }
     }
 
-    // أكواد الوصول: قراءة وتحديث للمسجلين، إنشاء وحذف للمسؤول
-    match /access_codes/{accessCodeId} {
+    // أكواد الوصول: قراءة وتحديث للمسجلين (لتفعيل الكود)، إنشاء وحذف للمسؤول
+    match /access_codes/{codeId} {
       allow read, list, update: if isSignedIn();
       allow create, delete: if isAdmin();
+    }
+
+    // بيانات الطلاب: الطالب يملك صلاحية كاملة على مجلده وكل ما بداخله
+    match /students/{studentId} {
+      allow read, write: if isOwner(studentId) || isAdmin();
+      
+      // السماح بجميع العمليات على المجموعات الفرعية (الاشتراكات، المحاولات، إلخ)
+      match /{allSubcollections=**} {
+        allow read, write: if isOwner(studentId) || isAdmin();
+      }
+    }
+
+    // دعم استعلامات المجموعات (Collection Group) للمسؤول
+    match /{path=**}/quiz_attempts/{id} {
+      allow read, list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
+    }
+    match /{path=**}/enrollments/{id} {
+      allow read, list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
+    }
+    match /{path=**}/answers/{id} {
+      allow read, list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
     }
   }
 }

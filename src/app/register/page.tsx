@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -38,7 +37,7 @@ export default function RegisterPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const uid = userCredential.user.uid;
 
-      // إنشاء وثيقة الطالب في Firestore ببيانات أولية (صفرية)
+      // إنشاء وثيقة الطالب الأساسية فوراً لتمكين قواعد الحماية
       const studentDocRef = doc(firestore, 'students', uid);
       await setDoc(studentDocRef, {
         id: uid,
@@ -49,20 +48,18 @@ export default function RegisterPage() {
         academicYear: formData.academicYear === '1' ? 'الصف الأول الثانوي' : formData.academicYear === '2' ? 'الصف الثاني الثانوي' : 'الصف الثالث الثانوي',
         registrationDate: new Date().toISOString(),
         lastLoginDate: new Date().toISOString(),
-        points: 0,
-        courses: [] // لا توجد كورسات في البداية
+        points: 0
       });
 
       toast({
         title: "تم إنشاء الحساب بنجاح",
-        description: "مرحباً بك يا بشمهندس في منصتك التعليمية."
+        description: "مرحباً بك يا بشمهندس."
       });
       router.push('/student');
     } catch (error: any) {
       console.error("Registration error:", error);
       let errorMessage = "حدث خطأ ما، يرجى المحاولة لاحقاً.";
       if (error.code === 'auth/email-already-in-use') errorMessage = "هذا البريد الإلكتروني مستخدم بالفعل.";
-      if (error.code === 'auth/weak-password') errorMessage = "كلمة المرور ضعيفة جداً.";
       
       toast({
         variant: "destructive",
@@ -83,9 +80,7 @@ export default function RegisterPage() {
             <ShieldCheck className="w-10 h-10 text-primary" />
           </div>
           <h1 className="text-5xl font-headline font-bold leading-tight">انضم إلى مجتمع المتميزين</h1>
-          <p className="text-xl text-muted-foreground">
-            سجل الآن للحصول على وصول كامل لكورسات الهندسة والفيزياء، والامتحانات التفاعلية.
-          </p>
+          <p className="text-xl text-muted-foreground">سجل الآن للحصول على وصول كامل لكورسات الفيزياء والرياضيات.</p>
         </div>
       </div>
 
@@ -93,73 +88,27 @@ export default function RegisterPage() {
         <div className="w-full max-w-md space-y-8 py-12">
           <form onSubmit={handleRegister} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm font-bold flex items-center gap-2">
-                <User className="w-4 h-4 text-primary" /> اسم الطالب رباعي
-              </Label>
-              <Input 
-                id="name" 
-                placeholder="أدخل اسمك بالكامل" 
-                className="h-12 bg-card border-primary/10 focus:border-primary" 
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                required 
-              />
+              <Label htmlFor="name" className="text-sm font-bold flex items-center gap-2"><User className="w-4 h-4 text-primary" /> الاسم رباعي</Label>
+              <Input id="name" placeholder="أدخل اسمك بالكامل" className="h-12 bg-card border-primary/10" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required />
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-bold flex items-center gap-2">
-                <Mail className="w-4 h-4 text-primary" /> البريد الإلكتروني
-              </Label>
-              <Input 
-                id="email" 
-                type="email" 
-                placeholder="example@mail.com" 
-                className="h-12 bg-card border-primary/10 focus:border-primary" 
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                required 
-              />
+              <Label htmlFor="email" className="text-sm font-bold flex items-center gap-2"><Mail className="w-4 h-4 text-primary" /> البريد الإلكتروني</Label>
+              <Input id="email" type="email" placeholder="example@mail.com" className="h-12 bg-card border-primary/10" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} required />
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="phone" className="text-sm font-bold flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-primary" /> رقم الهاتف
-                </Label>
-                <Input 
-                  id="phone" 
-                  type="tel" 
-                  placeholder="01xxxxxxxxx" 
-                  className="h-12 bg-card border-primary/10 focus:border-primary" 
-                  value={formData.phone}
-                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                  required 
-                />
+                <Label htmlFor="phone" className="text-sm font-bold flex items-center gap-2"><Phone className="w-4 h-4 text-primary" /> رقم الهاتف</Label>
+                <Input id="phone" type="tel" placeholder="01xxxxxxxxx" className="h-12 bg-card border-primary/10" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} required />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="parentPhone" className="text-sm font-bold flex items-center gap-2">
-                  <PhoneCall className="w-4 h-4 text-primary" /> هاتف ولي الأمر
-                </Label>
-                <Input 
-                  id="parentPhone" 
-                  type="tel" 
-                  placeholder="01xxxxxxxxx" 
-                  className="h-12 bg-card border-primary/10 focus:border-primary" 
-                  value={formData.parentPhone}
-                  onChange={(e) => setFormData({...formData, parentPhone: e.target.value})}
-                  required 
-                />
+                <Label htmlFor="parentPhone" className="text-sm font-bold flex items-center gap-2"><PhoneCall className="w-4 h-4 text-primary" /> هاتف ولي الأمر</Label>
+                <Input id="parentPhone" type="tel" placeholder="01xxxxxxxxx" className="h-12 bg-card border-primary/10" value={formData.parentPhone} onChange={(e) => setFormData({...formData, parentPhone: e.target.value})} required />
               </div>
             </div>
-
             <div className="space-y-2">
-              <Label className="text-sm font-bold flex items-center gap-2">
-                <GraduationCap className="w-4 h-4 text-primary" /> السنة الدراسية
-              </Label>
+              <Label className="text-sm font-bold flex items-center gap-2"><GraduationCap className="w-4 h-4 text-primary" /> السنة الدراسية</Label>
               <Select value={formData.academicYear} onValueChange={(val) => setFormData({...formData, academicYear: val})}>
-                <SelectTrigger className="h-12 bg-card border-primary/10">
-                  <SelectValue placeholder="اختر السنة الدراسية" />
-                </SelectTrigger>
+                <SelectTrigger className="h-12 bg-card border-primary/10"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1">الصف الأول الثانوي</SelectItem>
                   <SelectItem value="2">الصف الثاني الثانوي</SelectItem>
@@ -167,34 +116,15 @@ export default function RegisterPage() {
                 </SelectContent>
               </Select>
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="password" title="كلمة المرور" className="text-sm font-bold">كلمة المرور</Label>
-              <Input 
-                id="password" 
-                type="password" 
-                className="h-12 bg-card border-primary/10 focus:border-primary" 
-                value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
-                required 
-              />
+              <Input id="password" type="password" className="h-12 bg-card border-primary/10" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} required />
             </div>
-
-            <Button 
-              type="submit" 
-              disabled={isLoading}
-              className="w-full h-14 bg-primary text-primary-foreground hover:bg-primary/90 text-lg font-bold rounded-xl shadow-lg shadow-primary/20"
-            >
+            <Button type="submit" disabled={isLoading} className="w-full h-14 bg-primary text-primary-foreground font-bold rounded-xl shadow-lg">
               {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "إنشاء الحساب الآن"}
             </Button>
           </form>
-
-          <p className="text-center text-muted-foreground">
-            لديك حساب بالفعل؟{' '}
-            <Link href="/login" className="text-primary font-bold hover:underline">
-              سجل دخولك من هنا
-            </Link>
-          </p>
+          <p className="text-center text-muted-foreground">لديك حساب بالفعل؟ <Link href="/login" className="text-primary font-bold hover:underline">سجل دخولك من هنا</Link></p>
         </div>
       </div>
     </div>
