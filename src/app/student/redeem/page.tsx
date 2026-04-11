@@ -86,7 +86,7 @@ export default function RedeemCodePage() {
         usedAt: serverTimestamp()
       });
 
-      // 4. إنشاء سجل الاشتراك للطالب
+      // 4. إنشاء سجل الاشتراك للطالب في مجلده الخاص
       const enrollmentRef = doc(firestore, 'students', user.uid, 'enrollments', targetCourseId);
       await setDoc(enrollmentRef, {
         id: targetCourseId,
@@ -106,9 +106,9 @@ export default function RedeemCodePage() {
       router.push('/student/my-courses');
     } catch (e: any) {
       console.error("Redeem error:", e);
-      let errorMsg = "حدث خطأ أثناء التفعيل. تأكد من الكود وحاول مجدداً.";
-      if (e.message?.includes('permissions')) {
-        errorMsg = "خطأ في الصلاحيات. يرجى تسجيل الخروج والدخول مرة أخرى.";
+      let errorMsg = "حدث خطأ أثناء التفعيل. يرجى التأكد من الكود ومحاولة تسجيل الدخول مرة أخرى.";
+      if (e.code === 'permission-denied') {
+        errorMsg = "خطأ في الصلاحيات. يرجى التواصل مع الدعم الفني.";
       }
       toast({
         variant: "destructive",

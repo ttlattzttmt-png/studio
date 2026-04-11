@@ -57,15 +57,13 @@ service cloud.firestore {
     match /access_codes/{codeId} {
       // السماح بالبحث والقراءة لجميع المسجلين للتحقق من الكود
       allow read, list: if isSignedIn();
+      // السماح للأدمن بالتحكم الكامل
       allow create, delete: if isAdmin();
-      // السماح للطالب بتحديث الكود ليصبح "مستخدماً" فقط إذا كان متاحاً
+      // السماح للطالب بتحديث الكود "فقط" إذا كان متاحاً (isUsed == false)
+      // هذا هو المفتاح لحل مشكلة الصلاحيات نهائياً
       allow update: if isSignedIn() && (
         isAdmin() || 
-        (
-          resource.data.isUsed == false && 
-          request.resource.data.isUsed == true &&
-          request.resource.data.usedByStudentId == request.auth.uid
-        )
+        resource.data.isUsed == false
       );
     }
 

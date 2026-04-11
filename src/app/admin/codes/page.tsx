@@ -14,7 +14,7 @@ import {
   DialogTrigger,
   DialogFooter
 } from "@/components/ui/dialog";
-import { Search, Plus, Ticket, Loader2, Trash2, User } from 'lucide-react';
+import { Search, Plus, Ticket, Loader2, Trash2, User, BookOpen } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -83,16 +83,16 @@ export default function ManageCodes() {
 
   const filteredCodes = codes?.filter(c => 
     c.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.usedByStudentId?.toLowerCase().includes(searchTerm.toLowerCase())
+    (c.usedByStudentId && c.usedByStudentId.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   if (isUserLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-headline font-bold mb-2">إدارة الأكواد والمزامنة</h1>
+          <h1 className="text-3xl md:text-4xl font-headline font-bold mb-2">إدارة الأكواد والتزامن</h1>
           <p className="text-muted-foreground">أنشئ أكواداً لفتح كورسات محددة وتابع من استخدمها لحظياً.</p>
         </div>
         <Dialog>
@@ -129,7 +129,7 @@ export default function ManageCodes() {
 
       <Card className="bg-card overflow-hidden">
         <CardHeader className="border-b bg-secondary/20 py-4">
-          <div className="relative w-full md:w-96">
+          <div className="relative w-full max-w-md">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input 
               placeholder="بحث عن كود أو طالب..." 
@@ -139,15 +139,15 @@ export default function ManageCodes() {
             />
           </div>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="text-right">الكود</TableHead>
-                <TableHead className="text-right">الكورس المرتبط</TableHead>
-                <TableHead className="text-right">حالة الاستخدام</TableHead>
-                <TableHead className="text-right">بواسطة طالب</TableHead>
-                <TableHead className="text-left">الإجراءات</TableHead>
+                <TableHead className="text-right min-w-[150px]">الكود</TableHead>
+                <TableHead className="text-right min-w-[200px]">اسم الكورس</TableHead>
+                <TableHead className="text-right min-w-[100px]">الحالة</TableHead>
+                <TableHead className="text-right min-w-[150px]">الطالب</TableHead>
+                <TableHead className="text-left min-w-[80px]">إجراءات</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -190,7 +190,12 @@ function CourseName({ courseId }: { courseId: string }) {
   const firestore = useFirestore();
   const courseRef = useMemoFirebase(() => courseId ? doc(firestore, 'courses', courseId) : null, [firestore, courseId]);
   const { data: course } = useDoc(courseRef);
-  return <div className="text-xs font-bold">{course?.title || <span className="opacity-30 italic">غير معروف</span>}</div>;
+  return (
+    <div className="flex items-center gap-2">
+      <BookOpen className="w-3 h-3 text-primary" />
+      <span className="text-xs font-bold">{course?.title || <span className="opacity-30 italic">جاري التحميل...</span>}</span>
+    </div>
+  );
 }
 
 function StudentName({ studentId }: { studentId: string }) {
