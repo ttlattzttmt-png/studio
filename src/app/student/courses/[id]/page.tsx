@@ -6,11 +6,12 @@ import { Navbar } from '@/components/ui/navbar';
 import { Footer } from '@/components/ui/footer';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, orderBy, setDoc, serverTimestamp } from 'firebase/firestore';
-import { Loader2, PlayCircle, CheckCircle, FileQuestion, BookOpen } from 'lucide-react';
+import { Loader2, PlayCircle, CheckCircle, FileQuestion, BookOpen, Clock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
 export default function CourseViewer() {
