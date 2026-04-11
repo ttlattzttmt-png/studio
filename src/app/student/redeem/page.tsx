@@ -13,7 +13,7 @@ import { useRouter } from 'next/navigation';
 export default function RedeemCodePage() {
   const [code, setCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
   const router = useRouter();
@@ -23,16 +23,21 @@ export default function RedeemCodePage() {
     
     setIsSubmitting(true);
     try {
-      // 1. البحث عن الكود في قاعدة البيانات
+      // 1. البحث عن الكود في قاعدة البيانات (يجب أن يكون متاحاً وغير مستخدم)
       const codesRef = collection(firestore, 'access_codes');
-      const q = query(codesRef, where('code', '==', code.trim().toUpperCase()), where('isUsed', '==', false));
+      const q = query(
+        codesRef, 
+        where('code', '==', code.trim().toUpperCase()), 
+        where('isUsed', '==', false)
+      );
+      
       const querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {
         toast({
           variant: "destructive",
           title: "كود غير صالح",
-          description: "هذا الكود غير موجود أو تم استخدامه مسبقاً."
+          description: "هذا الكود غير موجود أو تم استخدامه مسبقاً. يرجى التأكد من الكود والمحاولة مرة أخرى."
         });
         setIsSubmitting(false);
         return;
@@ -43,18 +48,18 @@ export default function RedeemCodePage() {
       const courseId = codeData.courseId;
 
       if (!courseId) {
-        throw new Error("هذا الكود غير مرتبط بأي كورس حالياً.");
+        throw new Error("هذا الكود غير مرتبط بأي كورس حالياً. يرجى مراجعة الإدارة.");
       }
 
-      // 2. التحقق من وجود الكورس أولاً
+      // 2. التحقق من وجود الكورس المرتبط بالكود
       const courseRef = doc(firestore, 'courses', courseId);
       const courseSnap = await getDoc(courseRef);
       
       if (!courseSnap.exists()) {
-        throw new Error("الكورس المرتبط بهذا الكود لم يعد متاحاً.");
+        throw new Error("الكورس المرتبط بهذا الكود لم يعد متاحاً على المنصة.");
       }
 
-      // 3. إنشاء اشتراك الطالب (Enrollment)
+      // 3. إنشاء اشتراك الطالب (Enrollment) في مساره الخاص
       const enrollmentRef = doc(firestore, 'students', user.uid, 'enrollments', courseId);
       await setDoc(enrollmentRef, {
         id: courseId,
@@ -66,8 +71,9 @@ export default function RedeemCodePage() {
         progressPercentage: 0
       });
 
-      // 4. تحديث حالة الكود ليصبح مستخدماً (بشكل متزامن)
-      await updateDoc(doc(firestore, 'access_codes', codeDoc.id), {
+      // 4. تحديث حالة الكود ليصبح مستخدماً لمنع استخدامه مرة أخرى
+      const accessCodeRef = doc(firestore, 'access_codes', codeDoc.id);
+      await updateDoc(accessCodeRef, {
         isUsed: true,
         usedByStudentId: user.uid,
         usedAt: serverTimestamp()
@@ -75,21 +81,47 @@ export default function RedeemCodePage() {
 
       toast({
         title: "مبروك يا بشمهندس!",
-        description: "تم تفعيل الكورس بنجاح. يمكنك البدء بالدراسة الآن."
+        description: `تم تفعيل كورس "${courseSnap.data().title}" بنجاح. ابدأ الآن!`
       });
       
       router.push('/student/my-courses');
     } catch (e: any) {
-      console.error("Redeem error:", e);
+      console.error("Redeem operation failed:", e);
+      let errorMessage = "حدث خطأ فني أثناء التفعيل. يرجى التأكد من اتصال الإنترنت.";
+      
+      if (e.message?.includes("permissions")) {
+        errorMessage = "خطأ في الصلاحيات: يرجى تسجيل الخروج والدخول مرة أخرى.";
+      } else if (e.message) {
+        errorMessage = e.message;
+      }
+
       toast({
         variant: "destructive",
-        title: "خطأ في التفعيل",
-        description: e.message || "حدث خطأ فني أثناء التفعيل. يرجى التأكد من اتصال الإنترنت."
+        title: "فشل التفعيل",
+        description: errorMessage
       });
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (isUserLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center space-y-4">
+        <AlertCircle className="w-16 h-16 text-destructive opacity-50" />
+        <h2 className="text-2xl font-bold">يجب تسجيل الدخول أولاً</h2>
+        <Button onClick={() => router.push('/login')}>ذهاب لصفحة الدخول</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] p-4 animate-in fade-in duration-500">
@@ -101,7 +133,7 @@ export default function RedeemCodePage() {
           </div>
           <CardTitle className="text-3xl font-headline font-bold">تفعيل كود الكورس</CardTitle>
           <p className="text-muted-foreground text-sm mt-3 leading-relaxed">
-            أدخل الكود الخاص بك لفتح المحتوى التعليمي والبدء في رحلة النجاح.
+            أدخل الكود المكون من حروف وأرقام لفتح محتواك التعليمي فوراً.
           </p>
         </CardHeader>
         <CardContent className="space-y-6 pb-10">
@@ -109,23 +141,24 @@ export default function RedeemCodePage() {
             <div className="relative">
               <Input 
                 placeholder="ENG-XXXX-XXXX" 
-                className="h-16 bg-background border-primary/20 text-center font-mono text-2xl font-bold tracking-[0.2em] focus:border-primary focus:ring-primary/20"
+                className="h-16 bg-background border-primary/20 text-center font-mono text-2xl font-bold tracking-[0.1em] focus:border-primary focus:ring-primary/20"
                 value={code}
                 onChange={(e) => setCode(e.target.value.toUpperCase())}
+                disabled={isSubmitting}
               />
             </div>
             <Button 
               onClick={handleRedeem}
               disabled={isSubmitting || !code}
-              className="w-full h-16 bg-primary text-primary-foreground font-bold text-xl rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform"
+              className="w-full h-16 bg-primary text-primary-foreground font-bold text-xl rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.01] transition-transform"
             >
               {isSubmitting ? (
                 <span className="flex items-center gap-2">
-                  <Loader2 className="w-6 h-6 animate-spin" /> جاري التفعيل...
+                  <Loader2 className="w-6 h-6 animate-spin" /> جاري التحقق...
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
-                  <CheckCircle2 className="w-6 h-6" /> تفعيل الاشتراك الآن
+                  <CheckCircle2 className="w-6 h-6" /> تفعيل الكورس الآن
                 </span>
               )}
             </Button>
@@ -134,9 +167,9 @@ export default function RedeemCodePage() {
           <div className="p-5 rounded-2xl bg-primary/5 border border-primary/10 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <p className="text-xs font-bold text-primary">تنبيه هام:</p>
+              <p className="text-xs font-bold text-primary">إرشادات:</p>
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                تأكد من كتابة الكود كما هو تماماً. الكود صالح للاستخدام مرة واحدة فقط لحسابك الشخصي.
+                تأكد من كتابة الكود بشكل صحيح. إذا واجهت مشكلة في التفعيل، يرجى تصوير الكود وإرساله للدعم الفني.
               </p>
             </div>
           </div>
@@ -144,8 +177,8 @@ export default function RedeemCodePage() {
       </Card>
       
       <div className="mt-8 text-center">
-        <p className="text-sm text-muted-foreground">تواجه مشكلة؟ تواصل مع الدعم الفني</p>
-        <p className="text-primary font-bold" dir="ltr">01008006562</p>
+        <p className="text-sm text-muted-foreground">للدعم الفني المباشر واتساب</p>
+        <p className="text-primary font-bold text-lg" dir="ltr">01008006562</p>
       </div>
     </div>
   );
