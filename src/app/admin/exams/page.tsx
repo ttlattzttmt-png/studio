@@ -25,7 +25,8 @@ import {
   Settings2,
   Megaphone,
   CheckCircle2,
-  Upload
+  Upload,
+  AlertCircle
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, orderBy, updateDoc } from 'firebase/firestore';
@@ -113,9 +114,9 @@ export default function AdminExams() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-headline font-bold mb-2 text-right">إدارة الاختبارات والوقت</h1>
-          <p className="text-muted-foreground text-right">حدد وقت الامتحان وارفع ملفات الأسئلة وتحكم في النتائج.</p>
+        <div className="text-right">
+          <h1 className="text-4xl font-headline font-bold mb-2">إدارة الاختبارات والوقت</h1>
+          <p className="text-muted-foreground">حدد وقت الامتحان وارفع ملفات الأسئلة وتحكم في النتائج.</p>
         </div>
         
         <Dialog>
@@ -258,24 +259,32 @@ function QuestionManager({ exam }: { exam: any }) {
   const { data: questions } = useCollection(questionsRef);
 
   const handleAddQuestion = async () => {
-    if (!firestore || !exam || !storage || !user || (!newQuestion.text && !selectedFile)) return;
+    if (!firestore || !exam || !storage || !user || (!newQuestion.text && !selectedFile)) {
+      toast({ variant: "destructive", title: "بيانات ناقصة", description: "يرجى كتابة نص السؤال أو اختيار صورة على الأقل." });
+      return;
+    }
+    
     setIsAdding(true);
     try {
       let imageUrl = '';
       if (selectedFile) {
-        // إنشاء مرجع للملف في الاستورج
-        const storagePath = `exams/${exam.id}/questions/${Date.now()}_${selectedFile.name}`;
+        // إنشاء مسار فريد للملف
+        const storagePath = `exams/${exam.id}/questions/${Date.now()}_${selectedFile.name.replace(/\s+/g, '_')}`;
         const fileRef = ref(storage, storagePath);
         
-        // محاولة الرفع
-        const uploadResult = await uploadBytes(fileRef, selectedFile);
+        // رفع الملف مع Metadata لضمان النوع
+        const uploadResult = await uploadBytes(fileRef, selectedFile, {
+          contentType: selectedFile.type,
+        });
+        
+        // جلب الرابط العام
         imageUrl = await getDownloadURL(uploadResult.ref);
       }
 
       // حفظ بيانات السؤال في الفايرستور
       const qRef = await addDoc(collection(firestore, 'courses', exam.courseId, 'content', exam.id, 'questions'), {
         courseContentId: exam.id,
-        questionText: newQuestion.text,
+        questionText: newQuestion.text || '',
         questionImageUrl: imageUrl,
         questionType: newQuestion.type,
         points: Number(newQuestion.points),
@@ -292,16 +301,24 @@ function QuestionManager({ exam }: { exam: any }) {
           });
         }
       }
-      toast({ title: "تم الحفظ بنجاح", description: "تم رفع الصورة وحفظ بيانات السؤال." });
+      
+      toast({ title: "تم الحفظ بنجاح", description: "تم رفع الملف وحفظ بيانات السؤال بالكامل." });
+      
+      // ريست للفورم
       setNewQuestion({ text: '', type: 'MCQ', points: '1', options: ['', '', '', ''], correctIndex: 0 });
       setSelectedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      
     } catch (e: any) { 
-      console.error("Upload Error:", e);
+      console.error("Firebase Storage/Firestore Error:", e);
+      let errorMsg = "حدث خطأ غير متوقع.";
+      if (e.code === 'storage/unauthorized') errorMsg = "صلاحيات الرفع مرفوضة من السيرفر.";
+      if (e.code === 'storage/canceled') errorMsg = "تم إلغاء عملية الرفع.";
+      
       toast({ 
         variant: "destructive", 
-        title: "فشل الرفع", 
-        description: e.message || "تأكد من تفعيل Storage في الكونسول ومن اتصالك." 
+        title: "فشل الرفع والحفظ", 
+        description: `${errorMsg} (كود: ${e.code || 'unknown'})` 
       });
     } finally { 
       setIsAdding(false); 
@@ -310,6 +327,7 @@ function QuestionManager({ exam }: { exam: any }) {
 
   const handleDeleteQuestion = async (qId: string) => {
     if (!firestore || !exam) return;
+    if (!confirm("هل أنت متأكد من حذف هذا السؤال؟")) return;
     try {
       await deleteDoc(doc(firestore, 'courses', exam.courseId, 'content', exam.id, 'questions', qId));
       toast({ title: "تم حذف السؤال" });
@@ -321,7 +339,7 @@ function QuestionManager({ exam }: { exam: any }) {
       <Card className="bg-secondary/10 border-dashed border-primary/20">
         <CardContent className="p-6 space-y-4">
           <div className="flex items-center justify-between mb-2">
-             <Badge variant="outline" className="bg-primary/5 text-primary">إضافة سؤال جديد</Badge>
+             <Badge variant="outline" className="bg-primary/5 text-primary font-bold">إضافة سؤال جديد</Badge>
              <Select value={newQuestion.type} onValueChange={(v) => setNewQuestion({...newQuestion, type: v})}>
                 <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -333,20 +351,20 @@ function QuestionManager({ exam }: { exam: any }) {
           
           <Textarea 
             placeholder="اكتب نص السؤال هنا..." 
-            className="text-right min-h-[100px] bg-background" 
+            className="text-right min-h-[100px] bg-background border-primary/10" 
             value={newQuestion.text} 
             onChange={(e) => setNewQuestion({...newQuestion, text: e.target.value})} 
           />
           
           <div className="space-y-2">
-            <Label className="text-xs font-bold flex items-center gap-2 justify-end">صورة السؤال (اختياري)</Label>
+            <Label className="text-xs font-bold flex items-center gap-2 justify-end">صورة السؤال (من الجهاز)</Label>
             <div className="flex items-center gap-4 flex-row-reverse">
               <Button 
                 variant="outline" 
                 onClick={() => fileInputRef.current?.click()}
-                className="h-12 flex-grow gap-2 border-primary/20 hover:border-primary"
+                className="h-12 flex-grow gap-2 border-primary/20 hover:border-primary bg-background"
               >
-                {selectedFile ? <><CheckCircle2 className="w-4 h-4 text-accent" /> {selectedFile.name}</> : <><Upload className="w-4 h-4" /> اختر صورة من الجهاز</>}
+                {selectedFile ? <><CheckCircle2 className="w-4 h-4 text-accent" /> {selectedFile.name}</> : <><Upload className="w-4 h-4" /> اختر ملف صورة</>}
               </Button>
               <input 
                 type="file" 
@@ -392,35 +410,37 @@ function QuestionManager({ exam }: { exam: any }) {
             </div>
           )}
           
-          <div className="flex gap-4 items-end flex-row-reverse">
+          <div className="flex gap-4 items-end flex-row-reverse border-t pt-4">
             <div className="space-y-1 w-24">
-               <Label className="text-[10px] text-right block">النقاط</Label>
+               <Label className="text-[10px] text-right block font-bold">النقاط</Label>
                <Input type="number" value={newQuestion.points} onChange={(e) => setNewQuestion({...newQuestion, points: e.target.value})} className="text-center h-10" />
             </div>
-            <Button onClick={handleAddQuestion} disabled={isAdding} className="flex-grow h-10 bg-primary text-primary-foreground font-bold">
-              {isAdding ? <><Loader2 className="w-4 h-4 animate-spin ml-2" /> جاري الرفع...</> : "حفظ السؤال والملف"}
+            <Button onClick={handleAddQuestion} disabled={isAdding} className="flex-grow h-10 bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20">
+              {isAdding ? <><Loader2 className="w-4 h-4 animate-spin ml-2" /> جاري الرفع والحفظ...</> : "حفظ السؤال والملف الآن"}
             </Button>
           </div>
         </CardContent>
       </Card>
 
       <div className="space-y-4">
-        <h4 className="font-bold border-r-4 border-primary pr-2">الأسئلة المضافة ({questions?.length || 0}):</h4>
+        <h4 className="font-bold border-r-4 border-primary pr-2 flex items-center gap-2 justify-end">
+          <Settings2 className="w-4 h-4" /> الأسئلة المضافة ({questions?.length || 0})
+        </h4>
         {questions?.map((q, i) => (
-          <Card key={q.id} className="bg-card group hover:border-primary/30 transition-colors">
+          <Card key={q.id} className="bg-card group hover:border-primary/30 transition-colors shadow-sm overflow-hidden">
             <CardContent className="p-4">
               <div className="flex justify-between items-start mb-2">
                 <div className="flex gap-2">
-                   <Badge variant="secondary">{q.questionType === 'MCQ' ? 'اختياري' : 'مقالي'}</Badge>
-                   <Badge variant="outline">{q.points} ن</Badge>
+                   <Badge variant="secondary" className="font-bold">{q.questionType === 'MCQ' ? 'اختياري' : 'مقالي'}</Badge>
+                   <Badge variant="outline" className="border-primary/20 text-primary font-bold">{q.points} ن</Badge>
                 </div>
-                <Button variant="ghost" size="icon" className="text-destructive opacity-0 group-hover:opacity-100 h-8 w-8" onClick={() => handleDeleteQuestion(q.id)}>
+                <Button variant="ghost" size="icon" className="text-destructive opacity-0 group-hover:opacity-100 h-8 w-8 transition-opacity" onClick={() => handleDeleteQuestion(q.id)}>
                    <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
-              <p className="font-bold text-right mb-2">{i+1}. {q.questionText}</p>
+              <p className="font-bold text-right mb-3 leading-relaxed">{i+1}. {q.questionText}</p>
               {q.questionImageUrl && (
-                <div className="relative w-full h-40 rounded-lg overflow-hidden border mb-2 bg-secondary/10">
+                <div className="relative w-full h-48 rounded-xl overflow-hidden border border-dashed border-primary/10 bg-secondary/5">
                    <Image src={q.questionImageUrl} alt="" fill className="object-contain" unoptimized />
                 </div>
               )}
