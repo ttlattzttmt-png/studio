@@ -1,46 +1,40 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { 
   Loader2, 
   Send, 
-  AlertCircle, 
-  ChevronLeft, 
-  ChevronRight,
-  Clock,
-  HelpCircle,
-  ImageIcon,
-  CheckCircle2,
-  XCircle,
-  Upload,
-  X
+  Clock, 
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, addDoc, serverTimestamp, query, orderBy, doc, getDocs, where, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, getDocs, query, orderBy, where, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import Image from 'next/image';
 
 export default function TakeExamPage() {
   const { examId } = useParams();
   const router = useRouter();
-  const { user, isUserLoading: isAuthLoading } = useUser();
+  const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
 
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, { mcqOptionId?: string, essayText?: string, essayFileUrl?: string }>>({});
+  const [answers, setAnswers] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [courseId, setCourseId] = useState<string | null>(null);
+  
+  // نظام التايمر
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
-  // العثور على الكورس الذي ينتمي إليه الاختبار
   useEffect(() => {
     const findCourse = async () => {
       if (!firestore) return;
@@ -58,53 +52,37 @@ export default function TakeExamPage() {
   }, [firestore, examId]);
 
   const examRef = useMemoFirebase(() => {
-    if (!firestore || !courseId || !examId || !user) return null;
+    if (!firestore || !courseId || !examId) return null;
     return doc(firestore, 'courses', courseId, 'content', examId as string);
-  }, [firestore, courseId, examId, user]);
+  }, [firestore, courseId, examId]);
   
-  const { data: exam, isLoading: isExamLoading } = useDoc(examRef);
+  const { data: exam } = useDoc(examRef);
+
+  useEffect(() => {
+    if (exam?.durationMinutes && timeLeft === null) {
+      setTimeLeft(exam.durationMinutes * 60);
+    }
+  }, [exam, timeLeft]);
+
+  useEffect(() => {
+    if (timeLeft === null || timeLeft <= 0) {
+      if (timeLeft === 0) handleSubmit();
+      return;
+    }
+    const timer = setInterval(() => setTimeLeft(prev => (prev ? prev - 1 : 0)), 1000);
+    return () => clearInterval(timer);
+  }, [timeLeft]);
 
   const questionsRef = useMemoFirebase(() => {
-    if (!firestore || !courseId || !examId || !user) return null;
+    if (!firestore || !courseId || !examId) return null;
     return query(collection(firestore, 'courses', courseId, 'content', examId as string, 'questions'), orderBy('orderIndex', 'asc'));
-  }, [firestore, courseId, examId, user]);
+  }, [firestore, courseId, examId]);
 
   const { data: questions, isLoading: isQsLoading } = useCollection(questionsRef);
-
   const currentQuestion = questions?.[activeQuestionIndex];
 
-  // جلب الخيارات للسؤال الحالي
-  const optionsRef = useMemoFirebase(() => {
-    if (!firestore || !courseId || !examId || !currentQuestion || currentQuestion.questionType !== 'MCQ' || !user) return null;
-    return collection(firestore, 'courses', courseId, 'content', examId as string, 'questions', currentQuestion.id, 'options');
-  }, [firestore, courseId, examId, currentQuestion, user]);
-
-  const { data: options } = useCollection(optionsRef);
-
-  const handleAnswerChange = (qId: string, update: any) => {
-    setAnswers(prev => ({
-      ...prev,
-      [qId]: { ...prev[qId], ...update }
-    }));
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, qId: string) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 800000) {
-        toast({ variant: "destructive", title: "حجم كبير", description: "يرجى اختيار صورة بحجم أقل من 800 كيلوبايت لضمان سرعة التحميل." });
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        handleAnswerChange(qId, { essayFileUrl: reader.result as string });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const handleSubmit = async () => {
-    if (!firestore || !user || !exam || !questions || !courseId) return;
+    if (isSubmitting || !firestore || !user || !questions || !courseId) return;
     setIsSubmitting(true);
     
     try {
@@ -112,238 +90,141 @@ export default function TakeExamPage() {
         studentId: user.uid,
         courseContentId: examId,
         courseId: courseId,
-        attemptNumber: 1,
         submittedAt: new Date().toISOString(),
         isGraded: false,
         score: 0,
-        course_uploadedByAdminUserId: exam.course_uploadedByAdminUserId
+        gradeReleased: false // افتراضي غير منشور حتى يفعله الأدمن
       });
 
       let totalScore = 0;
+      let totalPoints = 0;
 
-      for (const question of questions) {
-        const studentAnswer = answers[question.id] || {};
+      for (const q of questions) {
+        totalPoints += q.points;
+        const studentAns = answers[q.id] || {};
         let isCorrect = false;
         let scoreAchieved = 0;
 
-        if (question.questionType === 'MCQ') {
-          const optsSnap = await getDocs(collection(firestore, 'courses', courseId, 'content', examId as string, 'questions', question.id, 'options'));
+        if (q.questionType === 'MCQ') {
+          const optsSnap = await getDocs(collection(firestore, 'courses', courseId, 'content', examId as string, 'questions', q.id, 'options'));
           const correctOpt = optsSnap.docs.find(d => d.data().isCorrect);
-          if (correctOpt && correctOpt.id === studentAnswer.mcqOptionId) {
+          if (correctOpt && correctOpt.id === studentAns.mcqOptionId) {
             isCorrect = true;
-            scoreAchieved = question.points;
+            scoreAchieved = q.points;
             totalScore += scoreAchieved;
           }
         }
 
         await addDoc(collection(firestore, 'students', user.uid, 'quiz_attempts', attemptRef.id, 'answers'), {
-          studentQuizAttemptId: attemptRef.id,
-          questionId: question.id,
-          questionType: question.questionType,
-          mcqSelectedOptionId: studentAnswer.mcqOptionId || null,
-          essayAnswerText: studentAnswer.essayText || '',
-          essayAnswerFileUrl: studentAnswer.essayFileUrl || '',
-          isCorrect: question.questionType === 'MCQ' ? isCorrect : false,
-          scoreAchieved: question.questionType === 'MCQ' ? scoreAchieved : 0
+          questionId: q.id,
+          questionType: q.questionType,
+          mcqSelectedOptionId: studentAns.mcqOptionId || null,
+          essayAnswerText: studentAns.essayText || '',
+          isCorrect: q.questionType === 'MCQ' ? isCorrect : false,
+          scoreAchieved: q.questionType === 'MCQ' ? scoreAchieved : 0
         });
       }
 
-      if (exam.allowInstantResultsDisplay) {
-        const totalPoints = questions.reduce((sum, q) => sum + q.points, 0);
-        const finalScorePercentage = Math.round((totalScore / totalPoints) * 100);
-        
-        await updateDoc(doc(firestore, 'students', user.uid, 'quiz_attempts', attemptRef.id), {
-          score: finalScorePercentage,
-          isGraded: questions.every(q => q.questionType === 'MCQ')
-        });
-      }
-
-      toast({
-        title: "تم تسليم الامتحان",
-        description: exam.allowInstantResultsDisplay ? "تم رصد درجتك بنجاح." : "تم استلام إجاباتك، وسيتم تصحيحها قريباً."
+      const finalScore = Math.round((totalScore / totalPoints) * 100);
+      await updateDoc(doc(firestore, 'students', user.uid, 'quiz_attempts', attemptRef.id), {
+        score: finalScore,
+        isGraded: questions.every(q => q.questionType === 'MCQ')
       });
 
+      toast({ title: "تم تسليم الامتحان", description: "سيتم مراجعة إجاباتك ونشر النتيجة قريباً." });
       router.push('/student/exams');
     } catch (e) {
       console.error(e);
-      toast({ variant: "destructive", title: "خطأ", description: "فشل تسليم الامتحان." });
+      toast({ variant: "destructive", title: "خطأ" });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (isAuthLoading || isExamLoading || isQsLoading) {
-    return <div className="flex items-center justify-center min-h-screen"><Loader2 className="w-12 h-12 animate-spin text-primary" /></div>;
-  }
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
-  if (!user) {
-    return (
-      <div className="container mx-auto p-8 text-center space-y-4">
-        <AlertCircle className="w-16 h-16 text-destructive mx-auto" />
-        <h1 className="text-2xl font-bold">يرجى تسجيل الدخول أولاً لتأدية الامتحان.</h1>
-        <Button onClick={() => router.push('/login')}>تسجيل الدخول</Button>
-      </div>
-    );
-  }
-
-  if (!exam || !questions || questions.length === 0) {
-    return (
-      <div className="container mx-auto p-8 text-center space-y-4">
-        <AlertCircle className="w-16 h-16 text-destructive mx-auto" />
-        <h1 className="text-2xl font-bold">عذراً، هذا الامتحان غير متوفر أو لا يحتوي على أسئلة.</h1>
-        <Button onClick={() => router.back()}>العودة</Button>
-      </div>
-    );
-  }
+  if (isUserLoading || isQsLoading) return <div className="flex justify-center py-40"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <div className="sticky top-0 z-50 bg-card border-b p-4 shadow-sm">
-        <div className="container mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold">
-              {activeQuestionIndex + 1} / {questions.length}
-            </div>
-            <div>
-              <h1 className="font-bold text-lg">{exam.title}</h1>
-              <p className="text-xs text-muted-foreground">بالتوفيق يا بشمهندس!</p>
-            </div>
+      <div className="sticky top-0 z-50 bg-card border-b p-4 shadow-sm flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="text-xl font-bold bg-primary/10 px-4 py-2 rounded-xl text-primary">
+            <Clock className="w-5 h-5 inline ml-2" /> {timeLeft ? formatTime(timeLeft) : '--:--'}
           </div>
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-2 text-sm font-bold bg-secondary px-4 py-2 rounded-xl">
-              <Clock className="w-4 h-4 text-primary" /> مستمر الآن
-            </div>
-            <Button 
-              onClick={handleSubmit} 
-              disabled={isSubmitting}
-              className="bg-primary text-primary-foreground font-bold px-8 h-12 rounded-xl shadow-lg shadow-primary/20"
-            >
-              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4 ml-2" /> تسليم الامتحان</>}
-            </Button>
-          </div>
+          <h1 className="font-bold">{exam?.title}</h1>
         </div>
+        <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-primary font-bold px-8">تسليم الآن</Button>
       </div>
 
-      <main className="container mx-auto p-4 md:p-8">
-        <div className="max-w-4xl mx-auto space-y-8">
-          <Card className="bg-card border-primary/10 shadow-xl animate-in fade-in slide-in-from-bottom-4">
-            <CardHeader className="border-b bg-secondary/10">
-              <div className="flex justify-between items-center">
-                 <span className="text-sm font-bold bg-primary/20 text-primary px-3 py-1 rounded-full">
-                   {currentQuestion?.questionType === 'MCQ' ? 'سؤال اختياري' : 'سؤال مقالي'} - {currentQuestion?.points} نقاط
-                 </span>
-                 <HelpCircle className="w-5 h-5 text-muted-foreground opacity-30" />
-              </div>
+      <main className="container mx-auto p-4 md:p-8 max-w-3xl">
+        {currentQuestion && (
+          <Card className="bg-card shadow-2xl border-primary/10">
+            <CardHeader className="border-b bg-secondary/10 flex flex-row justify-between">
+              <span className="font-bold">سؤال {activeQuestionIndex + 1}</span>
+              <span className="text-xs">{currentQuestion.points} نقاط</span>
             </CardHeader>
-            <CardContent className="p-8 space-y-8">
-              <div className="space-y-6">
-                <h2 className="text-2xl font-bold leading-relaxed">{currentQuestion?.questionText}</h2>
-                {currentQuestion?.questionImageUrl && (
-                  <div className="relative w-full aspect-video md:aspect-[21/9] rounded-2xl overflow-hidden border-4 border-secondary/50 shadow-inner">
-                    <Image 
-                      src={currentQuestion.questionImageUrl} 
-                      alt="Question Image" 
-                      fill 
-                      className="object-contain bg-background"
-                      unoptimized 
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-8 border-t">
-                {currentQuestion?.questionType === 'MCQ' ? (
-                  <RadioGroup 
-                    value={answers[currentQuestion.id]?.mcqOptionId || ''} 
-                    onValueChange={(val) => handleAnswerChange(currentQuestion.id, { mcqOptionId: val })}
-                    className="grid grid-cols-1 md:grid-cols-2 gap-4"
-                  >
-                    {options?.map((option) => (
-                      <div key={option.id} className={`flex items-center gap-3 p-6 rounded-2xl border-2 transition-all cursor-pointer hover:border-primary/50 ${answers[currentQuestion.id]?.mcqOptionId === option.id ? 'bg-primary/5 border-primary shadow-lg' : 'bg-background border-secondary'}`}>
-                        <RadioGroupItem value={option.id} id={option.id} className="w-6 h-6 border-2" />
-                        <Label htmlFor={option.id} className="text-lg font-bold flex-grow cursor-pointer">{option.optionText}</Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
-                ) : (
-                  <div className="space-y-6">
-                    <div className="space-y-3">
-                      <Label className="text-lg font-bold">اكتب إجابتك هنا:</Label>
-                      <Textarea 
-                        placeholder="ابدأ بالكتابة..."
-                        className="min-h-[200px] text-lg bg-background border-2 focus:border-primary"
-                        value={answers[currentQuestion.id]?.essayText || ''}
-                        onChange={(e) => handleAnswerChange(currentQuestion.id, { essayText: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-3 p-6 bg-primary/5 rounded-2xl border-2 border-dashed border-primary/20">
-                      <Label className="text-lg font-bold flex items-center gap-2">
-                        <ImageIcon className="w-5 h-5 text-primary" /> أو صور إجابتك من الكراسة وارفعها هنا:
-                      </Label>
-                      <div className="flex items-center gap-4">
-                        <Button 
-                          variant="outline" 
-                          className="h-12 border-dashed border-primary/30 flex-grow gap-2"
-                          onClick={() => document.getElementById(`upload-${currentQuestion.id}`)?.click()}
-                        >
-                          <Upload className="w-4 h-4" /> {answers[currentQuestion.id]?.essayFileUrl ? "تغيير الصورة المرفوعة" : "رفع صورة الحل"}
-                        </Button>
-                        {answers[currentQuestion.id]?.essayFileUrl && (
-                          <Button variant="ghost" size="icon" onClick={() => handleAnswerChange(currentQuestion.id, { essayFileUrl: '' })} className="text-destructive h-12 w-12">
-                            <X className="w-5 h-5" />
-                          </Button>
-                        )}
-                      </div>
-                      <input 
-                        id={`upload-${currentQuestion.id}`}
-                        type="file" 
-                        accept="image/*"
-                        className="hidden" 
-                        onChange={(e) => handleFileUpload(e, currentQuestion.id)}
-                      />
-                      {answers[currentQuestion.id]?.essayFileUrl && (
-                        <div className="relative w-full h-64 rounded-xl overflow-hidden border-2 border-primary/20 shadow-inner mt-4">
-                          <Image src={answers[currentQuestion.id]!.essayFileUrl!} alt="Preview" fill className="object-contain bg-background" unoptimized />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
+            <CardContent className="p-8 space-y-6 text-right">
+              <h2 className="text-2xl font-bold">{currentQuestion.questionText}</h2>
+              
+              {currentQuestion.questionType === 'MCQ' ? (
+                <QuestionOptions 
+                  courseId={courseId!} 
+                  examId={examId as string} 
+                  questionId={currentQuestion.id} 
+                  selectedId={answers[currentQuestion.id]?.mcqOptionId}
+                  onSelect={(id) => setAnswers({...answers, [currentQuestion.id]: { mcqOptionId: id }})}
+                />
+              ) : (
+                <Textarea 
+                  placeholder="اكتب إجابتك هنا..." 
+                  className="min-h-[200px]"
+                  value={answers[currentQuestion.id]?.essayText || ''}
+                  onChange={(e) => setAnswers({...answers, [currentQuestion.id]: { essayText: e.target.value }})}
+                />
+              )}
             </CardContent>
           </Card>
+        )}
 
-          <div className="flex justify-between items-center">
-            <Button 
-              variant="outline" 
-              size="lg"
-              disabled={activeQuestionIndex === 0}
-              onClick={() => setActiveQuestionIndex(prev => prev - 1)}
-              className="h-14 px-8 rounded-xl border-2 hover:bg-secondary"
-            >
-              <ChevronRight className="w-5 h-5 ml-2" /> السؤال السابق
-            </Button>
-            <div className="flex gap-2">
-              {questions.map((_, i) => (
-                <button 
-                  key={i}
-                  onClick={() => setActiveQuestionIndex(i)}
-                  className={`w-3 h-3 rounded-full transition-all ${i === activeQuestionIndex ? 'bg-primary w-8' : 'bg-secondary hover:bg-primary/30'}`}
-                />
-              ))}
-            </div>
-            <Button 
-              variant="outline" 
-              size="lg"
-              disabled={activeQuestionIndex === questions.length - 1}
-              onClick={() => setActiveQuestionIndex(prev => prev + 1)}
-              className="h-14 px-8 rounded-xl border-2 hover:bg-secondary"
-            >
-              السؤال التالي <ChevronLeft className="w-5 h-5 mr-2" />
-            </Button>
+        <div className="flex justify-between mt-8">
+          <Button variant="outline" disabled={activeQuestionIndex === 0} onClick={() => setActiveQuestionIndex(prev => prev - 1)}>
+             السابق <ChevronRight className="w-4 h-4 mr-2" />
+          </Button>
+          <div className="flex gap-2">
+            {questions?.map((_, i) => (
+              <div key={i} className={`w-2 h-2 rounded-full ${i === activeQuestionIndex ? 'bg-primary' : 'bg-muted'}`} />
+            ))}
           </div>
+          <Button variant="outline" disabled={activeQuestionIndex === (questions?.length || 1) - 1} onClick={() => setActiveQuestionIndex(prev => prev + 1)}>
+            التالي <ChevronLeft className="w-4 h-4 ml-2" />
+          </Button>
         </div>
       </main>
     </div>
+  );
+}
+
+function QuestionOptions({ courseId, examId, questionId, selectedId, onSelect }: any) {
+  const firestore = useFirestore();
+  const optionsRef = useMemoFirebase(() => {
+    return collection(firestore, 'courses', courseId, 'content', examId, 'questions', questionId, 'options');
+  }, [firestore, courseId, examId, questionId]);
+
+  const { data: options } = useCollection(optionsRef);
+
+  return (
+    <RadioGroup value={selectedId} onValueChange={onSelect} className="grid grid-cols-1 gap-4">
+      {options?.map((opt) => (
+        <div key={opt.id} className={`flex items-center gap-3 p-4 border rounded-xl hover:bg-primary/5 transition-colors ${selectedId === opt.id ? 'border-primary bg-primary/10' : ''}`}>
+          <RadioGroupItem value={opt.id} id={opt.id} />
+          <Label htmlFor={opt.id} className="flex-grow font-bold cursor-pointer">{opt.optionText}</Label>
+        </div>
+      ))}
+    </RadioGroup>
   );
 }

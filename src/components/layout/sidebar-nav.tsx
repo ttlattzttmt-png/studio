@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -16,7 +17,6 @@ import {
   Megaphone,
   CheckCircle,
   Menu,
-  ShieldCheck,
   Search
 } from 'lucide-react';
 import { useAuth, initiateSignOut, useUser } from '@/firebase';
@@ -36,7 +36,7 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
 
   const studentLinks = [
     { label: 'الرئيسية', icon: <LayoutDashboard className="w-5 h-5" />, href: '/student' },
-    { label: 'كورساتي', icon: <BookOpen className="w-5 h-5" />, href: '/student/my-courses' },
+    { label: 'كورساتي', icon: <BookOpen className="w-5 h-5" />, href: '/student' }, // تم الربط باللوحة الرئيسية لرؤية الكورسات المفعلة
     { label: 'استكشف الكورسات', icon: <Search className="w-5 h-5" />, href: '/courses' },
     { label: 'الامتحانات', icon: <ClipboardList className="w-5 h-5" />, href: '/student/exams' },
   ];
@@ -44,9 +44,8 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
   const adminLinks = [
     { label: 'لوحة التحكم', icon: <PieChart className="w-5 h-5" />, href: '/admin' },
     { label: 'إدارة الكورسات', icon: <Video className="w-5 h-5" />, href: '/admin/courses' },
-    { label: 'الطلاب والاشتراكات', icon: <Users className="w-5 h-5" />, href: '/admin/students' },
+    { label: 'الطلاب والرقابة', icon: <Users className="w-5 h-5" />, href: '/admin/students' },
     { label: 'بناء الاختبارات', icon: <ClipboardList className="w-5 h-5" />, href: '/admin/exams' },
-    { label: 'مركز التصحيح', icon: <CheckCircle className="w-5 h-5" />, href: '/admin/exams/grading' },
     { label: 'الإشعارات', icon: <Megaphone className="w-5 h-5" />, href: '/admin/notifications' },
     { label: 'الذكاء الاصطناعي', icon: <BrainCircuit className="w-5 h-5" />, href: '/admin/ai-tools' },
   ];
@@ -112,7 +111,6 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
 
   return (
     <>
-      {/* Mobile Top Nav */}
       <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b z-50 px-4 flex items-center justify-between">
         <Link href={isAdmin ? '/admin' : '/student'} className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold">ب</div>
@@ -124,13 +122,11 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
               <Menu className="w-6 h-6" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="p-0 w-72">
+          <SheetContent side="right" className="p-0 w-72 text-right">
             <NavContent />
           </SheetContent>
         </Sheet>
       </header>
-
-      {/* Desktop Sidebar */}
       <aside className="hidden lg:flex w-64 border-l bg-card flex-col h-screen fixed top-0 right-0 z-40 shadow-xl">
         <NavContent />
       </aside>
