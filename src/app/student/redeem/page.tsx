@@ -31,12 +31,11 @@ export default function RedeemCodePage() {
     try {
       const cleanCode = code.trim().toUpperCase();
       
-      // 1. البحث عن الكود في مجموعة الأكواد
+      // 1. البحث عن الكود في مجموعة الأكواد (التزامن مع الأدمن)
       const codesRef = collection(firestore, 'access_codes');
       const q = query(
         codesRef, 
-        where('code', '==', cleanCode), 
-        where('isUsed', '==', false)
+        where('code', '==', cleanCode)
       );
       
       const querySnapshot = await getDocs(q);
@@ -44,8 +43,8 @@ export default function RedeemCodePage() {
       if (querySnapshot.empty) {
         toast({
           variant: "destructive",
-          title: "كود غير صالح",
-          description: "هذا الكود خاطئ، أو تم استخدامه مسبقاً، أو غير مخصص لهذا الكورس."
+          title: "كود غير صحيح",
+          description: "يرجى التأكد من كتابة الكود بشكل صحيح كما استلمته."
         });
         setIsSubmitting(false);
         return;
@@ -53,13 +52,25 @@ export default function RedeemCodePage() {
 
       const codeDoc = querySnapshot.docs[0];
       const codeData = codeDoc.data();
+
+      // التحقق مما إذا كان الكود قد استخدم من قبل
+      if (codeData.isUsed) {
+        toast({
+          variant: "destructive",
+          title: "كود مستخدم",
+          description: "هذا الكود تم استخدامه مسبقاً من قبل طالب آخر."
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       const targetCourseId = codeData.courseId;
 
       if (!targetCourseId) {
         throw new Error("الكود غير مرتبط بأي كورس.");
       }
 
-      // 2. جلب بيانات الكورس للتأكد من وجوده
+      // 2. التحقق من وجود الكورس
       const courseRef = doc(firestore, 'courses', targetCourseId);
       const courseSnap = await getDoc(courseRef);
       
@@ -67,7 +78,7 @@ export default function RedeemCodePage() {
         toast({ 
           variant: "destructive", 
           title: "خطأ في البيانات", 
-          description: "الكورس المرتبط بهذا الكود لم يعد متاحاً." 
+          description: "الكورس المرتبط بهذا الكود غير متوفر حالياً." 
         });
         setIsSubmitting(false);
         return;
@@ -75,7 +86,7 @@ export default function RedeemCodePage() {
 
       const courseTitle = courseSnap.data().title;
 
-      // 3. تحديث الكود ليصبح "مستخدماً" (تتم عبر القواعد الأمنية الجديدة)
+      // 3. تحديث الكود ليصبح "مستخدماً" (تخزين التغيير في قاعدة البيانات)
       const codeDocRef = doc(firestore, 'access_codes', codeDoc.id);
       await updateDoc(codeDocRef, {
         isUsed: true,
@@ -83,7 +94,7 @@ export default function RedeemCodePage() {
         usedAt: serverTimestamp()
       });
 
-      // 4. إنشاء الاشتراك للطالب في مجلده الخاص (تزامن لحظي)
+      // 4. إنشاء الاشتراك للطالب وربطه بالكورس (التخزين النهائي)
       const enrollmentRef = doc(firestore, 'students', user.uid, 'enrollments', targetCourseId);
       await setDoc(enrollmentRef, {
         id: targetCourseId,
@@ -97,16 +108,16 @@ export default function RedeemCodePage() {
 
       toast({
         title: "تم التفعيل بنجاح!",
-        description: `أهلاً بك في كورس: ${courseTitle}. تم فتح المحتوى لك الآن.`
+        description: `تم فتح كورس "${courseTitle}" لك الآن بنجاح.`
       });
       
-      // توجيه الطالب لصفحة كورساتي لمشاهدة الكورس الجديد فوراً
+      // توجيه الطالب لمشاهدة الكورس الجديد فوراً
       router.push('/student/my-courses');
     } catch (e: any) {
       console.error("Redeem operation failed:", e);
-      let msg = "حدث خطأ غير متوقع أثناء التفعيل.";
+      let msg = "حدث خطأ في الصلاحيات. يرجى التأكد من تسجيل الدخول.";
       if (e.message?.includes('permission')) {
-        msg = "فشل التفعيل بسبب قيود الصلاحيات. يرجى التأكد من تسجيل الدخول بشكل صحيح.";
+        msg = "لا تملك الصلاحية لتحديث هذا الكود. تأكد من أن الكود مخصص لك.";
       }
       toast({
         variant: "destructive",
