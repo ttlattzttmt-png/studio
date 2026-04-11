@@ -53,18 +53,12 @@ service cloud.firestore {
       }
     }
 
-    // أكواد الوصول (Access Codes): الحل النهائي والمبسط للصلاحيات
+    // الحل النهائي للأكواد: السماح للطالب بالبحث (list) والتحديث (update) إذا كان الكود متاحاً
     match /access_codes/{codeId} {
-      // السماح بالبحث والقراءة لجميع المسجلين للتحقق من الكود
       allow read, list: if isSignedIn();
-      // السماح للأدمن بالتحكم الكامل
       allow create, delete: if isAdmin();
-      // السماح للطالب بتحديث الكود "فقط" إذا كان متاحاً (isUsed == false)
-      // هذا هو المفتاح لحل مشكلة الصلاحيات نهائياً
-      allow update: if isSignedIn() && (
-        isAdmin() || 
-        (resource.data.isUsed == false && request.resource.data.isUsed == true)
-      );
+      // السماح بتحديث الكود "فقط" إذا كانت حالته الحالية غير مستخدم
+      allow update: if isSignedIn() && resource.data.isUsed == false;
     }
 
     // بيانات الطلاب واشتراكاتهم: الطالب يملك صلاحية كاملة على مجلده

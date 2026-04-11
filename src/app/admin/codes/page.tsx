@@ -50,7 +50,6 @@ export default function ManageCodes() {
         const randomPart2 = Math.random().toString(36).substring(2, 6).toUpperCase();
         const randomCode = `ENG-${randomPart1}-${randomPart2}`;
         
-        // التأكد من تخزين courseId بشكل صحيح للمزامنة مع صفحة الطالب
         await addDoc(collection(firestore, 'access_codes'), {
           code: randomCode,
           courseId: genData.courseId,
@@ -61,7 +60,7 @@ export default function ManageCodes() {
           usedAt: null
         });
       }
-      toast({ title: "تم التوليد بنجاح", description: `تم إنشاء ${count} كود تفعيل بنجاح للكورس المحدد.` });
+      toast({ title: "تم التوليد بنجاح", description: `تم إنشاء ${count} كود تفعيل بنجاح.` });
       setGenData({ ...genData, courseId: '' });
     } catch (e) {
       console.error(e);
