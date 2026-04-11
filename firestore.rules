@@ -15,14 +15,14 @@ service cloud.firestore {
       );
     }
 
-    // دالة التحقق من ملكية البيانات (مجلد الطالب)
+    // دالة التحقق من ملكية البيانات
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
     // --- القواعد ---
 
-    // الإشعارات: قراءة للجميع، كتابة للمسؤول
+    // الإشعارات
     match /notifications/{id} {
       allow read: if true;
       allow write: if isAdmin();
@@ -37,7 +37,7 @@ service cloud.firestore {
       allow read, write: if isAdmin() || isOwner(uid);
     }
 
-    // الكورسات ومحتواها: قراءة للجميع، كتابة للمسؤول فقط
+    // الكورسات ومحتواها
     match /courses/{courseId} {
       allow read: if true;
       allow write: if isAdmin();
@@ -53,22 +53,23 @@ service cloud.firestore {
       }
     }
 
-    // أكواد الوصول (Access Codes):
-    // - القراءة والبحث (list) مسموحة لجميع المسجلين للتحقق من الكود
-    // - التحديث مسموح للطالب إذا كان الكود متاحاً (isUsed == false)
+    // أكواد الوصول (Access Codes): الحل النهائي للصلاحيات
     match /access_codes/{codeId} {
+      // السماح بالبحث والقراءة لجميع المسجلين للتحقق من الكود
       allow read, list: if isSignedIn();
       allow create, delete: if isAdmin();
+      // السماح للطالب بتحديث الكود ليصبح "مستخدماً" فقط إذا كان متاحاً
       allow update: if isSignedIn() && (
         isAdmin() || 
         (
           resource.data.isUsed == false && 
-          request.resource.data.isUsed == true
+          request.resource.data.isUsed == true &&
+          request.resource.data.usedByStudentId == request.auth.uid
         )
       );
     }
 
-    // بيانات الطلاب واشتراكاتهم: الطالب يملك صلاحية كاملة على مجلده الخاص
+    // بيانات الطلاب واشتراكاتهم: الطالب يملك صلاحية كاملة على مجلده
     match /students/{studentId} {
       allow read, write: if isOwner(studentId) || isAdmin();
       
@@ -77,7 +78,7 @@ service cloud.firestore {
       }
     }
 
-    // دعم استعلامات المجموعات (Collection Group) للمشرفين
+    // دعم استعلامات المجموعات للمشرفين
     match /{path=**}/quiz_attempts/{id} {
       allow read, list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
     }

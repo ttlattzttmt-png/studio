@@ -14,7 +14,7 @@ import {
   DialogTrigger,
   DialogFooter
 } from "@/components/ui/dialog";
-import { Search, Plus, Ticket, Loader2, Trash2, BookOpen, User } from 'lucide-react';
+import { Search, Plus, Ticket, Loader2, Trash2, User } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -64,7 +64,7 @@ export default function ManageCodes() {
       setGenData({ ...genData, courseId: '' });
     } catch (e) {
       console.error(e);
-      toast({ variant: "destructive", title: "خطأ في التوليد", description: "فشل إنشاء الأكواد." });
+      toast({ variant: "destructive", title: "خطأ", description: "فشل إنشاء الأكواد." });
     } finally {
       setIsGenerating(false);
     }
