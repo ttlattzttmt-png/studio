@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -18,7 +17,6 @@ export default function ContactPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // محاكاة إرسال الرسالة
     setTimeout(() => {
       setIsLoading(false);
       toast({
@@ -43,12 +41,11 @@ export default function ContactPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-            {/* Contact Info */}
             <div className="lg:col-span-1 space-y-6">
-              <Card className="bg-card border-primary/10 overflow-hidden">
+              <Card className="bg-card border-primary/10 overflow-hidden shadow-2xl">
                 <CardContent className="p-8 space-y-8">
-                  <div className="flex items-center gap-6">
-                    <div className="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <div className="flex items-center gap-6 group">
+                    <div className="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                       <Phone className="w-6 h-6" />
                     </div>
                     <div>
@@ -57,18 +54,18 @@ export default function ContactPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-6">
-                    <div className="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <div className="flex items-center gap-6 group">
+                    <div className="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                       <Mail className="w-6 h-6" />
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground font-bold mb-1">البريد الإلكتروني</p>
-                      <p className="text-xl font-bold">support@al-bashmohandes.com</p>
+                      <p className="text-lg font-bold">support@al-bashmohandes.com</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-6">
-                    <div className="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <div className="flex items-center gap-6 group">
+                    <div className="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                       <MapPin className="w-6 h-6" />
                     </div>
                     <div>
@@ -89,28 +86,27 @@ export default function ContactPage() {
               </div>
             </div>
 
-            {/* Contact Form */}
             <div className="lg:col-span-2">
-              <Card className="bg-card border-primary/10">
+              <Card className="bg-card border-primary/10 shadow-sm">
                 <CardContent className="p-10">
                   <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="text-sm font-bold">الاسم بالكامل</label>
-                        <Input placeholder="أدخل اسمك" className="h-12 bg-background" required />
+                        <Input placeholder="أدخل اسمك" className="h-12 bg-background border-primary/10" required />
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-bold">رقم الهاتف</label>
-                        <Input placeholder="01xxxxxxxxx" className="h-12 bg-background" required />
+                        <Input placeholder="01xxxxxxxxx" className="h-12 bg-background border-primary/10" required />
                       </div>
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-bold">موضوع الرسالة</label>
-                      <Input placeholder="عن ماذا تود الاستفسار؟" className="h-12 bg-background" required />
+                      <Input placeholder="عن ماذا تود الاستفسار؟" className="h-12 bg-background border-primary/10" required />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-bold">تفاصيل الرسالة</label>
-                      <Textarea placeholder="اكتب رسالتك هنا بالتفصيل..." className="min-h-[150px] bg-background" required />
+                      <Textarea placeholder="اكتب رسالتك هنا بالتفصيل..." className="min-h-[150px] bg-background border-primary/10" required />
                     </div>
                     <Button 
                       type="submit" 

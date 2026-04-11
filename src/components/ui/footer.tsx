@@ -1,8 +1,8 @@
-
 import { ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 
 export function Footer() {
+  const currentYear = new Date().getFullYear();
   return (
     <footer className="border-t bg-card py-12">
       <div className="container mx-auto px-4">
@@ -27,15 +27,15 @@ export function Footer() {
           <div>
             <h4 className="font-headline font-bold mb-4">تواصل معنا</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li dir="ltr">واتساب: 01008006562</li>
-              <li>فيسبوك: البشمهندس</li>
-              <li>يوتيوب: قناة البشمهندس</li>
+              <li dir="ltr" className="hover:text-primary transition-colors cursor-pointer">واتساب: 01008006562</li>
+              <li className="hover:text-primary transition-colors cursor-pointer">فيسبوك: البشمهندس</li>
+              <li className="hover:text-primary transition-colors cursor-pointer">يوتيوب: قناة البشمهندس</li>
             </ul>
           </div>
         </div>
         <div className="border-t mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} منصة البشمهندس. جميع الحقوق محفوظة.
+            &copy; {currentYear} منصة البشمهندس. جميع الحقوق محفوظة.
           </p>
           <p className="text-sm font-medium text-primary">
             made by : mohamed alaa

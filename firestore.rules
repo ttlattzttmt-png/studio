@@ -1,9 +1,7 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- الوظائف المساعدة ---
     function isSignedIn() {
       return request.auth != null;
     }
@@ -19,7 +17,7 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // --- قواعد المجموعات (Collection Groups) للمسؤول ---
+    // قواعد المجموعات للمسؤول - يجب أن تكون في الأعلى
     match /{path=**}/quiz_attempts/{attemptId} {
       allow read, list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
       allow write: if isAdmin() || (isSignedIn() && (resource == null || resource.data.studentId == request.auth.uid));
@@ -35,7 +33,6 @@ service cloud.firestore {
       allow write: if isAdmin() || (isSignedIn() && (request.resource == null || request.resource.data.studentId == request.auth.uid));
     }
 
-    // --- القواعد الأساسية ---
     match /admin_roles/{uid} {
       allow get: if isSignedIn();
       allow list, write: if isAdmin();
