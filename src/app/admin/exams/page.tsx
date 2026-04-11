@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -38,7 +39,7 @@ import Image from 'next/image';
 
 export default function AdminExams() {
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   
   const [isAdding, setIsAdding] = useState(false);
@@ -53,16 +54,19 @@ export default function AdminExams() {
     allowInstantResults: true
   });
 
-  const coursesRef = useMemoFirebase(() => firestore ? collection(firestore, 'courses') : null, [firestore]);
+  const coursesRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return collection(firestore, 'courses');
+  }, [firestore, user]);
+
   const { data: courses } = useCollection(coursesRef);
 
   const [activeCourseId, setActiveCourseId] = useState<string>('');
   
   const examsRef = useMemoFirebase(() => {
-    if (!firestore || !activeCourseId) return null;
-    // استعلام بسيط لتجنب أخطاء الفهارس
+    if (!firestore || !activeCourseId || !user) return null;
     return collection(firestore, 'courses', activeCourseId, 'content');
-  }, [firestore, activeCourseId]);
+  }, [firestore, activeCourseId, user]);
 
   const { data: allContent, isLoading: isExamsLoading } = useCollection(examsRef);
 
@@ -113,6 +117,8 @@ export default function AdminExams() {
       toast({ title: "تم التحديث", description: "تم تغيير إعدادات عرض النتائج." });
     } catch (e) { console.error(e); }
   };
+
+  if (isUserLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -263,6 +269,7 @@ export default function AdminExams() {
 
 function QuestionManager({ exam }: { exam: any }) {
   const firestore = useFirestore();
+  const { user } = useUser();
   const { toast } = useToast();
   const [isAdding, setIsAdding] = useState(false);
   
@@ -276,9 +283,9 @@ function QuestionManager({ exam }: { exam: any }) {
   });
 
   const questionsRef = useMemoFirebase(() => {
-    if (!firestore || !exam) return null;
+    if (!firestore || !exam || !user) return null;
     return collection(firestore, 'courses', exam.courseId, 'content', exam.id, 'questions');
-  }, [firestore, exam]);
+  }, [firestore, exam, user]);
 
   const { data: questions, isLoading } = useCollection(questionsRef);
 

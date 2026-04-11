@@ -1,14 +1,16 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Video, Ticket, ClipboardList, TrendingUp, Loader2 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection } from 'firebase/firestore';
 
 export default function AdminOverview() {
   const [currentTime, setCurrentTime] = useState<string | null>(null);
   const firestore = useFirestore();
+  const { user, isUserLoading } = useUser();
 
   useEffect(() => {
     const updateTime = () => {
@@ -19,10 +21,21 @@ export default function AdminOverview() {
     return () => clearInterval(timer);
   }, []);
 
-  // جلب البيانات اللحظية للإحصائيات
-  const studentsRef = useMemoFirebase(() => firestore ? collection(firestore, 'students') : null, [firestore]);
-  const coursesRef = useMemoFirebase(() => firestore ? collection(firestore, 'courses') : null, [firestore]);
-  const codesRef = useMemoFirebase(() => firestore ? collection(firestore, 'access_codes') : null, [firestore]);
+  // جلب البيانات اللحظية للإحصائيات - لا يتم الاستعلام إلا إذا وجد مستخدم
+  const studentsRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return collection(firestore, 'students');
+  }, [firestore, user]);
+
+  const coursesRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return collection(firestore, 'courses');
+  }, [firestore, user]);
+
+  const codesRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return collection(firestore, 'access_codes');
+  }, [firestore, user]);
 
   const { data: students, isLoading: isStudentsLoading } = useCollection(studentsRef);
   const { data: courses, isLoading: isCoursesLoading } = useCollection(coursesRef);
@@ -31,29 +44,31 @@ export default function AdminOverview() {
   const stats = [
     { 
       title: 'إجمالي الطلاب', 
-      val: isStudentsLoading ? '...' : (students?.length || 0).toString(), 
+      val: (isStudentsLoading || isUserLoading) ? '...' : (students?.length || 0).toString(), 
       icon: <Users className="text-blue-500" />, 
       trend: 'تحديث لحظي' 
     },
     { 
       title: 'الكورسات المفعلة', 
-      val: isCoursesLoading ? '...' : (courses?.length || 0).toString(), 
+      val: (isCoursesLoading || isUserLoading) ? '...' : (courses?.length || 0).toString(), 
       icon: <Video className="text-primary" />, 
       trend: 'متاح للطلاب' 
     },
     { 
       title: 'الأكواد النشطة', 
-      val: isCodesLoading ? '...' : (codes?.filter(c => !c.isUsed).length || 0).toString(), 
+      val: (isCodesLoading || isUserLoading) ? '...' : (codes?.filter(c => !c.isUsed).length || 0).toString(), 
       icon: <Ticket className="text-accent" />, 
       trend: 'أكواد غير مستخدمة' 
     },
     { 
       title: 'إجمالي الأكواد', 
-      val: isCodesLoading ? '...' : (codes?.length || 0).toString(), 
+      val: (isCodesLoading || isUserLoading) ? '...' : (codes?.length || 0).toString(), 
       icon: <ClipboardList className="text-purple-500" />, 
       trend: 'تم إنشاؤها' 
     },
   ];
+
+  if (isUserLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">

@@ -37,7 +37,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function ManageCourses() {
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   
   // State for adding/editing courses
@@ -54,9 +54,9 @@ export default function ManageCourses() {
   const [selectedCourseForContent, setSelectedCourseForContent] = useState<any>(null);
 
   const coursesRef = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return query(collection(firestore, 'courses'), orderBy('createdAt', 'desc'));
-  }, [firestore]);
+  }, [firestore, user]);
 
   const { data: courses, isLoading } = useCollection(coursesRef);
 
@@ -111,6 +111,8 @@ export default function ManageCourses() {
       console.error(e);
     }
   };
+
+  if (isUserLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -232,9 +234,9 @@ function CourseContentManager({ course }: { course: any }) {
   const [newVideo, setNewVideo] = useState({ title: '', link: '', order: '' });
 
   const contentRef = useMemoFirebase(() => {
-    if (!firestore || !course) return null;
+    if (!firestore || !course || !user) return null;
     return query(collection(firestore, 'courses', course.id, 'content'), orderBy('orderIndex', 'asc'));
-  }, [firestore, course]);
+  }, [firestore, course, user]);
 
   const { data: contents, isLoading } = useCollection(contentRef);
 
