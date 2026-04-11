@@ -1,14 +1,46 @@
+"use client";
+
+import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ShieldCheck, Lock, UserCog } from 'lucide-react';
+import { UserCog, Loader2 } from 'lucide-react';
+import { useAuth, initiateEmailSignIn } from '@/firebase';
+import { useToast } from '@/hooks/use-toast';
 
 export default function AdminLoginPage() {
+  const [email, setEmail] = useState('admin@al-bashmohandes.com');
+  const [password, setPassword] = useState('admin123456');
+  const [isLoading, setIsLoading] = useState(false);
+  const { auth } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth) return;
+
+    setIsLoading(true);
+    try {
+      initiateEmailSignIn(auth, email, password);
+      // In a real app, we'd verify the admin role in the user profile/claims
+      router.push('/admin');
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "خطأ في الدخول",
+        description: "تأكد من بيانات المشرف."
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8 bg-card p-10 rounded-3xl border border-primary/30 shadow-2xl relative overflow-hidden">
-        {/* Background Accent */}
         <div className="absolute top-0 right-0 w-full h-2 bg-primary" />
         
         <div className="relative text-center">
@@ -19,21 +51,40 @@ export default function AdminLoginPage() {
           <p className="text-muted-foreground">مرحباً بك في غرفة التحكم، بشمهندس</p>
         </div>
 
-        <form className="space-y-6 relative">
+        <form onSubmit={handleAdminLogin} className="space-y-6 relative">
           <div className="space-y-2">
             <Label htmlFor="email" className="text-sm font-bold flex items-center gap-2">
               بريد المسؤول
             </Label>
-            <Input id="email" type="email" placeholder="admin@al-bashmohandes.com" className="h-12 bg-background border-primary/10 focus:border-primary" required />
+            <Input 
+              id="email" 
+              type="email" 
+              placeholder="admin@al-bashmohandes.com" 
+              className="h-12 bg-background border-primary/10 focus:border-primary" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required 
+            />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="password" title="كلمة المرور" className="text-sm font-bold">كلمة مرور الأمان</Label>
-            <Input id="password" type="password" className="h-12 bg-background border-primary/10 focus:border-primary" required />
+            <Input 
+              id="password" 
+              type="password" 
+              className="h-12 bg-background border-primary/10 focus:border-primary" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required 
+            />
           </div>
 
-          <Button type="submit" className="w-full h-14 bg-primary text-primary-foreground hover:bg-primary/90 text-lg font-bold rounded-xl shadow-lg shadow-primary/20">
-            فتح لوحة التحكم
+          <Button 
+            type="submit" 
+            disabled={isLoading}
+            className="w-full h-14 bg-primary text-primary-foreground hover:bg-primary/90 text-lg font-bold rounded-xl shadow-lg shadow-primary/20"
+          >
+            {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "فتح لوحة التحكم"}
           </Button>
         </form>
 

@@ -2,9 +2,9 @@
   "placeholderImages": [
     {
       "id": "hero-bg",
-      "description": "Engineering background",
-      "imageUrl": "https://picsum.photos/seed/eng1/1920/1080",
-      "imageHint": "engineering classroom"
+      "description": "Educational Math background",
+      "imageUrl": "https://picsum.photos/seed/math-edu/1920/1080",
+      "imageHint": "mathematics blackboard"
     },
     {
       "id": "course-1",
