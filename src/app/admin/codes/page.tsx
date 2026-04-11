@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -47,20 +46,26 @@ export default function ManageCodes() {
     try {
       const count = parseInt(genData.count);
       for (let i = 0; i < count; i++) {
-        const randomCode = `ENG-${Math.random().toString(36).substring(2, 8).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+        // إنشاء كود بصيغة واضحة وuppercase لضمان التوافق
+        const randomPart1 = Math.random().toString(36).substring(2, 6).toUpperCase();
+        const randomPart2 = Math.random().toString(36).substring(2, 6).toUpperCase();
+        const randomCode = `ENG-${randomPart1}-${randomPart2}`;
+        
         await addDoc(collection(firestore, 'access_codes'), {
           code: randomCode,
           courseId: genData.courseId,
           generatedByAdminUserId: user.uid,
           createdAt: serverTimestamp(),
-          isUsed: false
+          isUsed: false,
+          usedByStudentId: null,
+          usedAt: null
         });
       }
-      toast({ title: "تم التوليد", description: `تم إنشاء ${count} كود بنجاح.` });
+      toast({ title: "تم التوليد بنجاح", description: `تم إنشاء ${count} كود تفعيل للكورس المحدد.` });
       setGenData({ ...genData, courseId: '' });
     } catch (e) {
       console.error(e);
-      toast({ variant: "destructive", title: "خطأ", description: "فشل توليد الأكواد." });
+      toast({ variant: "destructive", title: "خطأ في التوليد", description: "فشل إنشاء الأكواد. يرجى التحقق من الصلاحيات." });
     } finally {
       setIsGenerating(false);
     }
@@ -68,10 +73,14 @@ export default function ManageCodes() {
 
   const handleDeleteCode = async (id: string) => {
     if (!firestore) return;
+    if (!confirm('هل أنت متأكد من حذف هذا الكود؟ لن يتمكن أي طالب من استخدامه بعد الآن.')) return;
     try {
       await deleteDoc(doc(firestore, 'access_codes', id));
-      toast({ title: "تم الحذف", description: "تم حذف الكود نهائياً." });
-    } catch (e) { console.error(e); }
+      toast({ title: "تم الحذف", description: "تم حذف كود التفعيل بنجاح." });
+    } catch (e) { 
+      console.error(e);
+      toast({ variant: "destructive", title: "خطأ", description: "لا يمكن حذف كود مستخدم أو غير موجود." });
+    }
   };
 
   const filteredCodes = codes?.filter(c => 
@@ -85,13 +94,13 @@ export default function ManageCodes() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-headline font-bold mb-2">أكواد التفعيل</h1>
-          <p className="text-muted-foreground">أنت المسؤول الوحيد عن إنشاء وتوزيع هذه الأكواد.</p>
+          <h1 className="text-4xl font-headline font-bold mb-2">إدارة أكواد التفعيل</h1>
+          <p className="text-muted-foreground">أنشئ أكواداً جديدة ووزعها على الطلاب لتفعيل الكورسات.</p>
         </div>
         <Dialog>
           <DialogTrigger asChild>
             <Button className="h-14 px-8 bg-primary text-primary-foreground font-bold rounded-xl gap-2 text-lg shadow-lg">
-              <Plus className="w-6 h-6" /> توليد أكواد جديدة
+              <Plus className="w-6 h-6" /> توليد أكواد دفع
             </Button>
           </DialogTrigger>
           <DialogContent className="bg-card">
@@ -138,8 +147,8 @@ export default function ManageCodes() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="text-right">الكود</TableHead>
-                <TableHead className="text-right">الكورس</TableHead>
+                <TableHead className="text-right">كود التفعيل</TableHead>
+                <TableHead className="text-right">الكورس المرتبط</TableHead>
                 <TableHead className="text-right">الحالة</TableHead>
                 <TableHead className="text-left">الإجراءات</TableHead>
               </TableRow>
@@ -149,12 +158,12 @@ export default function ManageCodes() {
                 <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
               ) : !filteredCodes || filteredCodes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-20 text-muted-foreground">لا توجد أكواد.</TableCell>
+                  <TableCell colSpan={4} className="text-center py-20 text-muted-foreground">لا توجد أكواد حالياً.</TableCell>
                 </TableRow>
               ) : (
                 filteredCodes.map((c: any) => (
                   <TableRow key={c.id}>
-                    <TableCell className="font-mono font-bold text-primary">{c.code}</TableCell>
+                    <TableCell className="font-mono font-bold text-primary select-all cursor-copy">{c.code}</TableCell>
                     <TableCell>
                       <CourseName courseId={c.courseId} />
                     </TableCell>
@@ -187,7 +196,7 @@ function CourseName({ courseId }: { courseId: string }) {
   return (
     <div className="flex items-center gap-2 text-xs font-bold">
       <BookOpen className="w-3 h-3 text-muted-foreground" />
-      {course?.title || <span className="text-[10px] opacity-50">جاري التحميل...</span>}
+      {course?.title || <span className="text-[10px] opacity-50 italic">جاري جلب الاسم...</span>}
     </div>
   );
 }

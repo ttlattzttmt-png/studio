@@ -58,17 +58,22 @@ service cloud.firestore {
       }
     }
 
-    // أكواد الوصول: قراءة وتحديث للمسجلين (لتفعيل الكود)، إنشاء وحذف للمسؤول
+    // أكواد الوصول: 
+    // - المسؤول له صلاحية كاملة
+    // - الطالب يمكنه البحث عن الأكواد وقراءتها وتحديث حالتها (Update) ليتمكن من تفعيل الكورس
     match /access_codes/{codeId} {
-      allow read, list, update: if isSignedIn();
       allow create, delete: if isAdmin();
+      allow read, list: if isSignedIn();
+      allow update: if isSignedIn() && (
+        isAdmin() || 
+        (resource.data.isUsed == false && request.resource.data.isUsed == true)
+      );
     }
 
     // بيانات الطلاب: الطالب يملك صلاحية كاملة على مجلده وكل ما بداخله
     match /students/{studentId} {
       allow read, write: if isOwner(studentId) || isAdmin();
       
-      // السماح بجميع العمليات على المجموعات الفرعية (الاشتراكات، المحاولات، إلخ)
       match /{allSubcollections=**} {
         allow read, write: if isOwner(studentId) || isAdmin();
       }
