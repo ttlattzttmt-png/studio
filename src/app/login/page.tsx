@@ -32,16 +32,15 @@ export default function LoginPage() {
       let userCredential;
       
       try {
-        // محاولة تسجيل الدخول العادية
+        // محاولة تسجيل الدخول
         userCredential = await signInWithEmailAndPassword(auth, email, password);
       } catch (authError: any) {
-        // منطق خاص بالأدمن للمرة الأولى: إذا كان البريد هو بريد المسؤول، نحاول إنشاء الحساب إذا فشل الدخول
-        if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+        // إذا كان بريد الأدمن ولم يتم إنشاؤه بعد، نقوم بإنشائه تلقائياً (للمرة الأولى فقط)
+        if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase() && (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential')) {
           try {
             userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          } catch (createError: any) {
-            // إذا كان البريد مسجلاً مسبقاً وفشل الدخول، نرمي الخطأ الأصلي (كلمة مرور خطأ مثلاً)
-            throw authError;
+          } catch (createError) {
+            throw authError; // إذا فشل الإنشاء أيضاً نرجع للخطأ الأصلي
           }
         } else {
           throw authError;
@@ -50,13 +49,13 @@ export default function LoginPage() {
 
       const uid = userCredential.user.uid;
 
-      // التحقق من صلاحيات المسؤول
+      // منطق خاص بالأدمن
       if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
         const adminRoleRef = doc(firestore, 'admin_roles', uid);
         const adminRoleSnap = await getDoc(adminRoleRef);
         
         if (!adminRoleSnap.exists()) {
-          // تأكيد صلاحية المسؤول في قاعدة البيانات
+          // تأكيد دور الأدمن في Firestore
           await setDoc(adminRoleRef, { role: 'admin', createdAt: new Date().toISOString() });
           await setDoc(doc(firestore, 'admin_users', uid), {
             id: uid,
@@ -71,7 +70,7 @@ export default function LoginPage() {
         return;
       }
 
-      // التحقق من صلاحيات المستخدمين الآخرين
+      // التحقق من نوع المستخدم (طالب أم أدمن) للتوجيه
       const adminDocRef = doc(firestore, 'admin_roles', uid);
       const adminDoc = await getDoc(adminDocRef);
       
@@ -82,11 +81,9 @@ export default function LoginPage() {
       }
     } catch (error: any) {
       console.error("Login error:", error);
-      let errorMessage = "يرجى التأكد من البريد الإلكتروني وكلمة المرور.";
-      
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
-        errorMessage = "بيانات الدخول غير صحيحة، يرجى المحاولة مرة أخرى.";
-      }
+      let errorMessage = "يرجى التأكد من البيانات والمحاولة مرة أخرى.";
+      if (error.code === 'auth/wrong-password') errorMessage = "كلمة المرور غير صحيحة.";
+      if (error.code === 'auth/user-not-found') errorMessage = "هذا الحساب غير موجود.";
       
       toast({
         variant: "destructive",
