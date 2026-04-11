@@ -23,7 +23,8 @@ import {
   Mail,
   GraduationCap,
   ClipboardList,
-  AlertCircle
+  AlertCircle,
+  User as UserIcon
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, collectionGroup, doc, updateDoc, query, orderBy } from 'firebase/firestore';
