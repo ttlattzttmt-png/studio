@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ShieldCheck, Lock, User, Loader2 } from 'lucide-react';
 import { useFirebase } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 
@@ -21,6 +21,8 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
+  const ADMIN_EMAIL = 'admin@al-bashmohandes.com';
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth || !firestore) return;
@@ -30,12 +32,34 @@ export default function LoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const uid = userCredential.user.uid;
 
-      // التحقق من صلاحيات المشرف في مجموعة admin_roles
+      // إذا كان البريد هو بريد المسؤول المخصص، نضمن وجوده في صلاحيات المسؤول
+      if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+        const adminRoleRef = doc(firestore, 'admin_roles', uid);
+        const adminRoleSnap = await getDoc(adminRoleRef);
+        
+        if (!adminRoleSnap.exists()) {
+          // إنشاء صلاحية المسؤول تلقائياً لهذا البريد إذا لم تكن موجودة
+          await setDoc(adminRoleRef, { role: 'admin', createdAt: new Date().toISOString() });
+          // وأيضاً إنشاء بروفايل أدمن
+          await setDoc(doc(firestore, 'admin_users', uid), {
+            id: uid,
+            name: 'المشرف العام',
+            email: email,
+            registrationDate: new Date().toISOString()
+          });
+        }
+        
+        toast({ title: "مرحباً بك يا بشمهندس", description: "جاري توجيهك للوحة التحكم..." });
+        router.push('/admin');
+        return;
+      }
+
+      // التحقق من صلاحيات المشرف العادية للآخرين
       const adminDocRef = doc(firestore, 'admin_roles', uid);
       const adminDoc = await getDoc(adminDocRef);
       
       if (adminDoc.exists()) {
-        toast({ title: "مرحباً بك يا بشمهندس", description: "جاري توجيهك للوحة التحكم الخاصة بالمشرف..." });
+        toast({ title: "مرحباً بك يا بشمهندس", description: "جاري توجيهك للوحة التحكم..." });
         router.push('/admin');
       } else {
         toast({ title: "أهلاً بك", description: "جاري الدخول لحساب الطالب..." });
@@ -111,12 +135,14 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        <p className="text-center text-muted-foreground relative">
-          ليس لديك حساب؟{' '}
-          <Link href="/register" className="text-primary font-bold hover:underline">
-            أنشئ حساباً جديداً
-          </Link>
-        </p>
+        <div className="relative text-center space-y-4 pt-4 border-t">
+          <p className="text-sm text-muted-foreground">
+            ليس لديك حساب؟{' '}
+            <Link href="/register" className="text-primary font-bold hover:underline">
+              أنشئ حساباً جديداً
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );
