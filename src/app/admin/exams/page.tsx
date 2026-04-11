@@ -268,16 +268,12 @@ function QuestionManager({ exam }: { exam: any }) {
     try {
       let imageUrl = '';
       if (selectedFile) {
-        // إنشاء مسار فريد للملف
-        const storagePath = `exams/${exam.id}/questions/${Date.now()}_${selectedFile.name.replace(/\s+/g, '_')}`;
+        // إنشاء مسار بسيط ومباشر للرفع لضمان أعلى توافقية
+        const storagePath = `exams/${exam.id}/q_${Date.now()}_${selectedFile.name.replace(/\s+/g, '_')}`;
         const fileRef = ref(storage, storagePath);
         
-        // رفع الملف مع Metadata لضمان النوع
-        const uploadResult = await uploadBytes(fileRef, selectedFile, {
-          contentType: selectedFile.type,
-        });
-        
-        // جلب الرابط العام
+        // الرفع المباشر بدون تعقيدات Metadata
+        const uploadResult = await uploadBytes(fileRef, selectedFile);
         imageUrl = await getDownloadURL(uploadResult.ref);
       }
 
@@ -310,15 +306,11 @@ function QuestionManager({ exam }: { exam: any }) {
       if (fileInputRef.current) fileInputRef.current.value = '';
       
     } catch (e: any) { 
-      console.error("Firebase Storage/Firestore Error:", e);
-      let errorMsg = "حدث خطأ غير متوقع.";
-      if (e.code === 'storage/unauthorized') errorMsg = "صلاحيات الرفع مرفوضة من السيرفر.";
-      if (e.code === 'storage/canceled') errorMsg = "تم إلغاء عملية الرفع.";
-      
+      console.error("Upload Error:", e);
       toast({ 
         variant: "destructive", 
         title: "فشل الرفع والحفظ", 
-        description: `${errorMsg} (كود: ${e.code || 'unknown'})` 
+        description: "حدث خطأ أثناء الاتصال بالخادم. يرجى التأكد من اتصالك بالإنترنت."
       });
     } finally { 
       setIsAdding(false); 
@@ -362,7 +354,7 @@ function QuestionManager({ exam }: { exam: any }) {
               <Button 
                 variant="outline" 
                 onClick={() => fileInputRef.current?.click()}
-                className="h-12 flex-grow gap-2 border-primary/20 hover:border-primary bg-background"
+                className="h-12 flex-grow gap-2 border-primary/20 hover:border-primary bg-background overflow-hidden"
               >
                 {selectedFile ? <><CheckCircle2 className="w-4 h-4 text-accent" /> {selectedFile.name}</> : <><Upload className="w-4 h-4" /> اختر ملف صورة</>}
               </Button>

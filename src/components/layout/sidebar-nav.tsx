@@ -32,9 +32,9 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
   const { user } = useUser();
   const [open, setOpen] = useState(false);
 
+  // توجيه الطالب للوحة التحكم الرئيسية دائماً
   const studentLinks = [
-    { label: 'الرئيسية', icon: <LayoutDashboard className="w-5 h-5" />, href: '/student' },
-    { label: 'لوحة الطالب', icon: <BookOpen className="w-5 h-5" />, href: '/student' },
+    { label: 'لوحة التحكم', icon: <LayoutDashboard className="w-5 h-5" />, href: '/student' },
     { label: 'استكشف الكورسات', icon: <Search className="w-5 h-5" />, href: '/courses' },
     { label: 'سجل درجاتي', icon: <ClipboardList className="w-5 h-5" />, href: '/student/exams' },
   ];

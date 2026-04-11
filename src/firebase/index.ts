@@ -6,19 +6,17 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
-// IMPORTANT: DO NOT MODIFY THIS FUNCTION
+// تهيئة Firebase بشكل مستقر يضمن عمل كافة الخدمات
 export function initializeFirebase() {
+  let firebaseApp: FirebaseApp;
+  
   if (!getApps().length) {
-    let firebaseApp;
-    try {
-      firebaseApp = initializeApp(firebaseConfig);
-    } catch (e) {
-      console.error('Firebase initialization failed', e);
-      firebaseApp = initializeApp(firebaseConfig);
-    }
-    return getSdks(firebaseApp);
+    firebaseApp = initializeApp(firebaseConfig);
+  } else {
+    firebaseApp = getApp();
   }
-  return getSdks(getApp());
+  
+  return getSdks(firebaseApp);
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
@@ -26,8 +24,8 @@ export function getSdks(firebaseApp: FirebaseApp) {
     firebaseApp,
     auth: getAuth(firebaseApp),
     firestore: getFirestore(firebaseApp),
-    // نمرر الـ Bucket صراحة لضمان الوصول للمخزن الصحيح
-    storage: getStorage(firebaseApp, firebaseConfig.storageBucket)
+    // استخدام المخزن الافتراضي للمشروع لضمان أعلى توافقية
+    storage: getStorage(firebaseApp)
   };
 }
 

@@ -25,11 +25,10 @@ import {
   ClipboardList,
   AlertCircle,
   User as UserIcon,
-  ShieldCheck,
   Clock,
   BookOpen
 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, collectionGroup, doc, updateDoc, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
@@ -182,7 +181,6 @@ export default function AdminStudents() {
           </div>
 
           <div className="p-8 space-y-10">
-            {/* بيانات التواصل الكاملة */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <InfoBox icon={<Phone />} label="هاتف الطالب" value={selectedStudent?.studentPhoneNumber} />
               <InfoBox icon={<Phone />} label="هاتف ولي الأمر" value={selectedStudent?.parentPhoneNumber} />
@@ -212,7 +210,6 @@ function InfoBox({ icon, label, value }: any) {
 function StudentAcademicProgress({ studentId }: { studentId: string }) {
   const firestore = useFirestore();
   
-  // جلب الاشتراكات
   const studentEnrollmentsRef = useMemoFirebase(() => {
     if (!firestore || !studentId) return null;
     return collection(firestore, 'students', studentId, 'enrollments');
@@ -220,7 +217,6 @@ function StudentAcademicProgress({ studentId }: { studentId: string }) {
 
   const { data: enrollments } = useCollection(studentEnrollmentsRef);
 
-  // جلب الامتحانات
   const attemptsRef = useMemoFirebase(() => {
     if (!firestore || !studentId) return null;
     return query(collection(firestore, 'students', studentId, 'quiz_attempts'), orderBy('submittedAt', 'desc'));
@@ -228,7 +224,6 @@ function StudentAcademicProgress({ studentId }: { studentId: string }) {
 
   const { data: attempts, isLoading: isAttemptsLoading } = useCollection(attemptsRef);
 
-  // جلب الفيديوهات
   const progressRef = useMemoFirebase(() => {
     if (!firestore || !studentId) return null;
     return query(collection(firestore, 'students', studentId, 'video_progress'), orderBy('lastWatchedAt', 'desc'));
@@ -238,7 +233,6 @@ function StudentAcademicProgress({ studentId }: { studentId: string }) {
 
   return (
     <div className="space-y-8">
-      {/* ملخص الكورسات */}
       <Card className="bg-card border-primary/5">
         <CardHeader className="border-b p-4 bg-secondary/5">
           <CardTitle className="text-sm font-bold flex items-center gap-2 justify-end">
@@ -273,7 +267,6 @@ function StudentAcademicProgress({ studentId }: { studentId: string }) {
       </Card>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-        {/* سجل الامتحانات */}
         <Card className="bg-card shadow-sm border-primary/5">
           <CardHeader className="border-b bg-accent/5 p-4 flex flex-row items-center justify-between">
             <Badge variant="secondary" className="text-[10px]">{attempts?.length || 0} محاولات</Badge>
@@ -310,7 +303,6 @@ function StudentAcademicProgress({ studentId }: { studentId: string }) {
           </CardContent>
         </Card>
 
-        {/* الفيديوهات المشاهدة */}
         <Card className="bg-card shadow-sm border-primary/5">
           <CardHeader className="border-b bg-primary/5 p-4 flex flex-row items-center justify-between">
             <Badge variant="secondary" className="text-[10px]">{videoProgress?.length || 0} فيديو</Badge>
