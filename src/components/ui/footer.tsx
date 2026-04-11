@@ -1,4 +1,6 @@
+
 import { ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
 
 export function Footer() {
   return (
@@ -17,15 +19,15 @@ export function Footer() {
           <div>
             <h4 className="font-headline font-bold mb-4">روابط سريعة</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><a href="#" className="hover:text-primary transition-colors">جميع الكورسات</a></li>
-              <li><a href="#" className="hover:text-primary transition-colors">الامتحانات</a></li>
-              <li><a href="#" className="hover:text-primary transition-colors">الدعم الفني</a></li>
+              <li><Link href="/courses" className="hover:text-primary transition-colors">جميع الكورسات</Link></li>
+              <li><Link href="/about" className="hover:text-primary transition-colors">عن المنصة</Link></li>
+              <li><Link href="/contact" className="hover:text-primary transition-colors">اتصل بنا</Link></li>
             </ul>
           </div>
           <div>
             <h4 className="font-headline font-bold mb-4">تواصل معنا</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>واتساب: 01012345678</li>
+              <li dir="ltr">واتساب: 01008006562</li>
               <li>فيسبوك: البشمهندس</li>
               <li>يوتيوب: قناة البشمهندس</li>
             </ul>
