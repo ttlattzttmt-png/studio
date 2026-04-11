@@ -9,6 +9,7 @@ export default function AdminOverview() {
   const [currentTime, setCurrentTime] = useState<string | null>(null);
 
   useEffect(() => {
+    // حل مشكلة Hydration Mismatch من خلال تحديث الوقت فقط على جهة العميل
     const updateTime = () => {
       setCurrentTime(new Date().toLocaleTimeString('ar-EG'));
     };
@@ -43,7 +44,7 @@ export default function AdminOverview() {
             <CardContent>
               <div className="text-3xl font-bold mb-1">{s.val}</div>
               <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <TrendingUp className="w-3 h-3 text-accent" /> {s.trend}
+                <TrendingUp className="w-3 h-3 text-accent" /> {stat.trend}
               </p>
             </CardContent>
           </Card>
