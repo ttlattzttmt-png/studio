@@ -28,7 +28,9 @@ import {
   CheckCircle2,
   Image as ImageIcon,
   Eye,
-  Settings2
+  Settings2,
+  Upload,
+  X
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, orderBy, updateDoc } from 'firebase/firestore';
@@ -243,7 +245,7 @@ export default function AdminExams() {
 
                     <div className="flex gap-2">
                       <Button className="flex-grow bg-primary text-primary-foreground font-bold" onClick={() => setSelectedExamForQuestions(exam)}>إدارة الأسئلة</Button>
-                      <Button variant="outline" className="border-primary/20 text-primary font-bold gap-2">
+                      <Button variant="outline" className="border-primary/20 text-primary font-bold gap-2" onClick={() => window.location.href='/admin/exams/grading'}>
                         <Eye className="w-4 h-4" /> التصحيح
                       </Button>
                     </div>
@@ -291,6 +293,21 @@ function QuestionManager({ exam }: { exam: any }) {
   }, [firestore, exam]);
 
   const { data: questions, isLoading } = useCollection(questionsRef);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 800000) {
+        toast({ variant: "destructive", title: "حجم كبير", description: "يرجى اختيار صورة بحجم أقل من 800 كيلوبايت لضمان سرعة التحميل." });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setNewQuestion({ ...newQuestion, imageUrl: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleAddQuestion = async () => {
     if (!firestore || !exam || !newQuestion.text) return;
@@ -359,16 +376,31 @@ function QuestionManager({ exam }: { exam: any }) {
               className="bg-background min-h-[100px] text-lg"
             />
             <div className="space-y-2">
-              <Label className="text-xs font-bold flex items-center gap-2"><ImageIcon className="w-3 h-3"/> رابط صورة السؤال (اختياري)</Label>
-              <Input 
-                placeholder="ألصق رابط الصورة هنا..." 
-                value={newQuestion.imageUrl}
-                onChange={(e) => setNewQuestion({...newQuestion, imageUrl: e.target.value})}
-                className="bg-background"
+              <Label className="text-xs font-bold flex items-center gap-2"><ImageIcon className="w-3 h-3"/> صورة السؤال (اختياري)</Label>
+              <div className="flex items-center gap-4">
+                <Button 
+                  variant="outline" 
+                  className="h-12 border-dashed border-primary/30 flex-grow gap-2"
+                  onClick={() => document.getElementById('question-image-upload')?.click()}
+                >
+                  <Upload className="w-4 h-4" /> {newQuestion.imageUrl ? "تغيير الصورة المرفوعة" : "رفع صورة للسؤال من جهازك"}
+                </Button>
+                {newQuestion.imageUrl && (
+                  <Button variant="ghost" size="icon" onClick={() => setNewQuestion({...newQuestion, imageUrl: ''})} className="text-destructive h-12 w-12">
+                    <X className="w-5 h-5" />
+                  </Button>
+                )}
+              </div>
+              <input 
+                id="question-image-upload"
+                type="file" 
+                accept="image/*"
+                className="hidden" 
+                onChange={handleFileUpload}
               />
               {newQuestion.imageUrl && (
-                <div className="relative w-full h-32 rounded-lg overflow-hidden border">
-                  <Image src={newQuestion.imageUrl} alt="Preview" fill className="object-contain" />
+                <div className="relative w-full h-48 rounded-xl overflow-hidden border-2 border-primary/20 shadow-inner mt-4">
+                  <Image src={newQuestion.imageUrl} alt="Preview" fill className="object-contain bg-background" unoptimized />
                 </div>
               )}
             </div>
@@ -402,7 +434,7 @@ function QuestionManager({ exam }: { exam: any }) {
             </div>
           )}
 
-          <Button onClick={handleAddQuestion} disabled={isAdding || !newQuestion.text} className="w-full bg-primary font-bold h-12 shadow-lg shadow-primary/10">
+          <Button onClick={handleAddQuestion} disabled={isAdding || !newQuestion.text} className="w-full bg-primary text-primary-foreground font-bold h-12 shadow-lg shadow-primary/10">
             {isAdding ? <Loader2 className="w-5 h-5 animate-spin" /> : "إضافة السؤال للاختبار"}
           </Button>
         </CardContent>
@@ -426,7 +458,7 @@ function QuestionManager({ exam }: { exam: any }) {
               </div>
               {q.questionImageUrl && (
                 <div className="relative w-full md:w-48 h-32 rounded-lg overflow-hidden border">
-                  <Image src={q.questionImageUrl} alt="" fill className="object-contain bg-secondary/10" />
+                  <Image src={q.questionImageUrl} alt="" fill className="object-contain bg-secondary/10" unoptimized />
                 </div>
               )}
             </div>

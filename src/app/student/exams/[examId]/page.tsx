@@ -19,10 +19,12 @@ import {
   HelpCircle,
   ImageIcon,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Upload,
+  X
 } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, addDoc, serverTimestamp, query, orderBy, doc, getDocs, where, setDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, orderBy, doc, getDocs, where, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 
@@ -45,7 +47,6 @@ export default function TakeExamPage() {
       const coursesRef = collection(firestore, 'courses');
       const snap = await getDocs(coursesRef);
       for (const courseDoc of snap.docs) {
-        const contentRef = doc(firestore, 'courses', courseDoc.id, 'content', examId as string);
         const contentSnap = await getDocs(query(collection(firestore, 'courses', courseDoc.id, 'content'), where('__name__', '==', examId)));
         if (!contentSnap.empty) {
           setCourseId(courseDoc.id);
@@ -83,6 +84,21 @@ export default function TakeExamPage() {
     }));
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, qId: string) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 800000) {
+        toast({ variant: "destructive", title: "حجم كبير", description: "يرجى اختيار صورة بحجم أقل من 800 كيلوبايت لضمان سرعة التحميل." });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        handleAnswerChange(qId, { essayFileUrl: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!firestore || !user || !exam || !questions || !courseId) return;
     setIsSubmitting(true);
@@ -110,7 +126,6 @@ export default function TakeExamPage() {
         let scoreAchieved = 0;
 
         if (question.questionType === 'MCQ') {
-          // جلب الخيارات للتحقق من الصحة (تلقائياً للـ MCQ)
           const optsSnap = await getDocs(collection(firestore, 'courses', courseId, 'content', examId as string, 'questions', question.id, 'options'));
           const correctOpt = optsSnap.docs.find(d => d.data().isCorrect);
           if (correctOpt && correctOpt.id === studentAnswer.mcqOptionId) {
@@ -128,19 +143,19 @@ export default function TakeExamPage() {
           mcqSelectedOptionId: studentAnswer.mcqOptionId || null,
           essayAnswerText: studentAnswer.essayText || '',
           essayAnswerFileUrl: studentAnswer.essayFileUrl || '',
-          isCorrect: question.questionType === 'MCQ' ? isCorrect : false, // المقالي يحتاج تصحيح يدوي
+          isCorrect: question.questionType === 'MCQ' ? isCorrect : false,
           scoreAchieved: question.questionType === 'MCQ' ? scoreAchieved : 0
         });
       }
 
-      // 3. تحديث نتيجة المحاولة إذا كان MCQ فقط أو إذا كان التصحيح فورياً
+      // 3. تحديث نتيجة المحاولة إذا كان التصحيح فورياً
       if (exam.allowInstantResultsDisplay) {
         const totalPoints = questions.reduce((sum, q) => sum + q.points, 0);
         const finalScorePercentage = Math.round((totalScore / totalPoints) * 100);
         
         await updateDoc(doc(firestore, 'students', user.uid, 'quiz_attempts', attemptRef.id), {
           score: finalScorePercentage,
-          isGraded: questions.every(q => q.questionType === 'MCQ') // إذا كان كله MCQ فهو مصحح
+          isGraded: questions.every(q => q.questionType === 'MCQ')
         });
       }
 
@@ -223,7 +238,8 @@ export default function TakeExamPage() {
                       src={currentQuestion.questionImageUrl} 
                       alt="Question Image" 
                       fill 
-                      className="object-contain bg-black/5" 
+                      className="object-contain bg-background"
+                      unoptimized 
                     />
                   </div>
                 )}
@@ -256,18 +272,36 @@ export default function TakeExamPage() {
                     </div>
                     <div className="space-y-3 p-6 bg-primary/5 rounded-2xl border-2 border-dashed border-primary/20">
                       <Label className="text-lg font-bold flex items-center gap-2">
-                        <ImageIcon className="w-5 h-5 text-primary" /> أو ارفع إجابتك كصورة (رابط)
+                        <ImageIcon className="w-5 h-5 text-primary" /> أو صور إجابتك من الكراسة وارفعها هنا:
                       </Label>
-                      <p className="text-sm text-muted-foreground">إذا قمت بحل السؤال في ورقة، يمكنك رفعها وإلصاق الرابط هنا.</p>
-                      <Input 
-                        placeholder="ألصق رابط الصورة هنا..."
-                        className="h-12 bg-background border-2"
-                        value={answers[currentQuestion.id]?.essayFileUrl || ''}
-                        onChange={(e) => handleAnswerChange(currentQuestion.id, { essayFileUrl: e.target.value })}
+                      <p className="text-xs text-muted-foreground">إذا قمت بحل السؤال في ورقة خارجية، قم بتصويرها ورفعها مباشرة.</p>
+                      
+                      <div className="flex items-center gap-4">
+                        <Button 
+                          variant="outline" 
+                          className="h-12 border-dashed border-primary/30 flex-grow gap-2"
+                          onClick={() => document.getElementById(`upload-${currentQuestion.id}`)?.click()}
+                        >
+                          <Upload className="w-4 h-4" /> {answers[currentQuestion.id]?.essayFileUrl ? "تغيير الصورة المرفوعة" : "رفع صورة الحل من جهازك"}
+                        </Button>
+                        {answers[currentQuestion.id]?.essayFileUrl && (
+                          <Button variant="ghost" size="icon" onClick={() => handleAnswerChange(currentQuestion.id, { essayFileUrl: '' })} className="text-destructive h-12 w-12">
+                            <X className="w-5 h-5" />
+                          </Button>
+                        )}
+                      </div>
+                      
+                      <input 
+                        id={`upload-${currentQuestion.id}`}
+                        type="file" 
+                        accept="image/*"
+                        className="hidden" 
+                        onChange={(e) => handleFileUpload(e, currentQuestion.id)}
                       />
+
                       {answers[currentQuestion.id]?.essayFileUrl && (
-                        <div className="relative w-full h-48 rounded-xl overflow-hidden border">
-                          <Image src={answers[currentQuestion.id]!.essayFileUrl!} alt="Preview" fill className="object-contain" />
+                        <div className="relative w-full h-64 rounded-xl overflow-hidden border-2 border-primary/20 shadow-inner mt-4">
+                          <Image src={answers[currentQuestion.id]!.essayFileUrl!} alt="Preview" fill className="object-contain bg-background" unoptimized />
                         </div>
                       )}
                     </div>
