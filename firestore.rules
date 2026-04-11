@@ -15,7 +15,7 @@ service cloud.firestore {
       );
     }
 
-    // دالة التحقق من ملكية البيانات
+    // دالة التحقق من ملكية البيانات (مجلد الطالب)
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
@@ -37,7 +37,7 @@ service cloud.firestore {
       allow read, write: if isAdmin() || isOwner(uid);
     }
 
-    // الكورسات ومحتواها
+    // الكورسات ومحتواها: قراءة للجميع، كتابة للمسؤول فقط
     match /courses/{courseId} {
       allow read: if true;
       allow write: if isAdmin();
@@ -53,9 +53,9 @@ service cloud.firestore {
       }
     }
 
-    // أكواد الوصول: 
-    // - القراءة والبحث (list) مسموحة لجميع المسجلين للتحقق من الكود (ضروري للتزامن)
-    // - التحديث (استخدام الكود) مسموح للطلاب إذا كان الكود متاحاً ولم يستخدم
+    // أكواد الوصول (Access Codes):
+    // - القراءة والبحث (list) مسموحة لجميع المسجلين للتحقق من الكود
+    // - التحديث مسموح للطالب إذا كان الكود متاحاً (isUsed == false)
     match /access_codes/{codeId} {
       allow read, list: if isSignedIn();
       allow create, delete: if isAdmin();
@@ -63,13 +63,12 @@ service cloud.firestore {
         isAdmin() || 
         (
           resource.data.isUsed == false && 
-          request.resource.data.isUsed == true && 
-          request.resource.data.usedByStudentId == request.auth.uid
+          request.resource.data.isUsed == true
         )
       );
     }
 
-    // بيانات الطلاب: الطالب يملك صلاحية كاملة على مجلده
+    // بيانات الطلاب واشتراكاتهم: الطالب يملك صلاحية كاملة على مجلده الخاص
     match /students/{studentId} {
       allow read, write: if isOwner(studentId) || isAdmin();
       
@@ -78,7 +77,7 @@ service cloud.firestore {
       }
     }
 
-    // دعم استعلامات المجموعات (Collection Group)
+    // دعم استعلامات المجموعات (Collection Group) للمشرفين
     match /{path=**}/quiz_attempts/{id} {
       allow read, list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
     }
