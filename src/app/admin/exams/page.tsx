@@ -28,11 +28,14 @@ import {
   Settings2,
   Eye,
   Megaphone,
-  CheckCircle2
+  CheckCircle2,
+  ImageIcon,
+  Type
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, orderBy, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import Image from 'next/image';
 
 export default function AdminExams() {
   const firestore = useFirestore();
@@ -239,7 +242,14 @@ function QuestionManager({ exam }: { exam: any }) {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [isAdding, setIsAdding] = useState(false);
-  const [newQuestion, setNewQuestion] = useState({ text: '', type: 'MCQ', points: '1', options: ['', '', '', ''], correctIndex: 0 });
+  const [newQuestion, setNewQuestion] = useState({ 
+    text: '', 
+    type: 'MCQ', 
+    points: '1', 
+    imageUrl: '', 
+    options: ['', '', '', ''], 
+    correctIndex: 0 
+  });
 
   const questionsRef = useMemoFirebase(() => {
     if (!firestore || !exam) return null;
@@ -249,12 +259,13 @@ function QuestionManager({ exam }: { exam: any }) {
   const { data: questions } = useCollection(questionsRef);
 
   const handleAddQuestion = async () => {
-    if (!firestore || !exam || !newQuestion.text) return;
+    if (!firestore || !exam || (!newQuestion.text && !newQuestion.imageUrl)) return;
     setIsAdding(true);
     try {
       const qRef = await addDoc(collection(firestore, 'courses', exam.courseId, 'content', exam.id, 'questions'), {
         courseContentId: exam.id,
         questionText: newQuestion.text,
+        questionImageUrl: newQuestion.imageUrl,
         questionType: newQuestion.type,
         points: Number(newQuestion.points),
         orderIndex: Date.now(),
@@ -270,41 +281,117 @@ function QuestionManager({ exam }: { exam: any }) {
           });
         }
       }
-      toast({ title: "تم الإضافة" });
-      setNewQuestion({ text: '', type: 'MCQ', points: '1', options: ['', '', '', ''], correctIndex: 0 });
+      toast({ title: "تم إضافة السؤال" });
+      setNewQuestion({ text: '', type: 'MCQ', points: '1', imageUrl: '', options: ['', '', '', ''], correctIndex: 0 });
     } catch (e) { console.error(e); } finally { setIsAdding(false); }
+  };
+
+  const handleDeleteQuestion = async (qId: string) => {
+    if (!firestore || !exam) return;
+    try {
+      await deleteDoc(doc(firestore, 'courses', exam.courseId, 'content', exam.id, 'questions', qId));
+      toast({ title: "تم حذف السؤال" });
+    } catch (e) { console.error(e); }
   };
 
   return (
     <div className="space-y-6">
-      <Card className="bg-secondary/10 border-dashed">
+      <Card className="bg-secondary/10 border-dashed border-primary/20">
         <CardContent className="p-6 space-y-4">
-          <Textarea placeholder="نص السؤال" className="text-right" value={newQuestion.text} onChange={(e) => setNewQuestion({...newQuestion, text: e.target.value})} />
+          <div className="flex items-center justify-between mb-2">
+             <Badge variant="outline" className="bg-primary/5 text-primary">إضافة سؤال جديد</Badge>
+             <Select value={newQuestion.type} onValueChange={(v) => setNewQuestion({...newQuestion, type: v})}>
+                <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="MCQ">اختياري</SelectItem>
+                  <SelectItem value="Essay">مقالي</SelectItem>
+                </SelectContent>
+             </Select>
+          </div>
+          
+          <Textarea 
+            placeholder="اكتب نص السؤال هنا..." 
+            className="text-right min-h-[100px] bg-background" 
+            value={newQuestion.text} 
+            onChange={(e) => setNewQuestion({...newQuestion, text: e.target.value})} 
+          />
+          
+          <div className="space-y-2">
+            <Label className="text-xs font-bold flex items-center gap-2 justify-end">رابط صورة السؤال (اختياري) <ImageIcon className="w-3 h-3" /></Label>
+            <Input 
+              placeholder="ضع رابط الصورة هنا (مثلاً: https://...)" 
+              className="text-right bg-background" 
+              value={newQuestion.imageUrl} 
+              onChange={(e) => setNewQuestion({...newQuestion, imageUrl: e.target.value})} 
+            />
+          </div>
+
           {newQuestion.type === 'MCQ' && (
-            <div className="grid grid-cols-2 gap-2">
-              {newQuestion.options.map((opt, i) => (
-                <div key={i} className="flex gap-1 items-center flex-row-reverse">
-                  <input type="radio" checked={newQuestion.correctIndex === i} onChange={() => setNewQuestion({...newQuestion, correctIndex: i})} />
-                  <Input placeholder={`خيار ${i+1}`} className="text-right" value={opt} onChange={(e) => {
-                    const o = [...newQuestion.options];
-                    o[i] = e.target.value;
-                    setNewQuestion({...newQuestion, options: o});
-                  }} />
-                </div>
-              ))}
+            <div className="space-y-3 pt-2">
+              <Label className="text-xs font-bold text-right block">خيارات الإجابة (حدد الإجابة الصحيحة):</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {newQuestion.options.map((opt, i) => (
+                  <div key={i} className="flex gap-2 items-center flex-row-reverse bg-background p-2 rounded-lg border">
+                    <input 
+                      type="radio" 
+                      name="correct"
+                      checked={newQuestion.correctIndex === i} 
+                      onChange={() => setNewQuestion({...newQuestion, correctIndex: i})} 
+                      className="w-4 h-4 accent-primary"
+                    />
+                    <Input 
+                      placeholder={`الخيار ${i+1}`} 
+                      className="text-right border-0 focus-visible:ring-0" 
+                      value={opt} 
+                      onChange={(e) => {
+                        const o = [...newQuestion.options];
+                        o[i] = e.target.value;
+                        setNewQuestion({...newQuestion, options: o});
+                      }} 
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
-          <Button onClick={handleAddQuestion} disabled={isAdding} className="w-full bg-primary text-primary-foreground font-bold">حفظ السؤال</Button>
+          
+          <div className="flex gap-4 items-end flex-row-reverse">
+            <div className="space-y-1 w-24">
+               <Label className="text-[10px] text-right block">النقاط</Label>
+               <Input type="number" value={newQuestion.points} onChange={(e) => setNewQuestion({...newQuestion, points: e.target.value})} className="text-center h-10" />
+            </div>
+            <Button onClick={handleAddQuestion} disabled={isAdding} className="flex-grow h-10 bg-primary text-primary-foreground font-bold">
+              {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : "حفظ السؤال"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
-      <div className="divide-y">
+
+      <div className="space-y-4">
+        <h4 className="font-bold border-r-4 border-primary pr-2">الأسئلة المضافة ({questions?.length || 0}):</h4>
         {questions?.map((q, i) => (
-          <div key={q.id} className="py-3 flex flex-row-reverse justify-between items-center">
-            <p className="font-bold text-sm text-right">{i+1}. {q.questionText}</p>
-            <Badge variant="outline">{q.questionType}</Badge>
-          </div>
+          <Card key={q.id} className="bg-card group hover:border-primary/30 transition-colors">
+            <CardContent className="p-4">
+              <div className="flex justify-between items-start mb-2">
+                <div className="flex gap-2">
+                   <Badge variant="secondary">{q.questionType === 'MCQ' ? 'اختياري' : 'مقالي'}</Badge>
+                   <Badge variant="outline">{q.points} ن</Badge>
+                </div>
+                <Button variant="ghost" size="icon" className="text-destructive opacity-0 group-hover:opacity-100 h-8 w-8" onClick={() => handleDeleteQuestion(q.id)}>
+                   <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+              <p className="font-bold text-right mb-2">{i+1}. {q.questionText}</p>
+              {q.questionImageUrl && (
+                <div className="relative w-full h-40 rounded-lg overflow-hidden border mb-2 bg-secondary/10">
+                   <Image src={q.questionImageUrl} alt="" fill className="object-contain" unoptimized />
+                </div>
+              )}
+            </CardContent>
+          </Card>
         ))}
       </div>
     </div>
   );
 }
+
