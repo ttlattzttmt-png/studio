@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -31,16 +30,16 @@ export default function StudentDashboard() {
   }, [firestore, user?.uid]);
 
   const notificationsRef = useMemoFirebase(() => {
-    // تم إضافة شرط التحقق من المستخدم لمنع خطأ الصلاحيات عند التحميل
-    if (!firestore || !user) return null;
+    if (!firestore) return null;
+    // الإشعارات عامة الآن، لذا لا نشترط وجود مستخدم هنا لبدء الاستعلام
     return query(collection(firestore, 'notifications'), orderBy('createdAt', 'desc'), limit(5));
-  }, [firestore, user]);
+  }, [firestore]);
 
   const { data: studentProfile, isLoading: isProfileLoading } = useDoc(studentRef);
   const { data: enrollments, isLoading: isEnrollmentsLoading } = useCollection(enrollmentsRef);
   const { data: notifications, isLoading: isNotificationsLoading } = useCollection(notificationsRef);
 
-  if (!mounted || isUserLoading || isProfileLoading) {
+  if (!mounted || isUserLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -48,12 +47,29 @@ export default function StudentDashboard() {
     );
   }
 
-  if (!user) return <div className="p-20 text-center text-muted-foreground italic">يرجى تسجيل الدخول أولاً.</div>;
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center space-y-6 animate-in fade-in duration-500">
+        <div className="w-24 h-24 rounded-full bg-secondary flex items-center justify-center text-muted-foreground opacity-20">
+          <User className="w-12 h-12" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-3xl font-headline font-bold">يرجى تسجيل الدخول أولاً</h2>
+          <p className="text-muted-foreground max-w-sm">يجب أن تكون مسجلاً كطالب للوصول إلى لوحة التحكم الخاصة بك ومتابعة دروسك.</p>
+        </div>
+        <Link href="/login">
+          <Button className="h-14 px-10 bg-primary text-primary-foreground font-bold rounded-xl text-lg shadow-lg shadow-primary/20 transition-transform hover:scale-105">
+            تسجيل الدخول للمنصة
+          </Button>
+        </Link>
+      </div>
+    );
+  }
 
   const firstName = studentProfile?.name ? studentProfile.name.split(' ')[0] : 'المجتهد';
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="text-right">
           <h1 className="text-4xl font-headline font-bold mb-2">أهلاً بك، يا بشمهندس {firstName}</h1>
