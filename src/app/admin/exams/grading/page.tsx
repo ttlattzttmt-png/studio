@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -22,7 +21,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useDoc, useUser } from '@/firebase';
-import { collectionGroup, query, updateDoc, doc, collection } from 'firebase/firestore';
+import { collectionGroup, query, updateDoc, doc, collection, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeEssayAnswer } from '@/ai/flows/admin-essay-answer-analyzer';
 import Image from 'next/image';
@@ -35,7 +34,7 @@ export default function AdminGradingPage() {
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // جلب كافة محاولات الطلاب لحظياً باستخدام Collection Group - لا يبدأ الاستعلام إلا بعد تأكيد هوية الأدمن
+  // جلب كافة محاولات الطلاب لحظياً باستخدام Collection Group
   const attemptsRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return collectionGroup(firestore, 'quiz_attempts');
@@ -99,7 +98,7 @@ export default function AdminGradingPage() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div>
         <h1 className="text-4xl font-headline font-bold mb-2">مركز التصحيح والمتابعة</h1>
-        <p className="text-muted-foreground">راجع إجابات الطلاب المقالية واعتمد النتائج النهائية لحظة بلحظة.</p>
+        <p className="text-muted-foreground">راجعه إجابات الطلاب المقالية واعتمد النتائج النهائية لحظة بلحظة.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -137,7 +136,7 @@ export default function AdminGradingPage() {
                         {attempt.isGraded ? 'مصحح' : 'قيد المراجعة'}
                       </Badge>
                     </div>
-                    <p className="font-bold truncate">امتحان: {attempt.courseContentId}</p>
+                    <p className="font-bold truncate">امتحان ID: {attempt.courseContentId}</p>
                     <span className="text-[10px] text-muted-foreground">
                       {new Date(attempt.submittedAt).toLocaleString('ar-EG')}
                     </span>
@@ -239,7 +238,7 @@ function AttemptDetails({ attempt, onAnalyzeAI, onGrade, onRelease, isAnalyzing 
                 </div>
                 <CardContent className="p-6 space-y-4 text-right">
                   {answer.questionType === 'MCQ' ? (
-                    <p className="text-lg font-bold">خيار الطالب: <span className="text-primary">{answer.mcqSelectedOptionId}</span></p>
+                    <p className="text-lg font-bold">خيار الطالب ID: <span className="text-primary">{answer.mcqSelectedOptionId}</span></p>
                   ) : (
                     <div className="space-y-4">
                       {answer.essayAnswerText && (

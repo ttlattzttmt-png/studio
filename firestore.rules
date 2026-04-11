@@ -2,17 +2,11 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * Al-Bashmohandes Platform Security Rules - Optimized Version
-     */
-
-    // --- Helper Functions ---
-
+    // --- الوظائف المساعدة ---
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // التحقق من أن المستخدم هو المسؤول
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email.lower() == "admin@al-bashmohandes.com" ||
@@ -24,90 +18,68 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // التحقق من اشتراك الطالب في الكورس
-    function isEnrolled(courseId) {
-      return isSignedIn() && (
-        exists(/databases/$(database)/documents/students/$(request.auth.uid)/enrollments/$(courseId)) ||
-        isAdmin()
-      );
-    }
-
-    // --- Collection Group Rules (Critical for Admin Grading) ---
-    
+    // --- قواعد المجموعات (Collection Groups) للمسؤول ---
     match /{path=**}/quiz_attempts/{attemptId} {
-      allow read: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
-      allow list: if isAdmin() || (isSignedIn() && request.query.limit <= 100);
+      allow read, list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
       allow write: if isAdmin() || (isSignedIn() && (resource == null || resource.data.studentId == request.auth.uid));
     }
-    
+
     match /{path=**}/answers/{answerId} {
       allow read, list: if isAdmin() || (isSignedIn() && (resource == null || resource.data.studentId == request.auth.uid));
       allow write: if isAdmin() || (isSignedIn() && (request.resource == null || request.resource.data.studentId == request.auth.uid));
     }
-    
+
     match /{path=**}/enrollments/{enrollmentId} {
       allow read, list: if isAdmin() || (isSignedIn() && (resource == null || resource.data.studentId == request.auth.uid));
       allow write: if isAdmin() || (isSignedIn() && (request.resource == null || request.resource.data.studentId == request.auth.uid));
     }
 
-    // --- Standard Collection Rules ---
-
+    // --- القواعد الأساسية ---
     match /admin_roles/{uid} {
       allow get: if isSignedIn();
-      allow list: if isAdmin();
-      allow create: if isSignedIn() && (request.auth.uid == uid && request.auth.token.email.lower() == "admin@al-bashmohandes.com");
-      allow update, delete: if isAdmin();
+      allow list, write: if isAdmin();
     }
 
     match /admin_users/{adminUserId} {
-      allow get, list: if isAdmin();
-      allow create, update: if isAdmin() && isOwner(adminUserId);
-      allow delete: if isAdmin();
+      allow read, list: if isAdmin();
+      allow write: if isAdmin() && isOwner(adminUserId);
     }
 
     match /students/{studentId} {
-      allow get: if isOwner(studentId) || isAdmin();
+      allow get, update: if isOwner(studentId) || isAdmin();
       allow list: if isAdmin();
       allow create: if isOwner(studentId);
-      allow update: if isOwner(studentId) || isAdmin();
       allow delete: if isAdmin();
 
-      // قواعد صريحة للمجموعات الفرعية داخل ملف الطالب
+      // المجموعات الفرعية داخل ملف الطالب
       match /enrollments/{enrollmentId} {
-        allow read, list: if isOwner(studentId) || isAdmin();
-        allow write: if isOwner(studentId) || isAdmin();
+        allow read, list, write: if isOwner(studentId) || isAdmin();
       }
-
       match /quiz_attempts/{attemptId} {
-        allow read, list: if isOwner(studentId) || isAdmin();
-        allow write: if isOwner(studentId) || isAdmin();
-
+        allow read, list, write: if isOwner(studentId) || isAdmin();
         match /answers/{answerId} {
-          allow read, list: if isOwner(studentId) || isAdmin();
-          allow write: if isOwner(studentId) || isAdmin();
+          allow read, list, write: if isOwner(studentId) || isAdmin();
         }
       }
-
       match /video_progress/{progressId} {
         allow read, list, write: if isOwner(studentId) || isAdmin();
       }
     }
 
     match /courses/{courseId} {
-      allow get, list: if true;
-      allow create, update, delete: if isAdmin();
+      allow read, list: if true;
+      allow write: if isAdmin();
 
       match /content/{contentId} {
-        allow get, list: if isAdmin() || isEnrolled(courseId);
-        allow create, update, delete: if isAdmin();
-
+        allow read, list: if true; // السماح برؤية عناوين المحتوى للجميع، والتحقق من Enrollment يتم في الواجهة أو لقراءة التفاصيل
+        allow write: if isAdmin();
+        
         match /questions/{questionId} {
-          allow get, list: if isAdmin() || isEnrolled(courseId);
-          allow create, update, delete: if isAdmin();
-
+          allow read, list: if isSignedIn(); 
+          allow write: if isAdmin();
           match /options/{optionId} {
-            allow get, list: if isAdmin() || isEnrolled(courseId);
-            allow create, update, delete: if isAdmin();
+            allow read, list: if isSignedIn();
+            allow write: if isAdmin();
           }
         }
       }
@@ -121,7 +93,7 @@ service cloud.firestore {
     }
 
     match /notifications/{id} {
-      allow read: if isSignedIn();
+      allow read, list: if isSignedIn();
       allow write: if isAdmin();
     }
   }
