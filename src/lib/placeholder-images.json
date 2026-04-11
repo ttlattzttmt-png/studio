@@ -1,3 +1,28 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "hero-bg",
+      "description": "Engineering background",
+      "imageUrl": "https://picsum.photos/seed/eng1/1920/1080",
+      "imageHint": "engineering classroom"
+    },
+    {
+      "id": "course-1",
+      "description": "Physics Course",
+      "imageUrl": "https://picsum.photos/seed/phy/800/600",
+      "imageHint": "physics formula"
+    },
+    {
+      "id": "course-2",
+      "description": "Math Course",
+      "imageUrl": "https://picsum.photos/seed/math/800/600",
+      "imageHint": "mathematics geometry"
+    },
+    {
+      "id": "course-3",
+      "description": "Mechanics Course",
+      "imageUrl": "https://picsum.photos/seed/mech/800/600",
+      "imageHint": "gears machinery"
+    }
+  ]
 }
