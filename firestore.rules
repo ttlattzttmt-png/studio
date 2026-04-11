@@ -4,27 +4,6 @@ service cloud.firestore {
 
     /**
      * Al-Bashmohandes Platform Security Rules
-     *
-     * Core Philosophy:
-     * This ruleset implements a dual-role access model (Students and Administrators). 
-     * Security is enforced through path-based ownership for students and role-based 
-     * access for administrators.
-     *
-     * Data Structure:
-     * - Public Data: Courses are publicly readable to allow for browsing.
-     * - Admin Data: Admin profiles and roles are restricted to authenticated administrators.
-     * - Student Data: Personal profiles, enrollments, video progress, and quiz attempts 
-     *   are nested under /students/{studentId} to enforce strict private ownership.
-     * - Course Metadata: Content, questions, and options are subcollections of courses.
-     *
-     * Key Security Decisions:
-     * - Admin Authorization: Admin status is verified by checking for a sentinel document 
-     *   in the top-level /admin_roles collection.
-     * - Denormalization: For efficiency, authorization data (like course IDs and uploader IDs) 
-     *   is denormalized onto child documents to avoid recursive parent lookups.
-     * - Flexible Prototyping: These rules prioritize strict authorization (who can access) 
-     *   while remaining flexible on data shape (what is being written) to allow for 
-     *   rapid development.
      */
 
     // --- Helper Functions ---
@@ -34,15 +13,14 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/admin_roles/$(request.auth.uid));
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admin_roles/$(request.auth.uid)) ||
+        request.auth.token.email == "admin@al-bashmohandes.com"
+      );
     }
 
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function isExistingOwner(userId) {
-      return resource != null && isOwner(userId);
     }
 
     // Checks if the current user has an enrollment document for a specific course
@@ -52,82 +30,42 @@ service cloud.firestore {
 
     // --- Collection Rules ---
 
-    /**
-     * @description Sentinel collection to define administrator privileges.
-     * @path /admin_roles/{uid}
-     * @allow Admin (get, list)
-     * @deny Non-admins (read/write)
-     * @principle DBAC (Database-Based Access Control) for roles.
-     */
     match /admin_roles/{uid} {
-      allow get, list: if isAdmin();
-      allow create, update, delete: if false; // Managed via Firebase Console or Cloud Functions
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && request.auth.uid == uid && request.auth.token.email == "admin@al-bashmohandes.com";
+      allow update, delete: if false;
     }
 
-    /**
-     * @description Administrator user profiles.
-     * @path /admin_users/{adminUserId}
-     * @allow Admin owner (read/write), other Admins (read)
-     * @deny Students (read/write)
-     * @principle Restricts admin profile access to the administrative team.
-     */
     match /admin_users/{adminUserId} {
-      allow get, list: if isAdmin();
-      allow create: if isAdmin() && isOwner(adminUserId);
-      allow update: if isAdmin() && isExistingOwner(adminUserId);
-      allow delete: if isAdmin() && isExistingOwner(adminUserId);
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create: if isOwner(adminUserId) && (isAdmin() || request.auth.token.email == "admin@al-bashmohandes.com");
+      allow update: if isAdmin() && isOwner(adminUserId);
+      allow delete: if isAdmin();
     }
 
-    /**
-     * @description Student profiles containing contact and academic info.
-     * @path /students/{studentId}
-     * @allow Student owner (read/write), Admins (read)
-     * @deny Other students (read/write)
-     * @principle Path-based ownership for student personal data.
-     */
     match /students/{studentId} {
       allow get: if isOwner(studentId) || isAdmin();
       allow list: if isAdmin();
       allow create: if isOwner(studentId);
-      allow update: if (isOwner(studentId) || isAdmin()) && resource != null;
-      allow delete: if isAdmin() && resource != null;
+      allow update: if (isOwner(studentId) || isAdmin());
+      allow delete: if isAdmin();
     }
 
-    /**
-     * @description Publicly listable courses.
-     * @path /courses/{courseId}
-     * @allow Public (read), Admins (write)
-     * @deny Public/Students (write)
-     * @principle Public consumption with restricted administrative management.
-     */
     match /courses/{courseId} {
       allow get, list: if true;
-      allow create: if isAdmin() && request.resource.data.uploadedByAdminUserId == request.auth.uid;
-      allow update: if isAdmin() && resource != null;
-      allow delete: if isAdmin() && resource != null;
+      allow create: if isAdmin();
+      allow update, delete: if isAdmin();
 
-      /**
-       * @description Content within a course (videos, quizzes, exams).
-       * @path /courses/{courseId}/content/{contentId}
-       * @allow Enrolled students (read), Admins (read/write)
-       * @deny Unenrolled students (read), Students (write)
-       */
       match /content/{contentId} {
         allow get, list: if isAdmin() || isEnrolled(courseId);
         allow create, update, delete: if isAdmin();
 
-        /**
-         * @description Questions associated with a quiz or exam.
-         * @path /courses/{courseId}/content/{contentId}/questions/{questionId}
-         */
         match /questions/{questionId} {
           allow get, list: if isAdmin() || isEnrolled(courseId);
           allow create, update, delete: if isAdmin();
 
-          /**
-           * @description Options for Multiple Choice Questions.
-           * @path /courses/{courseId}/content/{contentId}/questions/{questionId}/options/{optionId}
-           */
           match /options/{optionId} {
             allow get, list: if isAdmin() || isEnrolled(courseId);
             allow create, update, delete: if isAdmin();
@@ -136,66 +74,43 @@ service cloud.firestore {
       }
     }
 
-    /**
-     * @description Unique codes used to unlock courses.
-     * @path /access_codes/{accessCodeId}
-     * @allow Admins (full), Students (get/update usage status)
-     * @deny Students (list/create/delete)
-     * @principle Controlled usage of unique relational tokens.
-     */
     match /access_codes/{accessCodeId} {
       allow get: if isSignedIn();
       allow list: if isAdmin();
-      allow create: if isAdmin();
+      allow create, delete: if isAdmin();
       allow update: if isAdmin() || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isUsed', 'usedByStudentId', 'usedAt']));
+    }
+
+    match /students/{studentId}/enrollments/{enrollmentId} {
+      allow get, list: if isOwner(studentId) || isAdmin();
+      allow create: if isOwner(studentId);
+      allow update: if isOwner(studentId) || isAdmin();
       allow delete: if isAdmin();
     }
 
-    /**
-     * @description Student course enrollments.
-     * @path /students/{studentId}/enrollments/{enrollmentId}
-     * @allow Student owner (read/write), Admins (read)
-     * @deny Mismatched student ID in path vs data.
-     * @principle Relational integrity and path-based security.
-     */
-    match /students/{studentId}/enrollments/{enrollmentId} {
-      allow get, list: if isOwner(studentId) || isAdmin();
-      allow create: if isOwner(studentId) && request.resource.data.studentId == studentId;
-      allow update: if isOwner(studentId) && resource != null && request.resource.data.studentId == resource.data.studentId;
-      allow delete: if isAdmin() && resource != null;
-    }
-
-    /**
-     * @description Progress tracking for educational videos.
-     * @path /students/{studentId}/video_progress/{progressId}
-     */
     match /students/{studentId}/video_progress/{progressId} {
       allow get, list: if isOwner(studentId) || isAdmin();
-      allow create: if isOwner(studentId) && request.resource.data.studentId == studentId;
-      allow update: if isOwner(studentId) && resource != null && request.resource.data.studentId == resource.data.studentId;
-      allow delete: if isAdmin() && resource != null;
+      allow create, update: if isOwner(studentId);
+      allow delete: if isAdmin();
     }
 
-    /**
-     * @description Student quiz/exam submission attempts.
-     * @path /students/{studentId}/quiz_attempts/{attemptId}
-     */
     match /students/{studentId}/quiz_attempts/{attemptId} {
       allow get, list: if isOwner(studentId) || isAdmin();
-      allow create: if isOwner(studentId) && request.resource.data.studentId == studentId;
-      allow update: if (isOwner(studentId) || isAdmin()) && resource != null && request.resource.data.studentId == resource.data.studentId;
-      allow delete: if isAdmin() && resource != null;
+      allow create: if isOwner(studentId);
+      allow update: if isOwner(studentId) || isAdmin();
+      allow delete: if isAdmin();
 
-      /**
-       * @description Individual answers within a student's quiz attempt.
-       * @path /students/{studentId}/quiz_attempts/{attemptId}/answers/{answerId}
-       */
       match /answers/{answerId} {
         allow get, list: if isOwner(studentId) || isAdmin();
         allow create: if isOwner(studentId);
-        allow update: if (isOwner(studentId) || isAdmin()) && resource != null;
-        allow delete: if isAdmin() && resource != null;
+        allow update: if isOwner(studentId) || isAdmin();
+        allow delete: if isAdmin();
       }
+    }
+
+    match /notifications/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
   }
 }
