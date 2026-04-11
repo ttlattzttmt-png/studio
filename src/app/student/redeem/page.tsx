@@ -5,9 +5,9 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Ticket, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Ticket, Loader2, AlertCircle } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
-import { collection, query, where, getDocs, doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
@@ -24,7 +24,6 @@ export default function RedeemCodePage() {
     
     setIsSubmitting(true);
     try {
-      // 1. البحث عن الكود في قاعدة البيانات
       const codesRef = collection(firestore, 'access_codes');
       const q = query(codesRef, where('code', '==', code.trim()), where('isUsed', '==', false));
       const querySnapshot = await getDocs(q);
@@ -43,8 +42,8 @@ export default function RedeemCodePage() {
       const codeData = codeDoc.data();
       const courseId = codeData.courseId;
 
-      // 2. تفعيل الكورس للطالب (إنشاء Enrollment)
-      const enrollmentId = courseId; // نستخدم courseId كمعرف فريد للاشتراك في هذا الكورس
+      // تفعيل الكورس للطالب
+      const enrollmentId = courseId; 
       const enrollmentRef = doc(firestore, 'students', user.uid, 'enrollments', enrollmentId);
       
       await setDoc(enrollmentRef, {
@@ -57,7 +56,7 @@ export default function RedeemCodePage() {
         progressPercentage: 0
       });
 
-      // 3. تحديث حالة الكود ليصبح مستخدماً
+      // تحديث حالة الكود
       await updateDoc(doc(firestore, 'access_codes', codeDoc.id), {
         isUsed: true,
         usedByStudentId: user.uid,
@@ -66,7 +65,7 @@ export default function RedeemCodePage() {
 
       toast({
         title: "تم التفعيل بنجاح!",
-        description: "مبروك، لقد تم فتح الكورس بنجاح. يمكنك البدء الآن."
+        description: "مبروك، لقد تم فتح الكورس بنجاح."
       });
       
       router.push('/student/my-courses');
@@ -75,7 +74,7 @@ export default function RedeemCodePage() {
       toast({
         variant: "destructive",
         title: "خطأ في التفعيل",
-        description: "حدث خطأ أثناء محاولة تفعيل الكود، يرجى التواصل مع الدعم."
+        description: "حدث خطأ أثناء محاولة تفعيل الكود."
       });
     } finally {
       setIsSubmitting(false);
@@ -112,8 +111,8 @@ export default function RedeemCodePage() {
 
           <div className="p-4 rounded-xl bg-secondary/20 border border-primary/10 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              إذا واجهت أي مشكلة في الكود، يرجى التأكد من كتابته بشكل صحيح أو التواصل مع سكرتارية المنصة عبر الواتساب.
+            <p className="text-xs text-muted-foreground text-right leading-relaxed">
+              يرجى التأكد من كتابة الكود بشكل صحيح. بعد التفعيل سيظهر الكورس في قائمة "كورساتي".
             </p>
           </div>
         </CardContent>

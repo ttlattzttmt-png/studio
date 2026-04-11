@@ -15,8 +15,8 @@ import {
   DialogTrigger,
   DialogFooter
 } from "@/components/ui/dialog";
-import { Search, Plus, Ticket, Loader2, Trash2 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { Search, Plus, Ticket, Loader2, Trash2, BookOpen } from 'lucide-react';
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
@@ -28,7 +28,6 @@ export default function ManageCodes() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [genData, setGenData] = useState({ courseId: '', count: '10' });
 
-  // جلب الأكواد والكورسات لحظياً - مع اشتراط وجود المستخدم لتجنب أخطاء الصلاحيات قبل تسجيل الدخول
   const codesRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(collection(firestore, 'access_codes'), orderBy('createdAt', 'desc'));
@@ -49,7 +48,7 @@ export default function ManageCodes() {
       const count = parseInt(genData.count);
       for (let i = 0; i < count; i++) {
         const randomCode = `ENG-${Math.random().toString(36).substring(2, 8).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-        addDoc(collection(firestore, 'access_codes'), {
+        await addDoc(collection(firestore, 'access_codes'), {
           code: randomCode,
           courseId: genData.courseId,
           generatedByAdminUserId: user.uid,
@@ -77,17 +76,10 @@ export default function ManageCodes() {
 
   const filteredCodes = codes?.filter(c => 
     c.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.usedByStudentId?.includes(searchTerm)
+    c.courseId?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const stats = {
-    total: codes?.length || 0,
-    used: codes?.filter(c => c.isUsed).length || 0,
-    available: codes?.filter(c => !c.isUsed).length || 0
-  };
-
   if (isUserLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
-  if (!user) return <div className="p-20 text-center text-muted-foreground italic">يرجى تسجيل الدخول كمسؤول أولاً.</div>;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -105,7 +97,7 @@ export default function ManageCodes() {
           <DialogContent className="bg-card">
             <DialogHeader><DialogTitle className="text-2xl font-bold text-right">توليد أكواد دفع</DialogTitle></DialogHeader>
             <div className="space-y-6 py-4">
-              <div className="space-y-2">
+              <div className="space-y-2 text-right">
                 <label className="text-sm font-bold">اختر الكورس المستهدف</label>
                 <Select value={genData.courseId} onValueChange={(v) => setGenData({...genData, courseId: v})}>
                   <SelectTrigger className="h-12 bg-background"><SelectValue placeholder="اختر الكورس" /></SelectTrigger>
@@ -116,7 +108,7 @@ export default function ManageCodes() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 text-right">
                 <label className="text-sm font-bold">عدد الأكواد المطلوب توليدها</label>
                 <Input type="number" value={genData.count} onChange={(e) => setGenData({...genData, count: e.target.value})} className="h-12 bg-background" />
               </div>
@@ -130,27 +122,12 @@ export default function ManageCodes() {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="bg-card border-primary/5">
-          <CardHeader><CardTitle className="text-sm text-muted-foreground font-bold">إجمالي الأكواد</CardTitle></CardHeader>
-          <CardContent><p className="text-4xl font-bold">{stats.total}</p></CardContent>
-        </Card>
-        <Card className="bg-card border-accent/20">
-          <CardHeader><CardTitle className="text-sm text-accent font-bold">أكواد مستخدمة</CardTitle></CardHeader>
-          <CardContent><p className="text-4xl font-bold text-accent">{stats.used}</p></CardContent>
-        </Card>
-        <Card className="bg-card border-primary/20">
-          <CardHeader><CardTitle className="text-sm text-primary font-bold">أكواد متاحة</CardTitle></CardHeader>
-          <CardContent><p className="text-4xl font-bold text-primary">{stats.available}</p></CardContent>
-        </Card>
-      </div>
-
       <Card className="bg-card overflow-hidden">
         <CardHeader className="border-b bg-secondary/20 py-4">
           <div className="relative w-full md:w-96">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input 
-              placeholder="بحث عن كود معين..." 
+              placeholder="بحث عن كود أو معرف كورس..." 
               className="pr-10 bg-background border-primary/10 text-right" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -162,8 +139,8 @@ export default function ManageCodes() {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead className="text-right">الكود</TableHead>
+                <TableHead className="text-right">الكورس</TableHead>
                 <TableHead className="text-right">الحالة</TableHead>
-                <TableHead className="text-right">تاريخ الإنشاء</TableHead>
                 <TableHead className="text-left">الإجراءات</TableHead>
               </TableRow>
             </TableHeader>
@@ -172,22 +149,19 @@ export default function ManageCodes() {
                 <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
               ) : !filteredCodes || filteredCodes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-20 text-muted-foreground">
-                    <Ticket className="w-12 h-12 mx-auto mb-4 opacity-10" />
-                    لا توجد أكواد مطابقة لبحثك.
-                  </TableCell>
+                  <TableCell colSpan={4} className="text-center py-20 text-muted-foreground">لا توجد أكواد.</TableCell>
                 </TableRow>
               ) : (
                 filteredCodes.map((c: any) => (
                   <TableRow key={c.id}>
                     <TableCell className="font-mono font-bold text-primary">{c.code}</TableCell>
                     <TableCell>
+                      <CourseName courseId={c.courseId} />
+                    </TableCell>
+                    <TableCell>
                       <span className={`px-3 py-1 rounded-full text-[10px] font-bold border ${c.isUsed ? 'bg-accent/10 text-accent border-accent/20' : 'bg-primary/10 text-primary border-primary/20'}`}>
                         {c.isUsed ? 'مستخدم' : 'متاح'}
                       </span>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {c.createdAt?.toDate ? c.createdAt.toDate().toLocaleDateString('ar-EG') : 'الآن'}
                     </TableCell>
                     <TableCell className="text-left">
                       <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteCode(c.id)}>
@@ -201,6 +175,19 @@ export default function ManageCodes() {
           </Table>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function CourseName({ courseId }: { courseId: string }) {
+  const firestore = useFirestore();
+  const courseRef = useMemoFirebase(() => firestore ? doc(firestore, 'courses', courseId) : null, [firestore, courseId]);
+  const { data: course } = useDoc(courseRef);
+
+  return (
+    <div className="flex items-center gap-2 text-xs font-bold">
+      <BookOpen className="w-3 h-3 text-muted-foreground" />
+      {course?.title || <span className="text-[10px] opacity-50">جاري التحميل...</span>}
     </div>
   );
 }
