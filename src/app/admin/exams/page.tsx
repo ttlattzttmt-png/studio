@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Dialog, 
@@ -23,11 +25,15 @@ import {
   Loader2, 
   Trash2, 
   HelpCircle,
-  CheckCircle2
+  CheckCircle2,
+  Image as ImageIcon,
+  Eye,
+  Settings2
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, orderBy, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import Image from 'next/image';
 
 export default function AdminExams() {
   const firestore = useFirestore();
@@ -51,7 +57,6 @@ export default function AdminExams() {
 
   const [activeCourseId, setActiveCourseId] = useState<string>('');
   
-  // استعلام بسيط لتجنب أخطاء الفهارس (Indexes)
   const examsRef = useMemoFirebase(() => {
     if (!firestore || !activeCourseId) return null;
     return query(
@@ -62,7 +67,6 @@ export default function AdminExams() {
 
   const { data: allContent, isLoading: isExamsLoading } = useCollection(examsRef);
 
-  // تصفية البيانات في الذاكرة (In-memory filtering) لتجنب أخطاء Firestore
   const exams = useMemo(() => {
     if (!allContent) return [];
     return allContent.filter(item => item.contentType === 'Quiz' || item.contentType === 'Exam');
@@ -102,12 +106,21 @@ export default function AdminExams() {
     } catch (e) { console.error(e); }
   };
 
+  const toggleInstantResults = async (exam: any) => {
+    if (!firestore) return;
+    try {
+      const ref = doc(firestore, 'courses', exam.courseId, 'content', exam.id);
+      await updateDoc(ref, { allowInstantResultsDisplay: !exam.allowInstantResultsDisplay });
+      toast({ title: "تم التحديث", description: "تم تغيير إعدادات عرض النتائج." });
+    } catch (e) { console.error(e); }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-headline font-bold mb-2">بناء الاختبارات</h1>
-          <p className="text-muted-foreground">قم بإنشاء امتحانات إلكترونية ومقالية لطلابك.</p>
+          <h1 className="text-4xl font-headline font-bold mb-2">بناء الاختبارات الاحترافي</h1>
+          <p className="text-muted-foreground">تحكم كامل في الأسئلة المصورة، المقالية، وموعد إعلان النتائج.</p>
         </div>
         
         <Dialog>
@@ -120,28 +133,43 @@ export default function AdminExams() {
             <DialogHeader><DialogTitle className="text-2xl font-bold">إنشاء اختبار جديد</DialogTitle></DialogHeader>
             <div className="space-y-4 py-4 text-right">
               <div className="space-y-2">
-                <label className="text-sm font-bold">اختر الكورس</label>
+                <Label className="text-sm font-bold">اختر الكورس</Label>
                 <Select value={formData.courseId} onValueChange={(v) => setFormData({...formData, courseId: v})}>
-                  <SelectTrigger className="bg-background"><SelectValue placeholder="اختر الكورس" /></SelectTrigger>
+                  <SelectTrigger className="bg-background h-12"><SelectValue placeholder="اختر الكورس" /></SelectTrigger>
                   <SelectContent>
                     {courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-              <Input placeholder="عنوان الاختبار (مثال: اختبار الفصل الأول)" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} />
+              <Input placeholder="عنوان الاختبار (مثال: اختبار الفيزياء - الفصل الأول)" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="h-12" />
               <Textarea placeholder="وصف الاختبار أو تعليمات للطلاب" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
+              
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-bold">نوع الاختبار</label>
+                  <Label className="text-sm font-bold">نوع الاختبار</Label>
                   <Select value={formData.contentType} onValueChange={(v) => setFormData({...formData, contentType: v})}>
-                    <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="bg-background h-12"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Quiz">كويز سريع</SelectItem>
                       <SelectItem value="Exam">امتحان شامل</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <Input type="number" placeholder="درجة النجاح %" value={formData.passMark} onChange={(e) => setFormData({...formData, passMark: e.target.value})} />
+                <div className="space-y-2">
+                  <Label className="text-sm font-bold">درجة النجاح %</Label>
+                  <Input type="number" placeholder="50" value={formData.passMark} onChange={(e) => setFormData({...formData, passMark: e.target.value})} className="h-12" />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-secondary/20 rounded-xl">
+                <div className="space-y-0.5">
+                  <Label className="text-base font-bold">إظهار النتيجة فوراً</Label>
+                  <p className="text-xs text-muted-foreground">عند التفعيل، سيرى الطالب درجته بمجرد الضغط على تسليم.</p>
+                </div>
+                <Switch 
+                  checked={formData.allowInstantResults} 
+                  onCheckedChange={(v) => setFormData({...formData, allowInstantResults: v})} 
+                />
               </div>
             </div>
             <DialogFooter>
@@ -179,7 +207,8 @@ export default function AdminExams() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {exams.map((exam) => (
-                <Card key={exam.id} className="bg-card hover:border-primary/20 transition-all group border-primary/5">
+                <Card key={exam.id} className="bg-card hover:border-primary/20 transition-all group border-primary/5 relative overflow-hidden">
+                  <div className={`absolute top-0 right-0 w-1.5 h-full ${exam.allowInstantResultsDisplay ? 'bg-accent' : 'bg-destructive'}`} title={exam.allowInstantResultsDisplay ? 'النتائج تظهر فوراً' : 'النتائج محجوبة'} />
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                       <ClipboardList className="w-6 h-6" />
@@ -196,13 +225,27 @@ export default function AdminExams() {
                   <CardContent>
                     <h3 className="text-xl font-bold mb-1">{exam.title}</h3>
                     <p className="text-xs text-muted-foreground mb-4 line-clamp-1">{exam.description || 'لا يوجد وصف'}</p>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground mb-6">
-                      <span className="flex items-center gap-1"><HelpCircle className="w-3 h-3" /> درجة النجاح: {exam.passMarkPercentage}%</span>
-                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(exam.createdAt?.toDate ? exam.createdAt.toDate() : Date.now()).toLocaleDateString('ar-EG')}</span>
+                    
+                    <div className="flex flex-col gap-2 mb-6">
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1"><HelpCircle className="w-3 h-3" /> النجاح: {exam.passMarkPercentage}%</span>
+                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(exam.createdAt?.toDate ? exam.createdAt.toDate() : Date.now()).toLocaleDateString('ar-EG')}</span>
+                      </div>
+                      <div className="flex items-center justify-between p-2 rounded bg-secondary/10 border border-primary/5">
+                        <span className="text-[10px] font-bold">عرض النتائج فوراً:</span>
+                        <Switch 
+                          checked={exam.allowInstantResultsDisplay} 
+                          onCheckedChange={() => toggleInstantResults(exam)}
+                          className="scale-75"
+                        />
+                      </div>
                     </div>
+
                     <div className="flex gap-2">
-                      <Button className="flex-grow bg-secondary text-foreground hover:bg-secondary/80 font-bold" onClick={() => setSelectedExamForQuestions(exam)}>إدارة الأسئلة</Button>
-                      <Button variant="outline" className="border-primary/20 text-primary font-bold">النتائج</Button>
+                      <Button className="flex-grow bg-primary text-primary-foreground font-bold" onClick={() => setSelectedExamForQuestions(exam)}>إدارة الأسئلة</Button>
+                      <Button variant="outline" className="border-primary/20 text-primary font-bold gap-2">
+                        <Eye className="w-4 h-4" /> التصحيح
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -213,13 +256,13 @@ export default function AdminExams() {
       </Card>
 
       <Dialog open={!!selectedExamForQuestions} onOpenChange={() => setSelectedExamForQuestions(null)}>
-        <DialogContent className="max-w-4xl bg-card border-primary/20 max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="border-b pb-4">
+        <DialogContent className="max-w-5xl bg-card border-primary/20 h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="border-b pb-4 px-6 pt-6">
             <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-              <HelpCircle className="w-6 h-6 text-primary" /> أسئلة اختبار: {selectedExamForQuestions?.title}
+              <Settings2 className="w-6 h-6 text-primary" /> تعديل أسئلة: {selectedExamForQuestions?.title}
             </DialogTitle>
           </DialogHeader>
-          <div className="py-6">
+          <div className="flex-grow overflow-y-auto px-6 py-4">
              {selectedExamForQuestions && <QuestionManager exam={selectedExamForQuestions} />}
           </div>
         </DialogContent>
@@ -235,6 +278,7 @@ function QuestionManager({ exam }: { exam: any }) {
   
   const [newQuestion, setNewQuestion] = useState({
     text: '',
+    imageUrl: '',
     type: 'MCQ',
     points: '1',
     options: ['', '', '', ''],
@@ -255,6 +299,7 @@ function QuestionManager({ exam }: { exam: any }) {
       const qRef = await addDoc(collection(firestore, 'courses', exam.courseId, 'content', exam.id, 'questions'), {
         courseContentId: exam.id,
         questionText: newQuestion.text,
+        questionImageUrl: newQuestion.imageUrl,
         questionType: newQuestion.type,
         points: Number(newQuestion.points),
         orderIndex: (questions?.length || 0) + 1,
@@ -272,7 +317,7 @@ function QuestionManager({ exam }: { exam: any }) {
       }
 
       toast({ title: "تمت الإضافة", description: "تمت إضافة السؤال بنجاح." });
-      setNewQuestion({ text: '', type: 'MCQ', points: '1', options: ['', '', '', ''], correctIndex: 0 });
+      setNewQuestion({ text: '', imageUrl: '', type: 'MCQ', points: '1', options: ['', '', '', ''], correctIndex: 0 });
     } catch (e) {
       console.error(e);
     } finally {
@@ -306,12 +351,28 @@ function QuestionManager({ exam }: { exam: any }) {
             </div>
           </div>
 
-          <Textarea 
-            placeholder="اكتب نص السؤال هنا..." 
-            value={newQuestion.text} 
-            onChange={(e) => setNewQuestion({...newQuestion, text: e.target.value})}
-            className="bg-background min-h-[100px]"
-          />
+          <div className="space-y-4">
+             <Textarea 
+              placeholder="اكتب نص السؤال هنا..." 
+              value={newQuestion.text} 
+              onChange={(e) => setNewQuestion({...newQuestion, text: e.target.value})}
+              className="bg-background min-h-[100px] text-lg"
+            />
+            <div className="space-y-2">
+              <Label className="text-xs font-bold flex items-center gap-2"><ImageIcon className="w-3 h-3"/> رابط صورة السؤال (اختياري)</Label>
+              <Input 
+                placeholder="ألصق رابط الصورة هنا..." 
+                value={newQuestion.imageUrl}
+                onChange={(e) => setNewQuestion({...newQuestion, imageUrl: e.target.value})}
+                className="bg-background"
+              />
+              {newQuestion.imageUrl && (
+                <div className="relative w-full h-32 rounded-lg overflow-hidden border">
+                  <Image src={newQuestion.imageUrl} alt="Preview" fill className="object-contain" />
+                </div>
+              )}
+            </div>
+          </div>
 
           {newQuestion.type === 'MCQ' && (
             <div className="space-y-3">
@@ -341,7 +402,7 @@ function QuestionManager({ exam }: { exam: any }) {
             </div>
           )}
 
-          <Button onClick={handleAddQuestion} disabled={isAdding || !newQuestion.text} className="w-full bg-primary font-bold h-12">
+          <Button onClick={handleAddQuestion} disabled={isAdding || !newQuestion.text} className="w-full bg-primary font-bold h-12 shadow-lg shadow-primary/10">
             {isAdding ? <Loader2 className="w-5 h-5 animate-spin" /> : "إضافة السؤال للاختبار"}
           </Button>
         </CardContent>
@@ -352,15 +413,24 @@ function QuestionManager({ exam }: { exam: any }) {
         {isLoading ? <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /> : 
         !questions || questions.length === 0 ? <p className="text-center text-muted-foreground italic py-10">لا توجد أسئلة مضافة حالياً.</p> :
         questions.map((q, i) => (
-          <div key={q.id} className="p-4 bg-card border rounded-xl group relative hover:border-primary/30 transition-colors">
-            <div className="flex justify-between mb-2">
-              <span className="text-[10px] font-bold bg-secondary px-2 py-0.5 rounded">سؤال {i+1} - {q.questionType} ({q.points} نقاط)</span>
+          <Card key={q.id} className="p-6 bg-card border rounded-xl group relative hover:border-primary/30 transition-colors">
+            <div className="flex justify-between mb-4">
+              <span className="text-xs font-bold bg-primary/10 text-primary px-3 py-1 rounded-full">سؤال {i+1} - {q.questionType === 'MCQ' ? 'اختياري' : 'مقالي'} ({q.points} نقاط)</span>
               <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleDeleteQuestion(q.id)}>
                 <Trash2 className="w-4 h-4" />
               </Button>
             </div>
-            <p className="font-bold leading-relaxed">{q.questionText}</p>
-          </div>
+            <div className="flex flex-col md:flex-row gap-6">
+              <div className="flex-grow">
+                 <p className="font-bold text-lg leading-relaxed">{q.questionText}</p>
+              </div>
+              {q.questionImageUrl && (
+                <div className="relative w-full md:w-48 h-32 rounded-lg overflow-hidden border">
+                  <Image src={q.questionImageUrl} alt="" fill className="object-contain bg-secondary/10" />
+                </div>
+              )}
+            </div>
+          </Card>
         ))}
       </div>
     </div>

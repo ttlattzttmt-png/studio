@@ -15,7 +15,8 @@ import {
   LogOut,
   BrainCircuit,
   PieChart,
-  Megaphone
+  Megaphone,
+  CheckCircle
 } from 'lucide-react';
 import { useAuth, initiateSignOut, useUser } from '@/firebase';
 
@@ -42,6 +43,7 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
     { label: 'الأكواد', icon: <Ticket className="w-5 h-5" />, href: '/admin/codes' },
     { label: 'الطلاب', icon: <Users className="w-5 h-5" />, href: '/admin/students' },
     { label: 'بناء الاختبارات', icon: <ClipboardList className="w-5 h-5" />, href: '/admin/exams' },
+    { label: 'مركز التصحيح', icon: <CheckCircle className="w-5 h-5" />, href: '/admin/exams/grading' },
     { label: 'الإشعارات', icon: <Megaphone className="w-5 h-5" />, href: '/admin/notifications' },
     { label: 'الذكاء الاصطناعي', icon: <BrainCircuit className="w-5 h-5" />, href: '/admin/ai-tools' },
   ];
