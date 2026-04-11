@@ -1,0 +1,783 @@
+{
+  "entities": {
+    "Student": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Student",
+      "type": "object",
+      "description": "Represents a student user registered on the Al-Bashmohandes platform.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Student entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the student."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the student, used for login (authentication details are managed externally).",
+          "format": "email"
+        },
+        "studentPhoneNumber": {
+          "type": "string",
+          "description": "The student's personal phone number."
+        },
+        "parentPhoneNumber": {
+          "type": "string",
+          "description": "The phone number of the student's parent or guardian."
+        },
+        "academicYear": {
+          "type": "string",
+          "description": "The student's current academic year (e.g., 'First Year High School', 'Second Year High School', 'Third Year High School')."
+        },
+        "registrationDate": {
+          "type": "string",
+          "description": "The date and time when the student account was registered.",
+          "format": "date-time"
+        },
+        "lastLoginDate": {
+          "type": "string",
+          "description": "The date and time of the student's last successful login.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "studentPhoneNumber",
+        "parentPhoneNumber",
+        "academicYear",
+        "registrationDate"
+      ]
+    },
+    "AdminUser": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AdminUser",
+      "type": "object",
+      "description": "Represents an administrator user of the Al-Bashmohandes platform.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the AdminUser entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the administrator."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the administrator, used for login (authentication details are managed externally).",
+          "format": "email"
+        },
+        "registrationDate": {
+          "type": "string",
+          "description": "The date and time when the admin account was created.",
+          "format": "date-time"
+        },
+        "lastLoginDate": {
+          "type": "string",
+          "description": "The date and time of the admin's last successful login.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "registrationDate"
+      ]
+    },
+    "Course": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Course",
+      "type": "object",
+      "description": "Represents an educational course or a standalone exam/quiz offered on the platform.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Course entity."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the course or standalone exam."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the course content, objectives, or exam scope."
+        },
+        "price": {
+          "type": "number",
+          "description": "The price of the course or standalone exam in the local currency."
+        },
+        "targetAcademicYear": {
+          "type": "string",
+          "description": "The academic year(s) for which this course is primarily targeted."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The date and time when the course was first created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "The date and time when the course was last updated.",
+          "format": "date-time"
+        },
+        "uploadedByAdminUserId": {
+          "type": "string",
+          "description": "Reference to the AdminUser who initially uploaded or created this course. (Relationship: AdminUser 1:N Course)"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "description",
+        "price",
+        "targetAcademicYear",
+        "createdAt",
+        "uploadedByAdminUserId"
+      ]
+    },
+    "CourseContent": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CourseContent",
+      "type": "object",
+      "description": "Represents an individual piece of content within a Course, such as a video, quiz, or exam.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the CourseContent entity."
+        },
+        "courseId": {
+          "type": "string",
+          "description": "Reference to the Course this content item belongs to. (Relationship: Course 1:N CourseContent)"
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the content item (e.g., 'Introduction to Algebra Video', 'Chapter 1 Quiz')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description or summary of the content item."
+        },
+        "contentType": {
+          "type": "string",
+          "description": "The type of content, indicating if it's a video, quiz, or exam. ('Video', 'Quiz', 'Exam')."
+        },
+        "orderIndex": {
+          "type": "number",
+          "description": "The sequential order of this content item within its parent course."
+        },
+        "youtubeLink": {
+          "type": "string",
+          "description": "The YouTube URL for video content. This property is present only if 'contentType' is 'Video'.",
+          "format": "uri"
+        },
+        "durationInSeconds": {
+          "type": "number",
+          "description": "The duration of the video content in seconds. This property is present only if 'contentType' is 'Video'."
+        },
+        "passMarkPercentage": {
+          "type": "number",
+          "description": "The minimum percentage score required to 'pass' this quiz or exam. This property is present only if 'contentType' is 'Quiz' or 'Exam'."
+        },
+        "allowInstantResultsDisplay": {
+          "type": "boolean",
+          "description": "Indicates whether the student's results for this quiz/exam should be displayed immediately upon submission, or later by admin release. This property is present only if 'contentType' is 'Quiz' or 'Exam'."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The date and time when the course content was first created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "The date and time when the course content was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "courseId",
+        "title",
+        "description",
+        "contentType",
+        "orderIndex",
+        "createdAt"
+      ]
+    },
+    "Question": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Question",
+      "type": "object",
+      "description": "Represents a single question that can be part of a Quiz or Exam (CourseContent).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Question entity."
+        },
+        "courseContentId": {
+          "type": "string",
+          "description": "Reference to the CourseContent (Quiz or Exam) this question belongs to. (Relationship: CourseContent 1:N Question)"
+        },
+        "questionText": {
+          "type": "string",
+          "description": "The main text of the question."
+        },
+        "questionImageUrl": {
+          "type": "string",
+          "description": "URL to an image that visually represents or supplements the question (optional).",
+          "format": "uri"
+        },
+        "questionType": {
+          "type": "string",
+          "description": "The type of question, either 'MCQ' (Multiple Choice Question) or 'Essay'."
+        },
+        "points": {
+          "type": "number",
+          "description": "The number of points awarded for correctly answering this question."
+        },
+        "orderIndex": {
+          "type": "number",
+          "description": "The sequential order of this question within its parent quiz or exam."
+        },
+        "essayCorrectAnswerText": {
+          "type": "string",
+          "description": "The reference text for the correct answer to an essay question, used by admins for grading. This property is present only if 'questionType' is 'Essay'."
+        },
+        "essayCorrectAnswerFileUrl": {
+          "type": "string",
+          "description": "URL to a PDF file containing the correct answer for an essay question, used by admins for grading. This property is present only if 'questionType' is 'Essay'.",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "id",
+        "courseContentId",
+        "questionText",
+        "questionType",
+        "points",
+        "orderIndex"
+      ]
+    },
+    "QuestionOption": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "QuestionOption",
+      "type": "object",
+      "description": "Represents an option for a Multiple-Choice Question (MCQ).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the QuestionOption entity."
+        },
+        "questionId": {
+          "type": "string",
+          "description": "Reference to the Question this option belongs to. (Relationship: Question 1:N QuestionOption)"
+        },
+        "optionText": {
+          "type": "string",
+          "description": "The text content of the multiple-choice option."
+        },
+        "isCorrect": {
+          "type": "boolean",
+          "description": "Indicates whether this option is the correct answer for the MCQ."
+        }
+      },
+      "required": [
+        "id",
+        "questionId",
+        "optionText",
+        "isCorrect"
+      ]
+    },
+    "AccessCode": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AccessCode",
+      "type": "object",
+      "description": "Represents a unique code generated by an admin to grant access to a specific course.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the AccessCode entity."
+        },
+        "code": {
+          "type": "string",
+          "description": "The unique string value of the access code."
+        },
+        "courseId": {
+          "type": "string",
+          "description": "Reference to the Course that this access code unlocks. (Relationship: Course 1:N AccessCode)"
+        },
+        "generatedByAdminUserId": {
+          "type": "string",
+          "description": "Reference to the AdminUser who generated this access code. (Relationship: AdminUser 1:N AccessCode)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The date and time when the access code was generated.",
+          "format": "date-time"
+        },
+        "isUsed": {
+          "type": "boolean",
+          "description": "Indicates whether this access code has been used by a student."
+        },
+        "usedByStudentId": {
+          "type": "string",
+          "description": "Reference to the Student who used this access code. This property is present only if 'isUsed' is true. (Relationship: Student 1:1 AccessCode)"
+        },
+        "usedAt": {
+          "type": "string",
+          "description": "The date and time when the access code was used. This property is present only if 'isUsed' is true.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "code",
+        "courseId",
+        "generatedByAdminUserId",
+        "createdAt",
+        "isUsed"
+      ]
+    },
+    "StudentEnrollment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "StudentEnrollment",
+      "type": "object",
+      "description": "Records a student's enrollment in a specific course.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the StudentEnrollment entity."
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Reference to the Student who is enrolled. (Relationship: Student 1:N StudentEnrollment)"
+        },
+        "courseId": {
+          "type": "string",
+          "description": "Reference to the Course the student is enrolled in. (Relationship: Course 1:N StudentEnrollment)"
+        },
+        "enrollmentDate": {
+          "type": "string",
+          "description": "The date and time when the student officially enrolled in the course.",
+          "format": "date-time"
+        },
+        "accessCodeId": {
+          "type": "string",
+          "description": "Reference to the AccessCode used to facilitate this enrollment. (Relationship: AccessCode 1:1 StudentEnrollment)"
+        },
+        "isCompleted": {
+          "type": "boolean",
+          "description": "Indicates whether the student has completed all required content for the course."
+        },
+        "completionDate": {
+          "type": "string",
+          "description": "The date and time when the student completed the course. This property is present only if 'isCompleted' is true.",
+          "format": "date-time"
+        },
+        "progressPercentage": {
+          "type": "number",
+          "description": "The current overall progress of the student in the course, represented as a percentage (0-100)."
+        }
+      },
+      "required": [
+        "id",
+        "studentId",
+        "courseId",
+        "enrollmentDate",
+        "accessCodeId",
+        "isCompleted",
+        "progressPercentage"
+      ]
+    },
+    "StudentVideoProgress": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "StudentVideoProgress",
+      "type": "object",
+      "description": "Tracks a student's viewing progress for a specific video content item within a course.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the StudentVideoProgress entity."
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Reference to the Student. (Relationship: Student 1:N StudentVideoProgress)"
+        },
+        "courseContentId": {
+          "type": "string",
+          "description": "Reference to the CourseContent (which must be of 'Video' type). (Relationship: CourseContent 1:N StudentVideoProgress)"
+        },
+        "watchedDurationInSeconds": {
+          "type": "number",
+          "description": "The total duration in seconds of the video that the student has watched."
+        },
+        "isCompleted": {
+          "type": "boolean",
+          "description": "Indicates whether the student has watched the entire video content."
+        },
+        "lastWatchedAt": {
+          "type": "string",
+          "description": "The date and time of the last recorded instance the student watched this video.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "studentId",
+        "courseContentId",
+        "watchedDurationInSeconds",
+        "isCompleted",
+        "lastWatchedAt"
+      ]
+    },
+    "StudentQuizAttempt": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "StudentQuizAttempt",
+      "type": "object",
+      "description": "Records a student's attempt at a specific quiz or exam (CourseContent).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the StudentQuizAttempt entity."
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Reference to the Student who made this attempt. (Relationship: Student 1:N StudentQuizAttempt)"
+        },
+        "courseContentId": {
+          "type": "string",
+          "description": "Reference to the CourseContent (which must be of 'Quiz' or 'Exam' type). (Relationship: CourseContent 1:N StudentQuizAttempt)"
+        },
+        "attemptNumber": {
+          "type": "number",
+          "description": "The sequential number of this attempt for the specific quiz/exam by the student (e.g., 1st, 2nd)."
+        },
+        "submittedAt": {
+          "type": "string",
+          "description": "The date and time when the student submitted this quiz or exam attempt.",
+          "format": "date-time"
+        },
+        "score": {
+          "type": "number",
+          "description": "The total score obtained by the student in this attempt, if graded."
+        },
+        "isGraded": {
+          "type": "boolean",
+          "description": "Indicates whether all answers for this attempt have been graded (either automatically or by an admin)."
+        },
+        "gradeReleasedByAdminUserId": {
+          "type": "string",
+          "description": "Reference to the AdminUser who released the grades for this attempt. This property is present if grades are released by an admin. (Relationship: AdminUser 1:N StudentQuizAttempt)"
+        },
+        "gradeReleaseDate": {
+          "type": "string",
+          "description": "The date and time when the grades for this attempt were made visible to the student.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "studentId",
+        "courseContentId",
+        "attemptNumber",
+        "submittedAt",
+        "isGraded"
+      ]
+    },
+    "StudentAnswer": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "StudentAnswer",
+      "type": "object",
+      "description": "Stores a student's answer to a specific question within a quiz or exam attempt.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the StudentAnswer entity."
+        },
+        "studentQuizAttemptId": {
+          "type": "string",
+          "description": "Reference to the StudentQuizAttempt this answer belongs to. (Relationship: StudentQuizAttempt 1:N StudentAnswer)"
+        },
+        "questionId": {
+          "type": "string",
+          "description": "Reference to the Question that was answered. (Relationship: Question 1:N StudentAnswer)"
+        },
+        "mcqSelectedOptionId": {
+          "type": "string",
+          "description": "Reference to the QuestionOption selected by the student, if the question type is 'MCQ'. (Relationship: QuestionOption 1:N StudentAnswer)"
+        },
+        "essayAnswerText": {
+          "type": "string",
+          "description": "The student's submitted text answer for an essay question. This property is present if 'questionType' is 'Essay' and the answer is text-based."
+        },
+        "essayAnswerFileUrl": {
+          "type": "string",
+          "description": "URL to a PDF file uploaded by the student as an answer for an essay question. This property is present if 'questionType' is 'Essay' and the answer is file-based.",
+          "format": "uri"
+        },
+        "isCorrect": {
+          "type": "boolean",
+          "description": "Indicates whether the student's answer is correct (auto-graded for MCQs, or admin-graded for essays)."
+        },
+        "scoreAchieved": {
+          "type": "number",
+          "description": "The points achieved by the student for this specific answer (can be partial for essay questions)."
+        },
+        "adminFeedback": {
+          "type": "string",
+          "description": "Text feedback provided by an admin for the student's answer, especially for essay questions."
+        }
+      },
+      "required": [
+        "id",
+        "studentQuizAttemptId",
+        "questionId"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/admin_roles/{uid}",
+        "definition": {
+          "entityName": "AdminRole",
+          "schema": {
+            "$ref": "#/backend/entities/AdminRole"
+          },
+          "description": "A sentinel collection used for database authorization. The existence of a document at `/admin_roles/{uid}` signifies that the user `uid` has administrator privileges. Used for quick admin role checks in security rules."
+        }
+      },
+      {
+        "path": "/admin_users/{adminUserId}",
+        "definition": {
+          "entityName": "AdminUser",
+          "schema": {
+            "$ref": "#/backend/entities/AdminUser"
+          },
+          "description": "Stores individual admin profiles. `adminUserId` corresponds to `request.auth.uid`. Admins (based on `admin_roles`) can read/write their own profile, and other admins can read all admin profiles.",
+          "params": [
+            {
+              "name": "adminUserId",
+              "description": "The unique identifier of the administrator, derived from `request.auth.uid`."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/students/{studentId}",
+        "definition": {
+          "entityName": "Student",
+          "schema": {
+            "$ref": "#/backend/entities/Student"
+          },
+          "description": "Stores individual student profiles. `studentId` corresponds to `request.auth.uid`. Students can read/write their own profile; admins can read all student profiles.",
+          "params": [
+            {
+              "name": "studentId",
+              "description": "The unique identifier of the student, derived from `request.auth.uid`."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/courses/{courseId}",
+        "definition": {
+          "entityName": "Course",
+          "schema": {
+            "$ref": "#/backend/entities/Course"
+          },
+          "description": "Main collection for educational courses. Publicly readable for browsing. Write access is restricted to administrators. Includes `uploadedByAdminUserId` for admin ownership and `targetAcademicYear` for student filtering.",
+          "params": [
+            {
+              "name": "courseId",
+              "description": "The unique identifier for the course."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/courses/{courseId}/content/{contentId}",
+        "definition": {
+          "entityName": "CourseContent",
+          "schema": {
+            "$ref": "#/backend/entities/CourseContent"
+          },
+          "description": "Subcollection storing content items (videos, quizzes, exams) for a specific course. Admins have full CRUD access. Students can read if they are enrolled in the parent course. Includes denormalized `course_uploadedByAdminUserId` for authorization independence.",
+          "params": [
+            {
+              "name": "courseId",
+              "description": "The unique identifier of the parent course."
+            },
+            {
+              "name": "contentId",
+              "description": "The unique identifier for the content item within the course."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/courses/{courseId}/content/{contentId}/questions/{questionId}",
+        "definition": {
+          "entityName": "Question",
+          "schema": {
+            "$ref": "#/backend/entities/Question"
+          },
+          "description": "Subcollection storing questions for a specific quiz or exam (`CourseContent`). Admins have full CRUD access. Students can read during an active attempt if enrolled in the parent course. Includes denormalized `course_uploadedByAdminUserId`, `courseContent_contentType`, and `courseContent_courseId` for authorization independence and validation.",
+          "params": [
+            {
+              "name": "courseId",
+              "description": "The unique identifier of the grand-parent course."
+            },
+            {
+              "name": "contentId",
+              "description": "The unique identifier of the parent course content (quiz/exam)."
+            },
+            {
+              "name": "questionId",
+              "description": "The unique identifier for the question."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/courses/{courseId}/content/{contentId}/questions/{questionId}/options/{optionId}",
+        "definition": {
+          "entityName": "QuestionOption",
+          "schema": {
+            "$ref": "#/backend/entities/QuestionOption"
+          },
+          "description": "Subcollection storing options for a multiple-choice question. Admins have full CRUD access. Students can read during an active attempt if enrolled in the parent course. Includes denormalized `course_uploadedByAdminUserId`, `courseContent_contentType`, `courseContent_courseId`, and `question_questionType` for authorization independence and validation.",
+          "params": [
+            {
+              "name": "courseId",
+              "description": "The unique identifier of the great-grand-parent course."
+            },
+            {
+              "name": "contentId",
+              "description": "The unique identifier of the grand-parent course content (quiz/exam)."
+            },
+            {
+              "name": "questionId",
+              "description": "The unique identifier of the parent question."
+            },
+            {
+              "name": "optionId",
+              "description": "The unique identifier for the question option."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/access_codes/{accessCodeId}",
+        "definition": {
+          "entityName": "AccessCode",
+          "schema": {
+            "$ref": "#/backend/entities/AccessCode"
+          },
+          "description": "Stores unique access codes generated by administrators to unlock courses. Admins have full CRUD access and can view all codes. Students can update a specific code's `isUsed` status when enrolling in a course.",
+          "params": [
+            {
+              "name": "accessCodeId",
+              "description": "The unique identifier for the access code."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/students/{studentId}/enrollments/{enrollmentId}",
+        "definition": {
+          "entityName": "StudentEnrollment",
+          "schema": {
+            "$ref": "#/backend/entities/StudentEnrollment"
+          },
+          "description": "Subcollection recording a specific student's enrollment in a course. `studentId` is implicit from the path. Students can read/write their own enrollments. Admins can read all student enrollments (via collection group queries). Includes denormalized `course_uploadedByAdminUserId` and `course_targetAcademicYear` for authorization independence.",
+          "params": [
+            {
+              "name": "studentId",
+              "description": "The unique identifier of the parent student."
+            },
+            {
+              "name": "enrollmentId",
+              "description": "The unique identifier for the student's course enrollment."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/students/{studentId}/video_progress/{progressId}",
+        "definition": {
+          "entityName": "StudentVideoProgress",
+          "schema": {
+            "$ref": "#/backend/entities/StudentVideoProgress"
+          },
+          "description": "Subcollection tracking a student's viewing progress for a video content item. `studentId` is implicit from the path. Students can read/write their own progress. Admins can read all progress. Includes denormalized `courseId`, `courseContent_contentType`, `courseContent_durationInSeconds`, and `course_uploadedByAdminUserId` for authorization independence and validation.",
+          "params": [
+            {
+              "name": "studentId",
+              "description": "The unique identifier of the parent student."
+            },
+            {
+              "name": "progressId",
+              "description": "The unique identifier for the video progress record."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/students/{studentId}/quiz_attempts/{attemptId}",
+        "definition": {
+          "entityName": "StudentQuizAttempt",
+          "schema": {
+            "$ref": "#/backend/entities/StudentQuizAttempt"
+          },
+          "description": "Subcollection recording a student's attempt at a quiz or exam. `studentId` is implicit from the path. Students can read/write their own attempts. Admins can read all attempts and write scores/feedback. Includes denormalized `courseId`, `courseContent_contentType`, `courseContent_passMarkPercentage`, `courseContent_allowInstantResultsDisplay`, and `course_uploadedByAdminUserId` for authorization independence and validation.",
+          "params": [
+            {
+              "name": "studentId",
+              "description": "The unique identifier of the parent student."
+            },
+            {
+              "name": "attemptId",
+              "description": "The unique identifier for the student's quiz/exam attempt."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/students/{studentId}/quiz_attempts/{attemptId}/answers/{answerId}",
+        "definition": {
+          "entityName": "StudentAnswer",
+          "schema": {
+            "$ref": "#/backend/entities/StudentAnswer"
+          },
+          "description": "Subcollection storing a student's answer to a specific question within a quiz or exam attempt. `studentId` and `attemptId` are implicit from the path. Students can read/write their own answers. Admins can read/write feedback and scores. Includes denormalized `courseId`, `courseContentId`, `questionId`, `questionType`, and `course_uploadedByAdminUserId` for authorization independence and validation.",
+          "params": [
+            {
+              "name": "studentId",
+              "description": "The unique identifier of the great-grand-parent student."
+            },
+            {
+              "name": "attemptId",
+              "description": "The unique identifier of the parent quiz/exam attempt."
+            },
+            {
+              "name": "answerId",
+              "description": "The unique identifier for the student's answer."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The recommended Firestore structure is designed to be secure, scalable, and highly debuggable, strictly adhering to the core design principles and mandates. The core strategy revolves around **Authorization Independence through extensive denormalization** and **Structural Segregation** to ensure homogeneous security postures within collections.\n\n**Authorization Independence (CRITICAL for QAPs and atomic operations):**\nTo eliminate `get()` calls in security rules, especially for write operations, critical authorization context is denormalized directly into relevant subcollection documents. For instance:\n*   `CourseContent` documents (videos, quizzes, exams) will include `course_uploadedByAdminUserId`. This allows rules to immediately verify if the `request.auth.uid` is the admin who uploaded the parent course when performing CRUD on content, without needing to `get()` the parent `/courses/{courseId}` document.\n*   `Question` and `QuestionOption` documents denormalize `course_uploadedByAdminUserId`, `courseContent_contentType`, and `courseId`. This means that when a question or option is created/updated, rules can validate its context (e.g., ensure `contentType` is 'Quiz' or 'Exam' for questions) and ownership without retrieving parent documents.\n*   Student-specific progress and attempt records (`StudentEnrollment`, `StudentVideoProgress`, `StudentQuizAttempt`, `StudentAnswer`) denormalize `courseId`, `courseContentId`, and `course_uploadedByAdminUserId` (and other relevant content metadata like `contentType`, `passMarkPercentage`). This is paramount: when a student attempts to update their video progress or submit a quiz answer, the rules can directly check if they are enrolled in the `courseId` associated with that content and if the content type is appropriate, all by inspecting the document being written and existing `StudentEnrollment` documents (which are user-specific and easy to query for `request.auth.uid`). This significantly simplifies security rules for write operations.\n\n**Query as Authorization Patterns (QAPs) and Structural Segregation:**\n*   **Public Access:** The `/courses/{courseId}` collection is publicly readable, allowing all users (including unauthenticated) to browse available courses. This satisfies QAP for 'listing latest courses on welcome page'.\n*   **Admin-Specific Access:** Administrator roles are established using a dedicated top-level collection: `/admin_roles/{uid}`. The *existence* of a document at this path signifies admin status, enabling quick and efficient DBAC checks in rules (`exists(/databases/$(database)/documents/admin_roles/$(request.auth.uid))`). Admins have full CRUD access to all core platform data (`/courses`, `/access_codes`, and their subcollections). For student-specific data (e.g., all enrollments, all quiz attempts), admins will utilize **Collection Group Queries** across the respective subcollections (e.g., `enrollments`, `quiz_attempts`). This allows admins to list all such documents across all students, while students are restricted to their own data via path-based security.\n*   **Student-Specific Access (Private Data):** All student-owned data is structured under `/students/{studentId}/...`. This leverages **Path-Based Ownership** (C.1 and C.2 mandates). For example, `StudentEnrollment` documents reside in `/students/{studentId}/enrollments/{enrollmentId}`. This design immediately enforces that a student (`request.auth.uid`) can only read/write documents where `{studentId}` in the path matches their `uid`. This makes `list` operations for students inherently secure and efficient, as they implicitly query only their own data.\n*   **Course Content Access (Enrolled Students):** Access to `CourseContent` (and its nested `Questions`/`Options`) is granted to students who have an active enrollment in the parent course. Rules will verify the existence of a document in `/students/{request.auth.uid}/enrollments` that matches the `courseId` of the requested content. While this involves a `get()` call to check `StudentEnrollment`, it's a specific `get()` on authorization-relevant data for the current user, rather than a `get()` on a general parent document, and is primarily for read access. For write operations (e.g., updating video progress or submitting answers), the denormalized `courseId` within `StudentVideoProgress` or `StudentQuizAttempt` allows rules to cross-verify against the `StudentEnrollment` without further `get()` calls on the parent content.\n\nThis structure ensures clear separation of concerns, explicit authorization contexts, and highly efficient security rule evaluation, minimizing potential for authorization bypasses and improving system debuggability."
+  }
+}
