@@ -89,8 +89,7 @@ service cloud.firestore {
     }
 
     match /access_codes/{accessCodeId} {
-      allow get: if isSignedIn();
-      allow list: if isAdmin();
+      allow get, list: if isSignedIn(); // تم السماح بالبحث (list) للطلاب لتفعيل الأكواد
       allow create, delete: if isAdmin();
       allow update: if isAdmin() || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isUsed', 'usedByStudentId', 'usedAt']));
     }
