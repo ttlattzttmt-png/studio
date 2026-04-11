@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -11,8 +12,8 @@ import { useAuth, initiateEmailSignIn } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdminLoginPage() {
-  const [email, setEmail] = useState('admin@al-bashmohandes.com');
-  const [password, setPassword] = useState('admin123456');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { auth } = useAuth();
   const router = useRouter();
@@ -24,8 +25,7 @@ export default function AdminLoginPage() {
 
     setIsLoading(true);
     try {
-      initiateEmailSignIn(auth, email, password);
-      // In a real app, we'd verify the admin role in the user profile/claims
+      await initiateEmailSignIn(auth, email, password);
       router.push('/admin');
     } catch (error: any) {
       toast({

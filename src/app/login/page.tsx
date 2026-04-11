@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -7,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ShieldCheck, Lock, User, Loader2 } from 'lucide-react';
-import { useAuth, useFirestore, useFirebase } from '@/firebase';
+import { useFirebase } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
@@ -29,13 +30,14 @@ export default function LoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const uid = userCredential.user.uid;
 
-      // Check if user is admin
+      // التحقق مما إذا كان المستخدم مديراً (Admin)
       const adminDoc = await getDoc(doc(firestore, 'admin_roles', uid));
       
       if (adminDoc.exists()) {
         toast({ title: "مرحباً بك يا بشمهندس", description: "جاري توجيهك للوحة التحكم..." });
         router.push('/admin');
       } else {
+        toast({ title: "أهلاً بك", description: "جاري الدخول لحساب الطالب..." });
         router.push('/student');
       }
     } catch (error: any) {
@@ -112,11 +114,6 @@ export default function LoginPage() {
             أنشئ حساباً جديداً
           </Link>
         </p>
-
-        <div className="p-4 bg-primary/5 rounded-xl border border-dashed border-primary/30 text-center">
-          <p className="text-xs text-muted-foreground mb-1">حساب تجريبي للمشرف:</p>
-          <code className="text-[10px] text-primary">admin@al-bashmohandes.com | admin123456</code>
-        </div>
       </div>
       
       <p className="mt-8 text-xs text-muted-foreground">made by : mohamed alaa</p>
