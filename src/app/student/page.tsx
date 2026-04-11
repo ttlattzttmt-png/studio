@@ -11,10 +11,15 @@ import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from '@
 import { collection, doc, query, orderBy, limit } from 'firebase/firestore';
 
 export default function StudentDashboard() {
-  const { user, isUserLoading } = useUser();
+  const { user, isUserLoading } = userHook();
   const firestore = useFirestore();
   const [redeemCode, setRedeemCode] = useState('');
   const [mounted, setMounted] = useState(false);
+
+  // استخدام اسم الهوك الصحيح useUser بدلاً من استدعاءات خاطئة
+  function userHook() {
+    return useUser();
+  }
 
   useEffect(() => {
     setMounted(true);
