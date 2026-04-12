@@ -27,11 +27,11 @@ export default function LoginPage() {
     
     setIsLoading(true);
     try {
-      // 1. تسجيل الدخول الأساسي
+      // 1. تسجيل الدخول الأساسي عبر Firebase Auth
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const userEmail = userCredential.user.email?.toLowerCase();
 
-      // 2. التوجيه المباشر والذكي بناءً على البريد (أضمن وسيلة لتجنب أخطاء الصلاحيات)
+      // 2. التوجيه المباشر والذكي بناءً على البريد الإلكتروني (أضمن وسيلة لتجنب أخطاء فحص القواعد)
       if (userEmail === ADMIN_EMAIL.toLowerCase()) {
         toast({ title: "مرحباً بك يا بشمهندس", description: "جاري فتح لوحة التحكم..." });
         router.push('/admin');

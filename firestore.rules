@@ -7,33 +7,34 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // دالة التحقق من كونه المسؤول المالك (عبر البريد الإلكتروني)
+    // دالة التحقق من كونه المسؤول المالك (عبر البريد الإلكتروني المعتمد)
     function isOwnerAdmin() {
       return isSignedIn() && request.auth.token.email == "admin@al-bashmohandes.com";
     }
 
-    // --- القاعدة الذهبية: المسؤول له صلاحيات مطلقة وشاملة ---
+    // --- القاعدة الذهبية: المسؤول له صلاحيات مطلقة وشاملة على كل شيء ---
     match /{allPaths=**} {
       allow read, write, delete: if isOwnerAdmin();
     }
 
-    // --- قواعد عامة للجميع ---
+    // --- قواعد عامة للجميع (طلاب وزوار) ---
     
-    // الإشعارات - متاحة للجميع للقراءة (لضمان عدم حدوث ايرور للطلاب)
+    // الإشعارات - متاحة للجميع للقراءة والبحث (لأنها إعلانات عامة)
     match /notifications/{id} {
       allow read, list: if true;
     }
 
-    // الكورسات - متاحة للقراءة للجميع لتصفح المكتبة
+    // الكورسات - متاحة للقراءة والبحث للجميع لتصفح المكتبة
     match /courses/{courseId} {
-      allow read: if true;
+      allow read, list: if true;
       
+      // المحتوى الداخلي للكورسات - متاح فقط للمسجلين (سيتم فلترته برمجياً حسب الاشتراك)
       match /{allSubcollections=**} {
-        allow read: if isSignedIn();
+        allow read, list: if isSignedIn();
       }
     }
 
-    // بيانات الطلاب - الطالب يرى ويحدث بياناته فقط بمساره الخاص
+    // بيانات الطلاب - الطالب يرى ويحدث بياناته فقط بمساره الخاص (Path-Based Ownership)
     match /students/{studentId} {
       allow read, write: if isSignedIn() && request.auth.uid == studentId;
       
@@ -42,12 +43,12 @@ service cloud.firestore {
       }
     }
 
-    // الأكواد
+    // الأكواد - مسموح للطلاب بالتحقق منها وتحديث حالتها عند الاستخدام
     match /access_codes/{id} {
       allow read, update: if isSignedIn();
     }
     
-    // دعم استعلام المجموعات للمسؤول
+    // دعم استعلام المجموعات للمسؤول فقط (Collection Groups)
     match /{path=**}/enrollments/{id} {
       allow read, list: if isOwnerAdmin();
     }
