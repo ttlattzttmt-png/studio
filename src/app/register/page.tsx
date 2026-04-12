@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShieldCheck, User, Phone, PhoneCall, GraduationCap, Loader2, Mail } from 'lucide-react';
+import { ShieldCheck, User, Phone, PhoneCall, GraduationCap, Loader2, Mail, Lock } from 'lucide-react';
 import { useFirebase } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
@@ -34,11 +34,11 @@ export default function RegisterPage() {
 
     setIsLoading(true);
     try {
-      // 1. إنشاء الحساب
+      // 1. إنشاء الحساب في Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const uid = userCredential.user.uid;
 
-      // 2. كتابة بيانات الطالب (ننتظر تماماً)
+      // 2. كتابة بيانات الطالب في Firestore والانتظار حتى النجاح
       await setDoc(doc(firestore, 'students', uid), {
         id: uid,
         name: formData.name,
@@ -56,6 +56,7 @@ export default function RegisterPage() {
         description: "أهلاً بك في عائلة البشمهندس."
       });
       
+      // التوجيه للوحة التحكم
       router.push('/student');
 
     } catch (error: any) {
