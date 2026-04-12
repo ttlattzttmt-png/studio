@@ -8,7 +8,7 @@ service cloud.firestore {
     }
 
     // دالة التحقق من كونه مسؤول (Admin)
-    // نتحقق من البريد المخصص أو وجود سجل في admin_roles
+    // نعتمد على البريد الإلكتروني بشكل أساسي لمنع الحلقات المفرغة
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == "admin@al-bashmohandes.com" ||
@@ -29,11 +29,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // سجلات الأدمن
+    // سجلات الأدمن - تم تعديلها لمنع التبعية الدائرية
     match /admin_roles/{uid} {
       allow read: if isSignedIn();
-      allow write: if isAdmin() || (isSignedIn() && request.auth.token.email == "admin@al-bashmohandes.com");
+      allow write: if isSignedIn() && (request.auth.token.email == "admin@al-bashmohandes.com" || request.auth.uid == uid);
     }
+    
     match /admin_users/{uid} {
       allow read, write: if isAdmin() || isOwner(uid);
     }
@@ -54,14 +55,13 @@ service cloud.firestore {
       }
     }
 
-    // الأكواد: الأدمن يتحكم بالكل
+    // الأكواد
     match /access_codes/{id} {
       allow read, write: if isAdmin();
-      // السماح للطالب بتحديث كود واحد عند استخدامه (إذا قررت تفعيل نظام الأكواد مستقبلاً)
       allow update: if isSignedIn();
     }
 
-    // بيانات الطلاب (Path-based ownership)
+    // بيانات الطلاب
     match /students/{studentId} {
       allow read: if isOwner(studentId) || isAdmin();
       allow write: if isOwner(studentId) || isAdmin();
@@ -72,14 +72,12 @@ service cloud.firestore {
       }
     }
 
-    // --- قواعد الـ Collection Group (ضرورية لصفحات الأدمن المتزامنة) ---
+    // --- قواعد الـ Collection Group ---
     
-    // السماح للأدمن بقراءة كافة الاشتراكات من كل الطلاب
     match /{path=**}/enrollments/{id} {
       allow read, list: if isAdmin();
     }
     
-    // السماح للأدمن بقراءة كافة محاولات الامتحانات من كل الطلاب
     match /{path=**}/quiz_attempts/{id} {
       allow read, list: if isAdmin();
     }

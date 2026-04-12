@@ -10,12 +10,12 @@ import {
   CheckCircle2,
   User as UserIcon,
   Phone,
-  AlertCircle,
   Clock,
   BookOpen,
   Search,
   RefreshCw,
-  ShieldAlert
+  ShieldAlert,
+  AlertTriangle
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collectionGroup, doc, updateDoc, query, where } from 'firebase/firestore';
@@ -31,15 +31,10 @@ export default function PendingActivationsPage() {
   // استعلام متزامن لجلب كافة طلبات التفعيل المعلقة
   const enrollmentsRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    try {
-      return query(
-        collectionGroup(firestore, 'enrollments'), 
-        where('status', '==', 'pending')
-      );
-    } catch (e) {
-      console.error("Query building error:", e);
-      return null;
-    }
+    return query(
+      collectionGroup(firestore, 'enrollments'), 
+      where('status', '==', 'pending')
+    );
   }, [firestore, user]);
 
   const { data: pendingRequests, isLoading, error } = useCollection(enrollmentsRef);
@@ -97,59 +92,60 @@ export default function PendingActivationsPage() {
         </div>
       </div>
 
-      {error && (
-        <div className="p-10 bg-destructive/10 text-destructive rounded-[2rem] border-2 border-dashed border-destructive/20 text-center space-y-4">
-          <ShieldAlert className="w-16 h-16 mx-auto opacity-50" />
+      {error ? (
+        <Card className="p-10 border-destructive/20 bg-destructive/5 rounded-[2rem] text-center space-y-6">
+          <ShieldAlert className="w-16 h-16 mx-auto text-destructive opacity-50" />
           <div className="space-y-2">
-            <h3 className="text-xl font-bold">عذراً، هناك مشكلة في الصلاحيات</h3>
-            <p className="text-sm opacity-80 max-w-md mx-auto leading-relaxed">
-              تأكد أنك قمت بتسجيل الدخول ببريد المسؤول (admin@al-bashmohandes.com) 
-              وأن قواعد الحماية تم تحديثها بنجاح.
+            <h3 className="text-2xl font-bold text-destructive">مشكلة في الوصول للبيانات</h3>
+            <p className="text-muted-foreground max-w-lg mx-auto">
+              {error.message.includes('permission-denied') 
+                ? "عذراً، لا تملك صلاحيات كافية لعرض هذه الصفحة. تأكد أنك مسجل دخول بحساب المسؤول."
+                : "حدث خطأ غير متوقع أثناء جلب البيانات. قد يكون السبب نقص في الفهارس البرمجية."}
             </p>
           </div>
-          <Button variant="outline" onClick={() => window.location.reload()} className="border-destructive/30 hover:bg-destructive/10">
+          <Button onClick={() => window.location.reload()} variant="outline" className="border-destructive/30 hover:bg-destructive/10">
             إعادة محاولة الاتصال
           </Button>
-        </div>
-      )}
-
-      <Card className="bg-card border-primary/5 shadow-2xl overflow-hidden rounded-[2.5rem]">
-        <CardHeader className="border-b bg-secondary/5 p-6 flex flex-row items-center justify-between">
-          <div className="relative w-full max-w-md">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input 
-              placeholder="ابحث باسم الكورس أو معرف الطالب..." 
-              className="pr-10 bg-background border-primary/10 text-right h-12 rounded-xl"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <Badge variant="outline" className="hidden md:flex border-primary/20 text-primary">لوحة التحكم المركزية</Badge>
-        </CardHeader>
-        <CardContent className="p-0">
-          <ScrollArea className="h-[70vh]">
-            <div className="p-8">
-              {isLoading ? (
-                <div className="flex flex-col items-center justify-center py-40 gap-4">
-                  <Loader2 className="w-12 h-12 animate-spin text-primary" />
-                  <p className="font-bold text-muted-foreground italic">جاري جلب الطلبات المتزامنة...</p>
-                </div>
-              ) : filteredRequests.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-40 text-muted-foreground opacity-30 italic">
-                  <CheckCircle2 className="w-20 h-20 mb-4" />
-                  <p className="text-xl">لا توجد طلبات تفعيل معلقة حالياً.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {filteredRequests.map((req) => (
-                    <RequestCard key={req.id} req={req} onActivate={handleActivate} />
-                  ))}
-                </div>
-              )}
+        </Card>
+      ) : (
+        <Card className="bg-card border-primary/5 shadow-2xl overflow-hidden rounded-[2.5rem]">
+          <CardHeader className="border-b bg-secondary/5 p-6 flex flex-row items-center justify-between">
+            <div className="relative w-full max-w-md">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input 
+                placeholder="ابحث باسم الكورس أو معرف الطالب..." 
+                className="pr-10 bg-background border-primary/10 text-right h-12 rounded-xl"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
-          </ScrollArea>
-        </CardContent>
-      </Card>
+            <Badge variant="outline" className="hidden md:flex border-primary/20 text-primary">لوحة التحكم المركزية</Badge>
+          </CardHeader>
+          <CardContent className="p-0">
+            <ScrollArea className="h-[70vh]">
+              <div className="p-8">
+                {isLoading ? (
+                  <div className="flex flex-col items-center justify-center py-40 gap-4">
+                    <Loader2 className="w-12 h-12 animate-spin text-primary" />
+                    <p className="font-bold text-muted-foreground italic">جاري جلب الطلبات المتزامنة...</p>
+                  </div>
+                ) : filteredRequests.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-40 text-muted-foreground opacity-30 italic">
+                    <CheckCircle2 className="w-20 h-20 mb-4" />
+                    <p className="text-xl">لا توجد طلبات تفعيل معلقة حالياً.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {filteredRequests.map((req) => (
+                      <RequestCard key={req.id} req={req} onActivate={handleActivate} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
