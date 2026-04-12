@@ -57,10 +57,10 @@ export default function RegisterPage() {
         description: "مرحباً بك يا بشمهندس في عائلتنا."
       });
       
-      // تأخير بسيط لضمان تحديث قاعدة البيانات قبل التحويل
+      // تأخير بسيط لضمان تحديث قاعدة البيانات وتزامنها قبل التحويل
       setTimeout(() => {
         router.push('/student');
-      }, 500);
+      }, 800);
 
     } catch (error: any) {
       console.error("Registration error:", error);
@@ -82,8 +82,8 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
       <div className="hidden md:flex md:w-1/2 bg-card items-center justify-center p-12 border-l relative overflow-hidden">
         <div className="absolute inset-0 bg-primary/5 blur-3xl" />
-        <div className="max-w-md space-y-8 animate-in fade-in slide-in-from-right duration-700 relative z-10">
-          <div className="flex items-center gap-3">
+        <div className="max-w-md space-y-8 animate-in fade-in slide-in-from-right duration-700 relative z-10 text-right">
+          <div className="flex items-center gap-3 justify-end">
             <span className="text-4xl font-headline font-bold text-primary">البشمهندس</span>
             <ShieldCheck className="w-10 h-10 text-primary" />
           </div>
@@ -99,29 +99,29 @@ export default function RegisterPage() {
              <p className="text-muted-foreground text-sm">أنشئ حسابك لبدء التفوق</p>
           </div>
 
-          <form onSubmit={handleRegister} className="space-y-6">
+          <form onSubmit={handleRegister} className="space-y-6 text-right">
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm font-bold flex items-center gap-2"><User className="w-4 h-4 text-primary" /> الاسم رباعي</Label>
-              <Input id="name" placeholder="أدخل اسمك بالكامل" className="h-12 bg-card border-primary/10" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required />
+              <Label htmlFor="name" className="text-sm font-bold flex items-center gap-2 justify-end">الاسم رباعي <User className="w-4 h-4 text-primary" /></Label>
+              <Input id="name" placeholder="أدخل اسمك بالكامل" className="h-12 bg-card border-primary/10 text-right" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-bold flex items-center gap-2"><Mail className="w-4 h-4 text-primary" /> البريد الإلكتروني</Label>
-              <Input id="email" type="email" placeholder="example@mail.com" className="h-12 bg-card border-primary/10" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} required />
+              <Label htmlFor="email" className="text-sm font-bold flex items-center gap-2 justify-end">البريد الإلكتروني <Mail className="w-4 h-4 text-primary" /></Label>
+              <Input id="email" type="email" placeholder="example@mail.com" className="h-12 bg-card border-primary/10 text-right" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} required />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="phone" className="text-sm font-bold flex items-center gap-2"><Phone className="w-4 h-4 text-primary" /> رقم الهاتف</Label>
-                <Input id="phone" type="tel" placeholder="01xxxxxxxxx" className="h-12 bg-card border-primary/10" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} required />
+                <Label htmlFor="phone" className="text-sm font-bold flex items-center gap-2 justify-end">رقم الهاتف <Phone className="w-4 h-4 text-primary" /></Label>
+                <Input id="phone" type="tel" placeholder="01xxxxxxxxx" className="h-12 bg-card border-primary/10 text-right" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} required />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="parentPhone" className="text-sm font-bold flex items-center gap-2"><PhoneCall className="w-4 h-4 text-primary" /> هاتف ولي الأمر</Label>
-                <Input id="parentPhone" type="tel" placeholder="01xxxxxxxxx" className="h-12 bg-card border-primary/10" value={formData.parentPhone} onChange={(e) => setFormData({...formData, parentPhone: e.target.value})} required />
+                <Label htmlFor="parentPhone" className="text-sm font-bold flex items-center gap-2 justify-end">هاتف ولي الأمر <PhoneCall className="w-4 h-4 text-primary" /></Label>
+                <Input id="parentPhone" type="tel" placeholder="01xxxxxxxxx" className="h-12 bg-card border-primary/10 text-right" value={formData.parentPhone} onChange={(e) => setFormData({...formData, parentPhone: e.target.value})} required />
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-sm font-bold flex items-center gap-2"><GraduationCap className="w-4 h-4 text-primary" /> السنة الدراسية</Label>
+              <Label className="text-sm font-bold flex items-center gap-2 justify-end">السنة الدراسية <GraduationCap className="w-4 h-4 text-primary" /></Label>
               <Select value={formData.academicYear} onValueChange={(val) => setFormData({...formData, academicYear: val})}>
-                <SelectTrigger className="h-12 bg-card border-primary/10"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-12 bg-card border-primary/10 text-right"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1">الصف الأول الثانوي</SelectItem>
                   <SelectItem value="2">الصف الثاني الثانوي</SelectItem>
@@ -130,8 +130,8 @@ export default function RegisterPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password" title="كلمة المرور" className="text-sm font-bold">كلمة المرور</Label>
-              <Input id="password" type="password" className="h-12 bg-card border-primary/10" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} required />
+              <Label htmlFor="password" title="كلمة المرور" className="text-sm font-bold flex items-center gap-2 justify-end">كلمة المرور <Lock className="w-4 h-4 text-primary" /></Label>
+              <Input id="password" type="password" className="h-12 bg-card border-primary/10 text-right" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} required />
             </div>
             <Button type="submit" disabled={isLoading} className="w-full h-14 bg-primary text-primary-foreground font-bold rounded-xl shadow-lg hover:shadow-primary/20 transition-all">
               {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "إنشاء الحساب الآن"}

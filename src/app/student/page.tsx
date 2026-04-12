@@ -60,8 +60,8 @@ export default function StudentDashboard() {
   const firstName = studentProfile?.name ? studentProfile.name.split(' ')[0] : 'المجتهد';
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 text-right">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20 text-right">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl md:text-4xl font-headline font-bold mb-2">أهلاً بك، يا بشمهندس {firstName}</h1>
           <p className="text-muted-foreground">كل دروسك وامتحاناتك هنا، جاهز للتفوق؟</p>
@@ -83,7 +83,7 @@ export default function StudentDashboard() {
                 <p className="opacity-90 max-w-md text-sm leading-relaxed">تصفح مكتبة الكورسات المتاحة واطلب الانضمام لأي كورس بضغطة زر واحدة. بمجرد الطلب سيقوم البشمهندس بتفعيل الكورس لك.</p>
                 <Link href="/courses">
                   <Button className="bg-white text-primary font-bold rounded-xl h-12 px-8 mt-4 hover:bg-white/90">
-                    <Search className="w-4 h-4 ml-2" /> استعرض الكورسات الآن
+                    استعرض الكورسات الآن <Search className="w-4 h-4 mr-2" />
                   </Button>
                 </Link>
               </div>

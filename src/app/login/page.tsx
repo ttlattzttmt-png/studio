@@ -48,19 +48,17 @@ export default function LoginPage() {
 
       const uid = userCredential.user.uid;
 
-      // 2. تحديث تاريخ آخر دخول
+      // 2. تحديث تاريخ آخر دخول (اختياري، لا يعطل الدخول إذا فشل)
       try {
         const studentRef = doc(firestore, 'students', uid);
-        const studentSnap = await getDoc(studentRef);
-        if (studentSnap.exists()) {
-          await setDoc(studentRef, { lastLoginDate: new Date().toISOString() }, { merge: true });
-        }
+        setDoc(studentRef, { lastLoginDate: new Date().toISOString() }, { merge: true });
       } catch (e) {
-        console.warn("Could not update last login date", e);
+        console.warn("Meta update skipped");
       }
 
-      // 3. منطق التحقق والتوجيه
+      // 3. منطق التحقق والتوجيه الفوري
       if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+        // تأمين وثيقة الأدمن إذا كانت مفقودة
         const adminRoleRef = doc(firestore, 'admin_roles', uid);
         const adminRoleSnap = await getDoc(adminRoleRef);
         
@@ -79,7 +77,7 @@ export default function LoginPage() {
         return;
       }
 
-      // التحقق من كونه مسؤول من خلال جدول الصلاحيات بحذر
+      // توجيه الطلاب - نحاول التأكد من الصلاحيات ولكن لا نوقف العملية إذا حدث خطأ صلاحيات
       try {
         const adminDocRef = doc(firestore, 'admin_roles', uid);
         const adminDoc = await getDoc(adminDocRef);
@@ -112,7 +110,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-8 bg-card p-10 rounded-3xl border border-primary/10 shadow-2xl relative overflow-hidden">
+      <div className="w-full max-w-md space-y-8 bg-card p-10 rounded-3xl border border-primary/10 shadow-2xl relative overflow-hidden text-right">
         <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/5 rounded-full blur-3xl" />
         
         <div className="relative text-center">
@@ -125,8 +123,8 @@ export default function LoginPage() {
 
         <form onSubmit={handleLogin} className="space-y-6 relative">
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-sm font-bold flex items-center gap-2">
-              <User className="w-4 h-4 text-primary" /> البريد الإلكتروني
+            <Label htmlFor="email" className="text-sm font-bold flex items-center gap-2 justify-end">
+              البريد الإلكتروني <User className="w-4 h-4 text-primary" />
             </Label>
             <Input 
               id="email" 
@@ -140,8 +138,8 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password" title="كلمة المرور" className="text-sm font-bold flex items-center gap-2">
-              <Lock className="w-4 h-4 text-primary" /> كلمة المرور
+            <Label htmlFor="password" title="كلمة المرور" className="text-sm font-bold flex items-center gap-2 justify-end">
+              كلمة المرور <Lock className="w-4 h-4 text-primary" />
             </Label>
             <Input 
               id="password" 
