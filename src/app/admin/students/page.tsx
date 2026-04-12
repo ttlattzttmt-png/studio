@@ -74,15 +74,15 @@ export default function AdminStudents() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="text-right">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 text-right">
+        <div>
           <h1 className="text-4xl font-headline font-bold">إدارة شؤون الطلاب</h1>
           <p className="text-muted-foreground">تابع ملفات الطلاب، درجاتهم، ونشاطهم التعليمي لحظة بلحظة.</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <Card className="lg:col-span-1 bg-accent/5 border-accent/20 h-fit">
+        <Card className="lg:col-span-1 bg-accent/5 border-accent/20 h-fit text-right">
           <CardHeader className="border-b border-accent/10">
             <CardTitle className="text-sm font-bold flex items-center gap-2 justify-end">
               <AlertCircle className="w-4 h-4 text-accent" /> طلبات تفعيل معلقة ({pendingRequests?.length || 0})
@@ -93,7 +93,7 @@ export default function AdminStudents() {
               <p className="text-xs text-center text-muted-foreground italic py-4">لا توجد طلبات جديدة.</p>
             ) : (
               pendingRequests.map(req => (
-                <div key={req.id} className="p-4 bg-card border border-accent/10 rounded-2xl flex flex-col gap-3 shadow-sm text-right">
+                <div key={req.id} className="p-4 bg-card border border-accent/10 rounded-2xl flex flex-col gap-3 shadow-sm">
                   <div className="space-y-1">
                     <span className="text-[10px] font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full uppercase">طلب جديد</span>
                     <p className="text-xs font-bold leading-tight">{req.courseTitle}</p>
@@ -107,7 +107,7 @@ export default function AdminStudents() {
         </Card>
 
         <Card className="lg:col-span-3 bg-card border-primary/5">
-          <CardHeader className="border-b bg-secondary/5">
+          <CardHeader className="border-b bg-secondary/5 flex justify-end">
             <div className="relative w-full max-w-sm">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input 
