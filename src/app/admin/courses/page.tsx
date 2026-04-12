@@ -56,10 +56,7 @@ export default function ManageCourses() {
   const { data: courses, isLoading } = useCollection(coursesRef);
 
   const handleAddCourse = async () => {
-    if (!firestore || !user || !formData.title) {
-      toast({ variant: "destructive", title: "بيانات ناقصة", description: "يرجى كتابة عنوان الكورس على الأقل." });
-      return;
-    }
+    if (!firestore || !user || !formData.title) return;
     setIsAdding(true);
     try {
       await addDoc(collection(firestore, 'courses'), {
@@ -71,11 +68,10 @@ export default function ManageCourses() {
         createdAt: serverTimestamp(),
         uploadedByAdminUserId: user.uid
       });
-      toast({ title: "تمت الإضافة", description: "تم إنشاء الكورس بنجاح." });
+      toast({ title: "تم النشر", description: "الكورس متاح للطلاب الآن." });
       setFormData({ title: '', description: '', price: '', targetAcademicYear: 'الصف الثالث الثانوي', imageUrl: '' });
-    } catch (e: any) {
+    } catch (e) {
       console.error(e);
-      toast({ variant: "destructive", title: "خطأ", description: "فشل إضافة الكورس." });
     } finally {
       setIsAdding(false);
     }
@@ -93,38 +89,30 @@ export default function ManageCourses() {
         imageUrl: editingCourse.imageUrl || '',
         updatedAt: serverTimestamp()
       });
-      toast({ title: "تم التحديث", description: "تم حفظ التعديلات بنجاح." });
+      toast({ title: "تم التعديل", description: "تم حفظ التغييرات بنجاح." });
       setEditingCourse(null);
     } catch (e) {
       console.error(e);
-      toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث البيانات." });
     }
   };
 
-  const handleDeleteCourse = async (id: string) => {
-    if (!firestore) return;
+  const handleDeleteCourse = async (id: string, title: string) => {
+    if (!firestore || !user) return;
     
-    const confirmDelete = window.confirm('⚠️ تحذير: سيتم حذف هذا الكورس نهائياً من قاعدة البيانات. هل أنت متأكد؟');
+    const confirmDelete = window.confirm(`⚠️ حذف نهائي: هل أنت متأكد من إزالة كورس "${title}"؟`);
     if (!confirmDelete) return;
     
     setIsDeleting(id);
     try {
       const courseRef = doc(firestore, 'courses', id);
       await deleteDoc(courseRef);
-      
-      toast({ 
-        title: "تم الحذف بنجاح", 
-        description: "تمت إزالة الكورس من المنصة بشكل نهائي." 
-      });
+      toast({ title: "تم الحذف بنجاح" });
     } catch (e: any) {
-      console.error("Critical Deletion Error:", e);
-      let errorMsg = "فشل الحذف. تأكد من اتصالك بالإنترنت.";
-      if (e.code === 'permission-denied') errorMsg = "ليس لديك صلاحية لحذف هذا الكورس.";
-      
+      console.error("Deletion Failed:", e);
       toast({ 
         variant: "destructive", 
-        title: "خطأ", 
-        description: errorMsg 
+        title: "خطأ في الحذف", 
+        description: e.message || "تحقق من صلاحيات المسؤول." 
       });
     } finally {
       setIsDeleting(null);
@@ -135,31 +123,31 @@ export default function ManageCourses() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div className="text-right">
           <h1 className="text-4xl font-headline font-bold mb-2">إدارة الكورسات</h1>
-          <p className="text-muted-foreground">تحكم في محتوى المنصة، الأسعار، وصور الغلاف.</p>
+          <p className="text-muted-foreground">أضف شروحات جديدة وتحكم في الأسعار والصور.</p>
         </div>
         
         <Dialog>
           <DialogTrigger asChild>
-            <Button className="h-14 px-8 bg-primary text-primary-foreground font-bold rounded-xl gap-2 text-lg shadow-lg">
+            <Button className="h-14 px-8 bg-primary text-primary-foreground font-bold rounded-2xl gap-2 text-lg shadow-xl">
               <Plus className="w-6 h-6" /> كورس جديد
             </Button>
           </DialogTrigger>
           <DialogContent className="bg-card text-right">
             <DialogHeader><DialogTitle className="text-2xl font-bold text-right">إنشاء كورس جديد</DialogTitle></DialogHeader>
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 py-4 text-right">
               <div className="space-y-2">
                 <Label>عنوان الكورس</Label>
-                <Input className="text-right" placeholder="مثال: فيزياء الفصل الأول" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} />
+                <Input className="text-right" placeholder="مثال: فيزياء الحديثة" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} />
               </div>
               <div className="space-y-2">
                 <Label>وصف مختصر</Label>
-                <Textarea className="text-right" placeholder="اكتب نبذة عن محتوى الكورس..." value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
+                <Textarea className="text-right" placeholder="نبذة عن الكورس..." value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
               </div>
               <div className="space-y-2">
-                <Label>رابط صورة الغلاف</Label>
+                <Label>رابط صورة الغلاف (اختياري)</Label>
                 <div className="relative">
                   <ImageIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input className="pr-10 text-right" placeholder="ألصق رابط الصورة المباشر هنا" value={formData.imageUrl} onChange={(e) => setFormData({...formData, imageUrl: e.target.value})} />
@@ -173,7 +161,7 @@ export default function ManageCourses() {
                 <div className="space-y-2">
                   <Label>السنة الدراسية</Label>
                   <Select value={formData.targetAcademicYear} onValueChange={(v) => setFormData({...formData, targetAcademicYear: v})}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="text-right"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="الصف الأول الثانوي">الصف الأول الثانوي</SelectItem>
                       <SelectItem value="الصف الثاني الثانوي">الصف الثاني الثانوي</SelectItem>
@@ -184,7 +172,7 @@ export default function ManageCourses() {
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={handleAddCourse} disabled={isAdding} className="w-full h-12 bg-primary font-bold">نشر الكورس</Button>
+              <Button onClick={handleAddCourse} disabled={isAdding} className="w-full h-12 bg-primary font-bold rounded-xl shadow-lg">نشر الكورس</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -194,59 +182,59 @@ export default function ManageCourses() {
         {isLoading ? (
           <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>
         ) : !courses || courses.length === 0 ? (
-          <div className="text-center py-20 bg-secondary/5 rounded-3xl border-2 border-dashed">
-            <p className="text-muted-foreground italic">لا توجد كورسات مضافة حالياً.</p>
+          <div className="text-center py-20 bg-secondary/5 rounded-[2rem] border-2 border-dashed border-primary/10">
+            <p className="text-muted-foreground font-bold italic">لا توجد كورسات حالياً.</p>
           </div>
         ) : courses.map((course, i) => (
-          <Card key={course.id} className="bg-card hover:border-primary/20 transition-all group overflow-hidden border-primary/5 shadow-md">
+          <Card key={course.id} className="bg-card hover:border-primary/20 transition-all group overflow-hidden border-primary/5 shadow-xl rounded-3xl">
             <CardContent className="p-0">
               <div className="flex flex-col md:flex-row-reverse text-right">
-                <div className="relative w-full md:w-72 h-52 md:h-auto overflow-hidden bg-secondary">
+                <div className="relative w-full md:w-80 h-56 md:h-auto overflow-hidden bg-secondary">
                   <Image 
                     src={course.imageUrl || PlaceHolderImages[(i % 3) + 1]?.imageUrl || ''} 
                     alt="" 
                     fill 
-                    className="object-cover" 
+                    className="object-cover group-hover:scale-105 transition-transform duration-700" 
                     unoptimized={!!course.imageUrl}
                   />
-                  <div className="absolute top-4 left-4 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-1 rounded">
+                  <div className="absolute top-4 left-4 bg-primary text-primary-foreground text-[10px] font-black px-2 py-1 rounded shadow-lg">
                     {course.targetAcademicYear}
                   </div>
                 </div>
-                <div className="flex-grow p-6">
-                  <div className="flex flex-row-reverse justify-between items-start mb-4 gap-4">
+                <div className="flex-grow p-8">
+                  <div className="flex flex-row-reverse justify-between items-start mb-6 gap-4">
                     <div className="text-right flex-grow">
-                      <h3 className="text-2xl font-bold text-primary mb-1">{course.title}</h3>
-                      <p className="text-muted-foreground line-clamp-2 text-sm">{course.description}</p>
+                      <h3 className="text-2xl font-black text-primary mb-2">{course.title}</h3>
+                      <p className="text-muted-foreground line-clamp-2 text-sm leading-relaxed">{course.description}</p>
                     </div>
                     <div className="text-left shrink-0">
-                      <p className="text-2xl font-black text-accent">{course.price} ج.م</p>
+                      <p className="text-3xl font-black text-accent">{course.price} ج.م</p>
                     </div>
                   </div>
                   
-                  <div className="flex flex-row-reverse flex-wrap gap-3 mt-6">
-                    <Button variant="outline" className="gap-2 border-primary/20 text-primary h-11" onClick={() => setSelectedCourseForContent(course)}>
+                  <div className="flex flex-row-reverse flex-wrap gap-3 mt-8">
+                    <Button variant="outline" className="gap-2 border-primary/20 text-primary h-12 rounded-xl font-bold hover:bg-primary/5" onClick={() => setSelectedCourseForContent(course)}>
                       <Video className="w-4 h-4" /> إدارة المحتوى
                     </Button>
                     
                     <Dialog open={!!editingCourse && editingCourse.id === course.id} onOpenChange={(o) => !o && setEditingCourse(null)}>
                       <DialogTrigger asChild>
-                        <Button variant="outline" className="gap-2 border-primary/20 text-primary h-11" onClick={() => setEditingCourse(course)}>
+                        <Button variant="outline" className="gap-2 border-primary/20 text-primary h-12 rounded-xl font-bold" onClick={() => setEditingCourse(course)}>
                           <Edit3 className="w-4 h-4" /> تعديل
                         </Button>
                       </DialogTrigger>
                       <DialogContent className="bg-card text-right">
                         <DialogHeader><DialogTitle className="text-right">تعديل كورس: {course.title}</DialogTitle></DialogHeader>
                         {editingCourse && (
-                          <div className="space-y-4 py-4">
+                          <div className="space-y-4 py-4 text-right">
                             <Input className="text-right" value={editingCourse.title} onChange={(e) => setEditingCourse({...editingCourse, title: e.target.value})} placeholder="العنوان" />
                             <Textarea className="text-right" value={editingCourse.description} onChange={(e) => setEditingCourse({...editingCourse, description: e.target.value})} placeholder="الوصف" />
                             <div className="space-y-2">
-                              <Label className="text-xs font-bold">رابط صورة الغلاف</Label>
-                              <Input className="text-right" value={editingCourse.imageUrl || ''} onChange={(e) => setEditingCourse({...editingCourse, imageUrl: e.target.value})} placeholder="رابط الصورة المباشر" />
+                              <Label className="text-xs font-bold">رابط الصورة</Label>
+                              <Input className="text-right" value={editingCourse.imageUrl || ''} onChange={(e) => setEditingCourse({...editingCourse, imageUrl: e.target.value})} placeholder="رابط مباشر للصورة" />
                             </div>
                             <Input className="text-right" type="number" value={editingCourse.price} onChange={(e) => setEditingCourse({...editingCourse, price: e.target.value})} placeholder="السعر" />
-                            <Button onClick={handleUpdateCourse} className="w-full bg-primary font-bold">حفظ التعديلات</Button>
+                            <Button onClick={handleUpdateCourse} className="w-full bg-primary font-bold h-12 rounded-xl">حفظ التعديلات</Button>
                           </div>
                         )}
                       </DialogContent>
@@ -254,9 +242,9 @@ export default function ManageCourses() {
                     
                     <Button 
                       variant="ghost" 
-                      className="gap-2 text-destructive h-11 hover:bg-destructive/10 font-bold" 
+                      className="gap-2 text-destructive h-12 hover:bg-destructive/10 font-bold rounded-xl" 
                       disabled={isDeleting === course.id}
-                      onClick={() => handleDeleteCourse(course.id)}
+                      onClick={() => handleDeleteCourse(course.id, course.title)}
                     >
                       {isDeleting === course.id ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -274,9 +262,9 @@ export default function ManageCourses() {
       </div>
 
       <Dialog open={!!selectedCourseForContent} onOpenChange={() => setSelectedCourseForContent(null)}>
-        <DialogContent className="max-w-4xl bg-card border-primary/20 max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl bg-card border-primary/20 max-h-[90vh] overflow-y-auto rounded-[2.5rem]">
           <DialogHeader className="border-b pb-4">
-            <DialogTitle className="text-2xl font-bold flex flex-row-reverse items-center gap-2">
+            <DialogTitle className="text-2xl font-black flex flex-row-reverse items-center gap-2 justify-start">
               <Video className="w-6 h-6 text-primary" /> محتوى كورس: {selectedCourseForContent?.title}
             </DialogTitle>
           </DialogHeader>
@@ -317,7 +305,7 @@ function CourseContentManager({ course }: { course: any }) {
         createdAt: serverTimestamp(),
         course_uploadedByAdminUserId: user.uid
       });
-      toast({ title: "تمت الإضافة", description: "تمت إضافة الفيديو بنجاح." });
+      toast({ title: "تمت إضافة الفيديو" });
       setNewVideo({ title: '', link: '', order: '' });
     } catch (e) {
       console.error(e);
@@ -330,21 +318,21 @@ function CourseContentManager({ course }: { course: any }) {
     if (!firestore || !course) return;
     try {
       await deleteDoc(doc(firestore, 'courses', course.id, 'content', id));
-      toast({ title: "تم الحذف", description: "تم حذف الفيديو من الكورس." });
+      toast({ title: "تم حذف المحتوى" });
     } catch (e) { console.error(e); }
   };
 
   return (
     <div className="space-y-6 text-right">
-      <Card className="bg-secondary/20 border-dashed">
+      <Card className="bg-secondary/20 border-dashed border-primary/20 rounded-2xl overflow-hidden">
         <CardContent className="p-6">
-          <h4 className="font-bold mb-4 flex flex-row-reverse items-center gap-2"><Plus className="w-4 h-4" /> إضافة فيديو جديد</h4>
+          <h4 className="font-bold mb-4 flex flex-row-reverse items-center gap-2 justify-start"><Plus className="w-4 h-4 text-primary" /> إضافة فيديو جديد</h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Input className="text-right" placeholder="عنوان الفيديو" value={newVideo.title} onChange={(e) => setNewVideo({...newVideo, title: e.target.value})} />
-            <Input className="text-right" placeholder="رابط يوتيوب" value={newVideo.link} onChange={(e) => setNewVideo({...newVideo, link: e.target.value})} />
+            <Input className="text-right bg-background" placeholder="عنوان الفيديو" value={newVideo.title} onChange={(e) => setNewVideo({...newVideo, title: e.target.value})} />
+            <Input className="text-right bg-background" placeholder="رابط يوتيوب" value={newVideo.link} onChange={(e) => setNewVideo({...newVideo, link: e.target.value})} />
             <div className="flex gap-2">
-              <Input type="number" placeholder="الترتيب" value={newVideo.order} onChange={(e) => setNewVideo({...newVideo, order: e.target.value})} className="w-24 text-center" />
-              <Button onClick={handleAddVideo} disabled={isAdding} className="bg-primary flex-grow font-bold">
+              <Input type="number" placeholder="الترتيب" value={newVideo.order} onChange={(e) => setNewVideo({...newVideo, order: e.target.value})} className="w-24 text-center bg-background" />
+              <Button onClick={handleAddVideo} disabled={isAdding} className="bg-primary flex-grow font-bold rounded-xl">
                 {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : "إضافة"}
               </Button>
             </div>
@@ -354,16 +342,16 @@ function CourseContentManager({ course }: { course: any }) {
 
       <div className="space-y-3">
         {isLoading ? <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /> : 
-        !contents || contents.length === 0 ? <p className="text-center text-muted-foreground italic py-10">لا يوجد محتوى في هذا الكورس حالياً.</p> :
+        !contents || contents.length === 0 ? <p className="text-center text-muted-foreground italic py-10">لا توجد فيديوهات في هذا الكورس بعد.</p> :
         contents.map((item) => (
-          <div key={item.id} className="flex flex-row-reverse items-center justify-between p-4 bg-card border rounded-xl group hover:border-primary/30 transition-colors">
+          <div key={item.id} className="flex flex-row-reverse items-center justify-between p-5 bg-card border border-primary/5 rounded-2xl group hover:border-primary/30 transition-all shadow-sm">
             <div className="flex flex-row-reverse items-center gap-4">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black">
                 {item.orderIndex}
               </div>
               <div className="text-right">
-                <p className="font-bold">{item.title}</p>
-                <p className="text-xs text-muted-foreground flex flex-row-reverse items-center gap-1"><Youtube className="w-3 h-3"/> {item.youtubeLink}</p>
+                <p className="font-bold text-foreground">{item.title}</p>
+                <p className="text-[10px] text-muted-foreground flex flex-row-reverse items-center gap-1"><Youtube className="w-3 h-3 text-red-500"/> {item.youtubeLink}</p>
               </div>
             </div>
             <Button variant="ghost" size="icon" className="text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleDeleteContent(item.id)}>
