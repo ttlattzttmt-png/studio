@@ -34,7 +34,7 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
   const [open, setOpen] = useState(false);
 
   const studentLinks = [
-    { label: 'لوحة التحكم', icon: <LayoutDashboard className="w-5 h-5" />, href: '/student' },
+    { label: 'لوحة التحكم العامة', icon: <LayoutDashboard className="w-5 h-5" />, href: '/student' },
     { label: 'كورساتي المفعلة', icon: <Video className="w-5 h-5" />, href: '/student/dashboard' },
     { label: 'استكشف الكورسات', icon: <Search className="w-5 h-5" />, href: '/courses' },
     { label: 'سجل درجاتي', icon: <ClipboardList className="w-5 h-5" />, href: '/student/exams' },
