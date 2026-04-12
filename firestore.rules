@@ -8,7 +8,7 @@ service cloud.firestore {
     }
 
     // دالة التحقق من كونه مسؤول (Admin)
-    // نعتمد على البريد الإلكتروني بشكل أساسي لمنع الحلقات المفرغة
+    // نعتمد على البريد الإلكتروني بشكل أساسي لكسر الحلقة المفرغة
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == "admin@al-bashmohandes.com" ||
@@ -29,7 +29,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // سجلات الأدمن - تم تعديلها لمنع التبعية الدائرية
+    // سجلات الأدمن
     match /admin_roles/{uid} {
       allow read: if isSignedIn();
       allow write: if isSignedIn() && (request.auth.token.email == "admin@al-bashmohandes.com" || request.auth.uid == uid);
@@ -72,7 +72,7 @@ service cloud.firestore {
       }
     }
 
-    // --- قواعد الـ Collection Group ---
+    // --- قواعد الـ Collection Group لضمان عمل طلبات التفعيل لحظياً ---
     
     match /{path=**}/enrollments/{id} {
       allow read, list: if isAdmin();

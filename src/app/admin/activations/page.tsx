@@ -15,10 +15,9 @@ import {
   Search,
   RefreshCw,
   ShieldAlert,
-  AlertTriangle
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collectionGroup, doc, updateDoc, query, where } from 'firebase/firestore';
+import { collectionGroup, doc, updateDoc, query } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 
@@ -28,22 +27,20 @@ export default function PendingActivationsPage() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
 
-  // استعلام متزامن لجلب كافة طلبات التفعيل المعلقة
+  // استراتيجية جديدة: جلب كافة الاشتراكات والتصفية برمجياً لتجنب خطأ الفهارس (Indexes)
   const enrollmentsRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    return query(
-      collectionGroup(firestore, 'enrollments'), 
-      where('status', '==', 'pending')
-    );
+    return collectionGroup(firestore, 'enrollments');
   }, [firestore, user]);
 
-  const { data: pendingRequests, isLoading, error } = useCollection(enrollmentsRef);
+  const { data: allEnrollments, isLoading, error } = useCollection(enrollmentsRef);
 
-  // تصفية وترتيب الطلبات
+  // تصفية الطلبات المعلقة والبحث والترتيب
   const filteredRequests = useMemo(() => {
-    if (!pendingRequests) return [];
+    if (!allEnrollments) return [];
     
-    return pendingRequests
+    return allEnrollments
+      .filter(req => req.status === 'pending') // تصفية المعلق فقط برمجياً
       .filter(req => {
         const searchLower = searchTerm.toLowerCase();
         const courseTitle = (req.courseTitle || '').toLowerCase();
@@ -53,9 +50,9 @@ export default function PendingActivationsPage() {
       .sort((a, b) => {
         const dateA = a.enrollmentDate ? new Date(a.enrollmentDate).getTime() : 0;
         const dateB = b.enrollmentDate ? new Date(b.enrollmentDate).getTime() : 0;
-        return dateB - dateA;
+        return dateB - dateA; // الأحدث أولاً
       });
-  }, [pendingRequests, searchTerm]);
+  }, [allEnrollments, searchTerm]);
 
   const handleActivate = async (enrollment: any) => {
     if (!firestore) return;
@@ -82,12 +79,12 @@ export default function PendingActivationsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="text-right">
           <h1 className="text-4xl font-headline font-bold mb-2">طلبات التفعيل المعلقة</h1>
-          <p className="text-muted-foreground">راجع بيانات الطلاب وقم بتفعيل حساباتهم لحظياً من مكان واحد.</p>
+          <p className="text-muted-foreground">تظهر الطلبات هنا لحظياً بمجرد ضغط الطالب على "طلب انضمام".</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="bg-accent/10 text-accent px-6 py-3 rounded-2xl border border-accent/20 flex items-center gap-3">
             <RefreshCw className="w-5 h-5 animate-pulse" />
-            <span className="font-bold text-sm">تزامن مباشر: {pendingRequests?.length || 0} طلب</span>
+            <span className="font-bold text-sm">تزامن مباشر: {filteredRequests.length} طلب</span>
           </div>
         </div>
       </div>
@@ -96,15 +93,13 @@ export default function PendingActivationsPage() {
         <Card className="p-10 border-destructive/20 bg-destructive/5 rounded-[2rem] text-center space-y-6">
           <ShieldAlert className="w-16 h-16 mx-auto text-destructive opacity-50" />
           <div className="space-y-2">
-            <h3 className="text-2xl font-bold text-destructive">مشكلة في الوصول للبيانات</h3>
+            <h3 className="text-2xl font-bold text-destructive">مشكلة في الاتصال</h3>
             <p className="text-muted-foreground max-w-lg mx-auto">
-              {error.message.includes('permission-denied') 
-                ? "عذراً، لا تملك صلاحيات كافية لعرض هذه الصفحة. تأكد أنك مسجل دخول بحساب المسؤول."
-                : "حدث خطأ غير متوقع أثناء جلب البيانات. قد يكون السبب نقص في الفهارس البرمجية."}
+              عذراً، فشل جلب البيانات. يرجى التأكد من تسجيل دخولك كمسؤول وأن الإنترنت مستقر.
             </p>
           </div>
           <Button onClick={() => window.location.reload()} variant="outline" className="border-destructive/30 hover:bg-destructive/10">
-            إعادة محاولة الاتصال
+            تحديث الصفحة
           </Button>
         </Card>
       ) : (
@@ -153,7 +148,7 @@ export default function PendingActivationsPage() {
 function RequestCard({ req, onActivate }: { req: any, onActivate: (r: any) => void }) {
   const firestore = useFirestore();
   
-  // جلب بيانات الطالب الأصلية لحظياً للتأكد من هويته
+  // جلب بيانات الطالب الأصلية لحظياً لضمان الدقة
   const studentRef = useMemoFirebase(() => 
     req.studentId ? doc(firestore, 'students', req.studentId) : null, 
     [firestore, req.studentId]
@@ -166,7 +161,7 @@ function RequestCard({ req, onActivate }: { req: any, onActivate: (r: any) => vo
       
       <CardHeader className="pb-4 border-b border-dashed border-accent/10 bg-secondary/5">
         <div className="flex justify-between items-center mb-3">
-          <Badge className="bg-accent/10 text-accent border-accent/20 hover:bg-accent/20">طلب جديد</Badge>
+          <Badge className="bg-accent/10 text-accent border-accent/20">طلب جديد</Badge>
           <span className="text-[10px] text-muted-foreground font-mono flex items-center gap-1">
             <Clock className="w-3 h-3" /> {req.enrollmentDate ? new Date(req.enrollmentDate).toLocaleDateString('ar-EG') : '---'}
           </span>
