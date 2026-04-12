@@ -7,12 +7,9 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // دالة التحقق من كونه مسؤول (Admin) - التحقق المباشر بالبريد أو السجل
+    // دالة التحقق من كونه مسؤول (Admin) - التحقق المباشر بالبريد
     function isAdmin() {
-      return isSignedIn() && (
-        request.auth.token.email == "admin@al-bashmohandes.com" ||
-        exists(/databases/$(database)/documents/admin_roles/$(request.auth.uid))
-      );
+      return isSignedIn() && request.auth.token.email == "admin@al-bashmohandes.com";
     }
 
     // دالة التحقق من ملكية البيانات (للطالب)
@@ -31,19 +28,19 @@ service cloud.firestore {
     // سجلات الأدمن
     match /admin_roles/{uid} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && (request.auth.token.email == "admin@al-bashmohandes.com" || request.auth.uid == uid);
+      allow write: if isAdmin() || (isSignedIn() && request.auth.token.email == "admin@al-bashmohandes.com");
     }
     
     match /admin_users/{uid} {
       allow read, write: if isAdmin() || isOwner(uid);
     }
 
-    // الكورسات - السماح الكامل للأدمن بكافة العمليات بما فيها الحذف
+    // الكورسات - السماح الكامل للأدمن بكافة العمليات بما فيها الحذف الفعلي
     match /courses/{courseId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
 
-      // السماح بالحذف والتحكم في كافة المحتويات الفرعية (فيديوهات، امتحانات)
+      // السماح بالحذف والتحكم في كافة المحتويات الفرعية
       match /{allSubcollections=**} {
         allow read: if isSignedIn();
         allow create, update, delete: if isAdmin();
@@ -67,9 +64,9 @@ service cloud.firestore {
       }
     }
 
-    // قواعد الـ Collection Group - لتمكين الأدمن من رؤية كافة البيانات عبر الطلاب
+    // قواعد الـ Collection Group - للسماح للأدمن بجلب البيانات عبر الطلاب
     match /{path=**}/enrollments/{id} {
-      allow read, list: if isAdmin();
+      allow read, list: if isAdmin() || (isSignedIn() && path.status == 'active');
     }
     
     match /{path=**}/quiz_attempts/{id} {
