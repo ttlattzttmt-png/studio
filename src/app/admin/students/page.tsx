@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -7,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Dialog, 
   DialogContent, 
@@ -28,7 +30,7 @@ import {
   Clock,
   BookOpen
 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, collectionGroup, doc, updateDoc, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
@@ -82,31 +84,33 @@ export default function AdminStudents() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <Card className="lg:col-span-1 bg-accent/5 border-accent/20 h-fit text-right">
-          <CardHeader className="border-b border-accent/10">
+        {/* قسم طلبات التفعيل مع التعديلات الجديدة */}
+        <Card className="lg:col-span-1 bg-accent/5 border-accent/20 h-[80vh] flex flex-col text-right overflow-hidden shadow-xl">
+          <CardHeader className="border-b border-accent/10 shrink-0 bg-accent/10">
             <CardTitle className="text-sm font-bold flex items-center gap-2 justify-end">
               <AlertCircle className="w-4 h-4 text-accent" /> طلبات تفعيل معلقة ({pendingRequests?.length || 0})
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 space-y-3">
-            {!pendingRequests || pendingRequests.length === 0 ? (
-              <p className="text-xs text-center text-muted-foreground italic py-4">لا توجد طلبات جديدة.</p>
-            ) : (
-              pendingRequests.map(req => (
-                <div key={req.id} className="p-4 bg-card border border-accent/10 rounded-2xl flex flex-col gap-3 shadow-sm">
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full uppercase">طلب جديد</span>
-                    <p className="text-xs font-bold leading-tight">{req.courseTitle}</p>
-                    <p className="text-[10px] text-muted-foreground">ID: {req.studentId.substring(0, 8)}...</p>
+          <CardContent className="p-0 flex-grow">
+            <ScrollArea className="h-full">
+              <div className="p-4 space-y-4">
+                {!pendingRequests || pendingRequests.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-muted-foreground opacity-50 italic">
+                    <CheckCircle2 className="w-10 h-10 mb-2" />
+                    <p className="text-xs">لا توجد طلبات جديدة حالياً.</p>
                   </div>
-                  <Button size="sm" onClick={() => handleActivateEnrollment(req)} className="w-full h-9 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl text-xs">تفعيل الكورس</Button>
-                </div>
-              ))
-            )}
+                ) : (
+                  pendingRequests.map(req => (
+                    <RequestItem key={req.id} req={req} onActivate={handleActivateEnrollment} />
+                  ))
+                )}
+              </div>
+            </ScrollArea>
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-3 bg-card border-primary/5">
+        {/* جدول الطلاب العام */}
+        <Card className="lg:col-span-3 bg-card border-primary/5 shadow-sm">
           <CardHeader className="border-b bg-secondary/5 flex justify-end">
             <div className="relative w-full max-w-sm">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -192,6 +196,54 @@ export default function AdminStudents() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/**
+ * مكون فرعي لعرض تفاصيل الطالب داخل طلب التفعيل
+ */
+function RequestItem({ req, onActivate }: { req: any, onActivate: (r: any) => void }) {
+  const firestore = useFirestore();
+  const studentRef = useMemoFirebase(() => req.studentId ? doc(firestore, 'students', req.studentId) : null, [firestore, req.studentId]);
+  const { data: student, isLoading } = useDoc(studentRef);
+
+  return (
+    <div className="p-4 bg-card border border-accent/20 rounded-2xl flex flex-col gap-3 shadow-md hover:border-accent/50 transition-colors animate-in zoom-in-95 duration-300">
+      <div className="space-y-2">
+        <div className="flex justify-between items-center border-b border-dashed border-accent/10 pb-2">
+          <Badge variant="outline" className="text-[10px] font-bold text-accent border-accent/30">طلب جديد</Badge>
+          <span className="text-[10px] text-muted-foreground">{new Date(req.enrollmentDate).toLocaleDateString('ar-EG')}</span>
+        </div>
+        
+        <div className="space-y-1">
+          <p className="text-[10px] text-muted-foreground font-bold">اسم الكورس:</p>
+          <p className="text-xs font-black leading-tight text-foreground">{req.courseTitle}</p>
+        </div>
+
+        <div className="pt-2 mt-2 bg-secondary/20 p-3 rounded-xl space-y-2">
+          <div className="flex items-center gap-2 text-right">
+            <UserIcon className="w-3 h-3 text-primary" />
+            <p className="text-xs font-bold text-primary truncate">
+              {isLoading ? 'جاري التحميل...' : student?.name || 'مستخدم مجهول'}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-right">
+            <Phone className="w-3 h-3 text-muted-foreground" />
+            <p className="text-[10px] font-mono text-muted-foreground" dir="ltr">
+              {isLoading ? '...' : student?.studentPhoneNumber || '---'}
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <Button 
+        size="sm" 
+        onClick={() => onActivate(req)} 
+        className="w-full h-10 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl text-xs shadow-lg shadow-accent/10"
+      >
+        تفعيل الكورس الآن
+      </Button>
     </div>
   );
 }
