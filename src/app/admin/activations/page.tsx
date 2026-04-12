@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +14,8 @@ import {
   AlertCircle,
   Clock,
   BookOpen,
-  Search
+  Search,
+  RefreshCw
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collectionGroup, doc, updateDoc, query, where } from 'firebase/firestore';
@@ -30,8 +31,6 @@ export default function PendingActivationsPage() {
   // جلب كافة طلبات التفعيل المعلقة من كل الطلاب بشكل لحظي
   const enrollmentsRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    // استخدام collectionGroup للبحث في كافة المجموعات الفرعية التي تسمى enrollments
-    // تمت إزالة orderBy مؤقتاً لضمان عدم حدوث خطأ Index وحتى يعمل الاستعلام فوراً
     return query(
       collectionGroup(firestore, 'enrollments'), 
       where('status', '==', 'pending')
@@ -40,10 +39,27 @@ export default function PendingActivationsPage() {
 
   const { data: pendingRequests, isLoading, error } = useCollection(enrollmentsRef);
 
+  // ترتيب الطلبات برمجياً (الأحدث أولاً) وتصفيتها حسب البحث
+  const filteredRequests = useMemo(() => {
+    if (!pendingRequests) return [];
+    
+    return pendingRequests
+      .filter(req => {
+        const searchLower = searchTerm.toLowerCase();
+        const courseTitle = (req.courseTitle || '').toLowerCase();
+        const studentId = (req.studentId || '').toLowerCase();
+        return courseTitle.includes(searchLower) || studentId.includes(searchLower);
+      })
+      .sort((a, b) => {
+        const dateA = a.enrollmentDate ? new Date(a.enrollmentDate).getTime() : 0;
+        const dateB = b.enrollmentDate ? new Date(b.enrollmentDate).getTime() : 0;
+        return dateB - dateA;
+      });
+  }, [pendingRequests, searchTerm]);
+
   const handleActivate = async (enrollment: any) => {
     if (!firestore) return;
     try {
-      // تحديث حالة الاشتراك في مجلد الطالب الأصلي
       const enRef = doc(firestore, 'students', enrollment.studentId, 'enrollments', enrollment.id);
       await updateDoc(enRef, { 
         status: 'active', 
@@ -59,11 +75,6 @@ export default function PendingActivationsPage() {
     }
   };
 
-  const filteredRequests = pendingRequests?.filter(req => 
-    req.courseTitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    req.studentId?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   if (isUserLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
 
   return (
@@ -71,27 +82,30 @@ export default function PendingActivationsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="text-right">
           <h1 className="text-4xl font-headline font-bold mb-2">طلبات التفعيل المعلقة</h1>
-          <p className="text-muted-foreground">راجع بيانات الطلاب الذين طلبوا الانضمام للكورسات وقم بتفعيل حساباتهم.</p>
+          <p className="text-muted-foreground">راجع بيانات الطلاب وقم بتفعيل حساباتهم لحظياً.</p>
         </div>
-        <div className="bg-accent/10 text-accent px-6 py-3 rounded-2xl border border-accent/20 flex items-center gap-3">
-          <AlertCircle className="w-5 h-5" />
-          <span className="font-bold">إجمالي الطلبات: {pendingRequests?.length || 0}</span>
+        <div className="flex items-center gap-3">
+          <div className="bg-accent/10 text-accent px-6 py-3 rounded-2xl border border-accent/20 flex items-center gap-3">
+            <RefreshCw className="w-5 h-5 animate-pulse" />
+            <span className="font-bold text-sm">تزامن مباشر: {pendingRequests?.length || 0} طلب</span>
+          </div>
         </div>
       </div>
 
       {error && (
-        <div className="p-4 bg-destructive/10 text-destructive rounded-xl border border-destructive/20 text-center font-bold">
-          حدث خطأ أثناء جلب البيانات. يرجى التأكد من إعدادات الفايرستور.
+        <div className="p-6 bg-destructive/10 text-destructive rounded-2xl border border-destructive/20 text-center font-bold flex flex-col items-center gap-2">
+          <AlertCircle className="w-8 h-8" />
+          <p>عذراً، حدث خطأ أثناء الاتصال بـ Firestore. يرجى مراجعة إعدادات الأمان.</p>
         </div>
       )}
 
-      <Card className="bg-card border-primary/5 shadow-xl overflow-hidden">
+      <Card className="bg-card border-primary/5 shadow-xl overflow-hidden rounded-[2rem]">
         <CardHeader className="border-b bg-secondary/5 p-6">
           <div className="relative w-full max-w-md mr-auto">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input 
-              placeholder="البحث باسم الكورس أو معرف الطالب..." 
-              className="pr-10 bg-background border-primary/10 text-right"
+              placeholder="ابحث باسم الكورس أو معرف الطالب..." 
+              className="pr-10 bg-background border-primary/10 text-right h-12 rounded-xl"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -103,9 +117,9 @@ export default function PendingActivationsPage() {
               {isLoading ? (
                 <div className="flex flex-col items-center justify-center py-40 gap-4">
                   <Loader2 className="w-12 h-12 animate-spin text-primary" />
-                  <p className="font-bold text-muted-foreground italic">جاري جلب الطلبات والبيانات...</p>
+                  <p className="font-bold text-muted-foreground italic">جاري جلب الطلبات المتزامنة...</p>
                 </div>
-              ) : !filteredRequests || filteredRequests.length === 0 ? (
+              ) : filteredRequests.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-40 text-muted-foreground opacity-30 italic">
                   <CheckCircle2 className="w-20 h-20 mb-4" />
                   <p className="text-xl">لا توجد طلبات تفعيل معلقة حالياً.</p>
@@ -130,6 +144,7 @@ export default function PendingActivationsPage() {
  */
 function RequestCard({ req, onActivate }: { req: any, onActivate: (r: any) => void }) {
   const firestore = useFirestore();
+  
   // جلب وثيقة الطالب الأصلية للتأكد من الاسم والرقم بدقة
   const studentRef = useMemoFirebase(() => 
     req.studentId ? doc(firestore, 'students', req.studentId) : null, 
@@ -138,7 +153,7 @@ function RequestCard({ req, onActivate }: { req: any, onActivate: (r: any) => vo
   const { data: student, isLoading: isStudentLoading } = useDoc(studentRef);
 
   return (
-    <Card className="bg-background border-accent/20 hover:border-accent/50 transition-all shadow-md group text-right">
+    <Card className="bg-background border-accent/20 hover:border-accent/50 transition-all shadow-md group text-right rounded-2xl overflow-hidden">
       <CardHeader className="pb-3 border-b border-dashed border-accent/10">
         <div className="flex justify-between items-center mb-2">
           <Badge variant="outline" className="text-[10px] font-bold text-accent border-accent/30 bg-accent/5">طلب اشتراك جديد</Badge>
