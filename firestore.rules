@@ -8,6 +8,7 @@ service cloud.firestore {
     }
 
     // دالة التحقق من كونه مسؤول (Admin)
+    // نتحقق من البريد المخصص أو وجود سجل في admin_roles
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == "admin@al-bashmohandes.com" ||
@@ -20,15 +21,15 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // --- القواعد ---
+    // --- القواعد العامة ---
 
-    // الإشعارات
+    // الإشعارات: الكل يقرأ، الأدمن يكتب
     match /notifications/{id} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // المستخدمين والمسؤولين
+    // سجلات الأدمن
     match /admin_roles/{uid} {
       allow read: if isSignedIn();
       allow write: if isAdmin() || (isSignedIn() && request.auth.token.email == "admin@al-bashmohandes.com");
@@ -37,7 +38,7 @@ service cloud.firestore {
       allow read, write: if isAdmin() || isOwner(uid);
     }
 
-    // الكورسات: عامة للقراءة، خاصة للأدمن للكتابة
+    // الكورسات ومحتوياتها
     match /courses/{courseId} {
       allow read: if true;
       allow write: if isAdmin();
@@ -53,8 +54,14 @@ service cloud.firestore {
       }
     }
 
-    // بيانات الطلاب واشتراكاتهم: الطالب يملك صلاحية كاملة على مجلده الخاص
-    // هذا يضمن أن الطالب يمكنه "طلب انضمام" (إنشاء سجل اشتراك) دون أخطاء Permissions
+    // الأكواد: الأدمن يتحكم بالكل
+    match /access_codes/{id} {
+      allow read, write: if isAdmin();
+      // السماح للطالب بتحديث كود واحد عند استخدامه (إذا قررت تفعيل نظام الأكواد مستقبلاً)
+      allow update: if isSignedIn();
+    }
+
+    // بيانات الطلاب (Path-based ownership)
     match /students/{studentId} {
       allow read: if isOwner(studentId) || isAdmin();
       allow write: if isOwner(studentId) || isAdmin();
@@ -65,13 +72,20 @@ service cloud.firestore {
       }
     }
 
-    // السماح للأدمن بالوصول لكافة الاشتراكات عبر Collection Group
+    // --- قواعد الـ Collection Group (ضرورية لصفحات الأدمن المتزامنة) ---
+    
+    // السماح للأدمن بقراءة كافة الاشتراكات من كل الطلاب
     match /{path=**}/enrollments/{id} {
-      allow read, list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
+      allow read, list: if isAdmin();
     }
     
+    // السماح للأدمن بقراءة كافة محاولات الامتحانات من كل الطلاب
     match /{path=**}/quiz_attempts/{id} {
-      allow read, list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
+      allow read, list: if isAdmin();
+    }
+
+    match /{path=**}/video_progress/{id} {
+      allow read, list: if isAdmin();
     }
   }
 }
