@@ -8,15 +8,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ShieldCheck, Lock, User, Loader2 } from 'lucide-react';
 import { useFirebase } from '@/firebase';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { auth, firestore } = useFirebase();
+  const { auth } = useFirebase();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -24,65 +23,36 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth || !firestore) return;
+    if (!auth) return;
     
     setIsLoading(true);
     try {
-      let userCredential;
-      
-      // 1. محاولة تسجيل الدخول عبر Auth
-      try {
-        userCredential = await signInWithEmailAndPassword(auth, email, password);
-      } catch (authError: any) {
-        // حالة خاصة للأدمن لأول مرة فقط
-        if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase() && 
-           (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential')) {
-          userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        } else {
-          throw authError; // توقف هنا لو البيانات غلط فعلاً
-        }
-      }
-
-      const uid = userCredential.user.uid;
+      // 1. تسجيل الدخول الأساسي
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const userEmail = userCredential.user.email?.toLowerCase();
 
-      // 2. تحديث بيانات الدخول في الخلفية (اختياري)
-      setDoc(doc(firestore, 'students', uid), { lastLoginDate: new Date().toISOString() }, { merge: true }).catch(() => {});
-
-      // 3. التوجيه الذكي بناءً على البريد الإلكتروني (أسرع وأضمن من فحص الصلاحيات المعقد)
+      // 2. التوجيه المباشر والذكي بناءً على البريد (أضمن وسيلة لتجنب أخطاء الصلاحيات)
       if (userEmail === ADMIN_EMAIL.toLowerCase()) {
-        // تأمين وثيقة الأدمن إذا كانت مفقودة
-        const adminRoleRef = doc(firestore, 'admin_roles', uid);
-        const adminRoleSnap = await getDoc(adminRoleRef).catch(() => null);
-        
-        if (!adminRoleSnap?.exists()) {
-          await setDoc(adminRoleRef, { role: 'admin', createdAt: serverTimestamp() });
-          await setDoc(doc(firestore, 'admin_users', uid), {
-            id: uid,
-            name: 'المشرف العام',
-            email: userEmail,
-            registrationDate: new Date().toISOString()
-          });
-        }
-        
         toast({ title: "مرحباً بك يا بشمهندس", description: "جاري فتح لوحة التحكم..." });
         router.push('/admin');
       } else {
-        // أي مستخدم آخر هو طالب
         toast({ title: "تم الدخول بنجاح", description: "مرحباً بك في منصتك التعليمية." });
         router.push('/student');
       }
 
     } catch (error: any) {
       console.error("Login error:", error);
-      let errorMessage = "يرجى التأكد من البيانات والمحاولة مرة أخرى.";
-      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') errorMessage = "بيانات الدخول غير صحيحة.";
-      if (error.code === 'auth/user-not-found') errorMessage = "هذا الحساب غير موجود.";
-      if (error.code === 'auth/too-many-requests') errorMessage = "تم حظر الدخول مؤقتاً بسبب محاولات كثيرة خاطئة.";
+      let errorMessage = "بيانات الدخول غير صحيحة، يرجى التأكد والمحاولة مرة أخرى.";
+      
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        errorMessage = "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = "تم حظر الدخول مؤقتاً بسبب محاولات كثيرة خاطئة.";
+      }
       
       toast({
         variant: "destructive",
-        title: "خطأ في الدخول",
+        title: "فشل الدخول",
         description: errorMessage
       });
     } finally {

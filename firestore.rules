@@ -7,29 +7,24 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // دالة التحقق من كونه المسؤول المالك (عبر البريد الإلكتروني) - الأولوية المطلقة
+    // دالة التحقق من كونه المسؤول المالك (عبر البريد الإلكتروني)
     function isOwnerAdmin() {
       return isSignedIn() && request.auth.token.email == "admin@al-bashmohandes.com";
     }
 
-    // دالة التحقق من صلاحيات المسؤول عبر قاعدة البيانات
-    function hasAdminRole() {
-      return isSignedIn() && exists(/databases/$(database)/documents/admin_roles/$(request.auth.uid));
-    }
-
-    // --- القاعدة الذهبية: المسؤول له صلاحيات مطلقة وشاملة في كل مكان ---
+    // --- القاعدة الذهبية: المسؤول له صلاحيات مطلقة وشاملة ---
     match /{allPaths=**} {
-      allow read, write, delete: if isOwnerAdmin() || hasAdminRole();
+      allow read, write, delete: if isOwnerAdmin();
     }
 
-    // السماح للمستخدم برؤية سجل دوره الخاص فقط في admin_roles (ضروري لعملية الدخول)
-    match /admin_roles/{uid} {
-      allow read: if isSignedIn() && request.auth.uid == uid;
+    // --- قواعد عامة للجميع ---
+    
+    // الإشعارات - متاحة للجميع للقراءة (لضمان عدم حدوث ايرور للطلاب)
+    match /notifications/{id} {
+      allow read, list: if true;
     }
 
-    // --- قواعد مخصصة لضمان عمل المنصة للطلاب ---
-
-    // الكورسات متاحة للقراءة للجميع
+    // الكورسات - متاحة للقراءة للجميع لتصفح المكتبة
     match /courses/{courseId} {
       allow read: if true;
       
@@ -38,21 +33,7 @@ service cloud.firestore {
       }
     }
 
-    // الإشعارات - السماح بالبحث والقراءة لجميع الطلاب المسجلين
-    match /notifications/{notificationId} {
-      allow read, list: if isSignedIn();
-    }
-
-    // دعم استعلام المجموعات (Collection Group Queries) للمسؤول
-    match /{path=**}/enrollments/{id} {
-      allow read, list: if isOwnerAdmin() || hasAdminRole();
-    }
-    
-    match /{path=**}/quiz_attempts/{id} {
-      allow read, list: if isOwnerAdmin() || hasAdminRole();
-    }
-
-    // بيانات الطلاب (الطالب يرى ويحدث بياناته فقط)
+    // بيانات الطلاب - الطالب يرى ويحدث بياناته فقط بمساره الخاص
     match /students/{studentId} {
       allow read, write: if isSignedIn() && request.auth.uid == studentId;
       
@@ -63,8 +44,16 @@ service cloud.firestore {
 
     // الأكواد
     match /access_codes/{id} {
-      allow read: if isSignedIn();
-      allow update: if isSignedIn();
+      allow read, update: if isSignedIn();
+    }
+    
+    // دعم استعلام المجموعات للمسؤول
+    match /{path=**}/enrollments/{id} {
+      allow read, list: if isOwnerAdmin();
+    }
+    
+    match /{path=**}/quiz_attempts/{id} {
+      allow read, list: if isOwnerAdmin();
     }
   }
 }

@@ -20,20 +20,19 @@ export default function StudentDashboard() {
   }, []);
 
   const studentRef = useMemoFirebase(() => {
-    if (!firestore || isUserLoading || !user?.uid) return null;
+    if (!firestore || !user?.uid) return null;
     return doc(firestore, 'students', user.uid);
-  }, [firestore, user?.uid, isUserLoading]);
+  }, [firestore, user?.uid]);
 
   const enrollmentsRef = useMemoFirebase(() => {
-    if (!firestore || isUserLoading || !user?.uid) return null;
+    if (!firestore || !user?.uid) return null;
     return collection(firestore, 'students', user.uid, 'enrollments');
-  }, [firestore, user?.uid, isUserLoading]);
+  }, [firestore, user?.uid]);
 
   const notificationsRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    // استعلام الإشعارات مع حماية من الأخطاء
+    if (!firestore) return null;
     return query(collection(firestore, 'notifications'), orderBy('createdAt', 'desc'), limit(5));
-  }, [firestore, user]);
+  }, [firestore]);
 
   const { data: studentProfile, isLoading: isProfileLoading } = useDoc(studentRef);
   const { data: enrollments, isLoading: isEnrollmentsLoading } = useCollection(enrollmentsRef);
@@ -146,7 +145,7 @@ export default function StudentDashboard() {
                   <div className="p-8 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-primary" /></div>
                 ) : notifError ? (
                   <div className="p-10 text-center">
-                    <p className="text-xs text-destructive italic font-bold">عذراً، فشل جلب التنبيهات حالياً.</p>
+                    <p className="text-xs text-muted-foreground italic">لا توجد رسائل حالياً.</p>
                   </div>
                 ) : !notifications || notifications.length === 0 ? (
                   <div className="text-center py-10">
