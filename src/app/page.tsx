@@ -15,7 +15,6 @@ export default function Home() {
   const heroImg = PlaceHolderImages.find(img => img.id === 'hero-bg');
   const firestore = useFirestore();
 
-  // جلب آخر 3 كورسات للعرض في الصفحة الرئيسية لحظياً
   const latestCoursesRef = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'courses'), orderBy('createdAt', 'desc'), limit(3));
@@ -124,22 +123,23 @@ export default function Home() {
                   <div key={course.id} className="group bg-card rounded-3xl border border-primary/5 overflow-hidden hover:shadow-2xl hover:shadow-primary/5 transition-all hover:-translate-y-2">
                     <div className="relative h-56">
                       <Image
-                        src={PlaceHolderImages[(idx % 3) + 1]?.imageUrl || ''}
+                        src={course.imageUrl || PlaceHolderImages[(idx % 3) + 1]?.imageUrl || ''}
                         alt={course.title}
                         fill
                         className="object-cover group-hover:scale-105 transition-transform duration-500"
+                        unoptimized={!!course.imageUrl}
                       />
                       <div className="absolute top-4 right-4 bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full shadow-lg">
                         {course.targetAcademicYear}
                       </div>
                     </div>
-                    <div className="p-8">
+                    <div className="p-8 text-right">
                       <h3 className="text-xl font-headline font-bold mb-3">{course.title}</h3>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground mb-6">
-                        <span className="flex items-center gap-1"><Video className="w-4 h-4 text-primary" /> شرح وافي</span>
-                        <span className="flex items-center gap-1"><Users className="w-4 h-4 text-primary" /> +200 طالب</span>
+                      <div className="flex flex-row-reverse items-center gap-4 text-sm text-muted-foreground mb-6">
+                        <span className="flex flex-row-reverse items-center gap-1"><Video className="w-4 h-4 text-primary" /> شرح وافي</span>
+                        <span className="flex flex-row-reverse items-center gap-1"><Users className="w-4 h-4 text-primary" /> +200 طالب</span>
                       </div>
-                      <div className="flex items-center justify-between mt-auto">
+                      <div className="flex flex-row-reverse items-center justify-between mt-auto">
                         <span className="text-2xl font-black text-accent">{course.price} ج.م</span>
                         <Link href="/register">
                           <Button variant="secondary" className="font-bold group-hover:bg-primary group-hover:text-primary-foreground transition-all rounded-xl">اشترك الآن</Button>

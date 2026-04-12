@@ -1,8 +1,8 @@
+
 "use client";
 
 import { useState } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { Navbar } from '@/components/ui/navbar';
 import { Footer } from '@/components/ui/footer';
 import { Button } from '@/components/ui/button';
@@ -10,12 +10,7 @@ import { Input } from '@/components/ui/input';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { 
   Search, 
-  BookOpen, 
-  Video, 
-  Users, 
-  ArrowLeft, 
   Loader2,
-  GraduationCap,
   PlusCircle,
   CheckCircle
 } from 'lucide-react';
@@ -37,7 +32,6 @@ export default function CoursesPage() {
 
   const { data: courses, isLoading } = useCollection(coursesRef);
 
-  // جلب اشتراكات الطالب الحالية للتأكد من حالة الكورس
   const enrollmentsRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return collection(firestore, 'students', user.uid, 'enrollments');
@@ -53,13 +47,11 @@ export default function CoursesPage() {
 
     setIsRequesting(course.id);
     try {
-      // إنشاء طلب اشتراك بحالة "pending" في مجلد الطالب الخاص
-      // بما أن الطالب يكتب في مجلده، فلن تظهر رسالة Permission Denied أبداً
       await setDoc(doc(firestore, 'students', user.uid, 'enrollments', course.id), {
         id: course.id,
         courseId: course.id,
         studentId: user.uid,
-        status: 'pending', // حالة الانتظار
+        status: 'pending',
         enrollmentDate: new Date().toISOString(),
         progressPercentage: 0,
         isCompleted: false,
@@ -72,7 +64,7 @@ export default function CoursesPage() {
       });
     } catch (e) {
       console.error(e);
-      toast({ variant: "destructive", title: "خطأ", description: "فشل إرسال الطلب، حاول مرة أخرى." });
+      toast({ variant: "destructive", title: "خطأ", description: "فشل إرسال الطلب." });
     } finally {
       setIsRequesting(null);
     }
@@ -107,7 +99,7 @@ export default function CoursesPage() {
               <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <Input 
                 placeholder="ابحث عن كورس..." 
-                className="h-16 pr-12 text-lg bg-card border-primary/10 rounded-2xl shadow-xl shadow-primary/5 focus:border-primary transition-all"
+                className="h-16 pr-12 text-lg bg-card border-primary/10 rounded-2xl shadow-xl shadow-primary/5 focus:border-primary transition-all text-right"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -117,7 +109,7 @@ export default function CoursesPage() {
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
               <Loader2 className="w-12 h-12 animate-spin text-primary" />
-              <p className="text-muted-foreground animate-pulse font-bold">جاري جلب الكورسات...</p>
+              <p className="text-muted-foreground font-bold">جاري جلب الكورسات...</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -127,20 +119,21 @@ export default function CoursesPage() {
                   <div key={course.id} className="group bg-card rounded-3xl border border-primary/5 overflow-hidden hover:shadow-2xl transition-all flex flex-col">
                     <div className="relative h-56">
                       <Image
-                        src={PlaceHolderImages[(idx % 3) + 1]?.imageUrl || ''}
+                        src={course.imageUrl || PlaceHolderImages[(idx % 3) + 1]?.imageUrl || ''}
                         alt={course.title}
                         fill
                         className="object-cover"
+                        unoptimized={!!course.imageUrl}
                       />
                       <div className="absolute top-4 right-4 bg-primary text-primary-foreground text-xs font-bold px-4 py-1.5 rounded-full">
                         {course.targetAcademicYear}
                       </div>
                     </div>
-                    <div className="p-8 flex-grow flex flex-col">
+                    <div className="p-8 flex-grow flex flex-col text-right">
                       <h3 className="text-2xl font-headline font-bold mb-3">{course.title}</h3>
                       <p className="text-muted-foreground line-clamp-2 text-sm mb-6">{course.description}</p>
                       
-                      <div className="mt-auto pt-6 border-t border-primary/5 flex items-center justify-between">
+                      <div className="mt-auto pt-6 border-t border-primary/5 flex flex-row-reverse items-center justify-between">
                         <p className="text-2xl font-black text-accent">{course.price} ج.م</p>
                         
                         {status === 'active' ? (

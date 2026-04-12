@@ -1,10 +1,11 @@
+
 "use client";
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BookOpen, PlayCircle, Clock, ChevronLeft } from 'lucide-react';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
 import Link from 'next/link';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -26,8 +27,8 @@ export default function StudentDashboard() {
   const pendingEnrollments = enrollments?.filter(e => e.status === 'pending') || [];
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="space-y-8 animate-in fade-in duration-500 text-right">
+      <div className="flex flex-col md:flex-row-reverse justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-4xl font-headline font-bold mb-2">كورساتي المفعلة</h1>
           <p className="text-muted-foreground">هنا تجد كافة المحتويات التعليمية التي تم تفعيلها لك.</p>
@@ -45,29 +46,7 @@ export default function StudentDashboard() {
         ) : activeEnrollments.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {activeEnrollments.map((en, i) => (
-              <Link key={en.id} href={`/student/courses/${en.courseId}`}>
-                <Card className="bg-card hover:border-primary/30 transition-all group overflow-hidden border-primary/10 cursor-pointer shadow-xl">
-                  <div className="relative h-48">
-                    <Image src={PlaceHolderImages[(i % 3) + 1].imageUrl} alt="" fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                    <div className="absolute bottom-4 right-4">
-                      <span className="bg-accent text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg">نشط الآن</span>
-                    </div>
-                  </div>
-                  <CardContent className="p-6">
-                    <h3 className="text-2xl font-bold mb-4">{en.courseTitle || 'كورس غير مسمى'}</h3>
-                    <div className="flex items-center justify-between">
-                       <div className="flex flex-col">
-                          <span className="text-[10px] text-muted-foreground font-bold">نسبة الإنجاز</span>
-                          <span className="text-primary font-black">{en.progressPercentage || 0}%</span>
-                       </div>
-                       <Button variant="secondary" className="gap-2 font-bold group-hover:bg-primary group-hover:text-primary-foreground transition-all rounded-xl h-11 px-6">
-                        واصل التعلم <ChevronLeft className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
+              <CourseCard key={en.id} enrollment={en} index={i} />
             ))}
           </div>
         ) : (
@@ -83,16 +62,16 @@ export default function StudentDashboard() {
 
       {pendingEnrollments.length > 0 && (
         <section className="pt-8 border-t">
-          <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+          <h2 className="text-2xl font-bold mb-6 flex flex-row-reverse items-center gap-2">
             <Clock className="w-6 h-6 text-primary" /> طلبات قيد المراجعة
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {pendingEnrollments.map((en) => (
               <Card key={en.id} className="bg-primary/5 border-primary/20 shadow-sm">
-                <CardContent className="p-5 flex justify-between items-center">
+                <CardContent className="p-5 flex flex-row-reverse justify-between items-center">
                   <div>
                     <p className="font-bold text-sm mb-1">{en.courseTitle}</p>
-                    <p className="text-[10px] text-muted-foreground italic">سيتم التفعيل بواسطة البشمهندس قريباً...</p>
+                    <p className="text-[10px] text-muted-foreground italic">سيتم التفعيل قريباً...</p>
                   </div>
                   <span className="text-[9px] font-bold text-primary bg-primary/10 px-2 py-1 rounded-full animate-pulse">معلق</span>
                 </CardContent>
@@ -102,5 +81,43 @@ export default function StudentDashboard() {
         </section>
       )}
     </div>
+  );
+}
+
+function CourseCard({ enrollment, index }: { enrollment: any, index: number }) {
+  const firestore = useFirestore();
+  const courseRef = useMemoFirebase(() => doc(firestore, 'courses', enrollment.courseId), [firestore, enrollment.courseId]);
+  const { data: course } = useDoc(courseRef);
+
+  return (
+    <Link href={`/student/courses/${enrollment.courseId}`}>
+      <Card className="bg-card hover:border-primary/30 transition-all group overflow-hidden border-primary/10 cursor-pointer shadow-xl text-right">
+        <div className="relative h-48">
+          <Image 
+            src={course?.imageUrl || PlaceHolderImages[(index % 3) + 1].imageUrl} 
+            alt="" 
+            fill 
+            className="object-cover group-hover:scale-105 transition-transform duration-500" 
+            unoptimized={!!course?.imageUrl}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+          <div className="absolute bottom-4 right-4">
+            <span className="bg-accent text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg">نشط الآن</span>
+          </div>
+        </div>
+        <CardContent className="p-6">
+          <h3 className="text-2xl font-bold mb-4">{enrollment.courseTitle || 'كورس غير مسمى'}</h3>
+          <div className="flex flex-row-reverse items-center justify-between">
+             <div className="flex flex-col text-right">
+                <span className="text-[10px] text-muted-foreground font-bold">نسبة الإنجاز</span>
+                <span className="text-primary font-black">{enrollment.progressPercentage || 0}%</span>
+             </div>
+             <Button variant="secondary" className="flex flex-row-reverse gap-2 font-bold group-hover:bg-primary group-hover:text-primary-foreground transition-all rounded-xl h-11 px-6">
+              واصل التعلم <ChevronLeft className="w-4 h-4" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
