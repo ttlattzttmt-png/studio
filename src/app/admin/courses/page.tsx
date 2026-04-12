@@ -23,7 +23,8 @@ import {
   Loader2, 
   Youtube, 
   ImageIcon,
-  Save
+  Save,
+  AlertTriangle
 } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -105,29 +106,30 @@ export default function ManageCourses() {
   const handleDeleteCourse = async (id: string) => {
     if (!firestore) return;
     
-    const confirmDelete = window.confirm('⚠️ تنبيه هام: هل أنت متأكد من حذف هذا الكورس نهائياً؟ سيتم مسح بيانات الكورس من قاعدة البيانات.');
+    // تأكيد الحذف برسالة واضحة
+    const confirmDelete = window.confirm('⚠️ تحذير: سيتم حذف هذا الكورس نهائياً من قاعدة البيانات. هل أنت متأكد؟');
     if (!confirmDelete) return;
     
     setIsDeleting(id);
     try {
-      // تنفيذ الحذف الفعلي والمباشر من Firestore
-      const courseDocRef = doc(firestore, 'courses', id);
-      await deleteDoc(courseDocRef);
+      // تنفيذ عملية الحذف المباشرة والانتظار (Await) للتأكد من نجاحها في السيرفر
+      const courseRef = doc(firestore, 'courses', id);
+      await deleteDoc(courseRef);
       
       toast({ 
         title: "تم الحذف بنجاح", 
-        description: "تمت إزالة الكورس نهائياً من المنصة." 
+        description: "تمت إزالة الكورس من المنصة بشكل نهائي." 
       });
     } catch (e: any) {
-      console.error("Delete execution error:", e);
-      let errorMessage = "حدث خطأ غير متوقع أثناء الحذف.";
+      console.error("Critical Deletion Error:", e);
+      let errorMsg = "حدث خطأ غير متوقع أثناء الاتصال بقاعدة البيانات.";
       if (e.code === 'permission-denied') {
-        errorMessage = "ليس لديك صلاحية حذف الكورسات. تأكد من بريد المسؤول.";
+        errorMsg = "ليس لديك صلاحية لحذف هذا الكورس. يرجى مراجعة بريد المسؤول.";
       }
       toast({ 
         variant: "destructive", 
         title: "فشل الحذف", 
-        description: errorMessage 
+        description: errorMsg 
       });
     } finally {
       setIsDeleting(null);
@@ -261,7 +263,11 @@ export default function ManageCourses() {
                       disabled={isDeleting === course.id}
                       onClick={() => handleDeleteCourse(course.id)}
                     >
-                      {isDeleting === course.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      {isDeleting === course.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
                       حذف نهائي
                     </Button>
                   </div>
