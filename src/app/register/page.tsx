@@ -34,10 +34,11 @@ export default function RegisterPage() {
 
     setIsLoading(true);
     try {
+      // 1. إنشاء حساب في Auth
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const uid = userCredential.user.uid;
 
-      // إنشاء وثيقة الطالب الأساسية فوراً لتمكين قواعد الحماية
+      // 2. إنشاء وثيقة الطالب في Firestore وانتظارها تماماً
       const studentDocRef = doc(firestore, 'students', uid);
       await setDoc(studentDocRef, {
         id: uid,
@@ -53,13 +54,19 @@ export default function RegisterPage() {
 
       toast({
         title: "تم إنشاء الحساب بنجاح",
-        description: "مرحباً بك يا بشمهندس."
+        description: "مرحباً بك يا بشمهندس في عائلتنا."
       });
-      router.push('/student');
+      
+      // تأخير بسيط لضمان تحديث قاعدة البيانات قبل التحويل
+      setTimeout(() => {
+        router.push('/student');
+      }, 500);
+
     } catch (error: any) {
       console.error("Registration error:", error);
       let errorMessage = "حدث خطأ ما، يرجى المحاولة لاحقاً.";
       if (error.code === 'auth/email-already-in-use') errorMessage = "هذا البريد الإلكتروني مستخدم بالفعل.";
+      if (error.code === 'auth/weak-password') errorMessage = "كلمة المرور ضعيفة جداً.";
       
       toast({
         variant: "destructive",
@@ -73,19 +80,25 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
-      <div className="hidden md:flex md:w-1/2 bg-card items-center justify-center p-12 border-l">
-        <div className="max-w-md space-y-8 animate-in fade-in slide-in-from-right duration-700">
+      <div className="hidden md:flex md:w-1/2 bg-card items-center justify-center p-12 border-l relative overflow-hidden">
+        <div className="absolute inset-0 bg-primary/5 blur-3xl" />
+        <div className="max-w-md space-y-8 animate-in fade-in slide-in-from-right duration-700 relative z-10">
           <div className="flex items-center gap-3">
             <span className="text-4xl font-headline font-bold text-primary">البشمهندس</span>
             <ShieldCheck className="w-10 h-10 text-primary" />
           </div>
           <h1 className="text-5xl font-headline font-bold leading-tight">انضم إلى مجتمع المتميزين</h1>
-          <p className="text-xl text-muted-foreground">سجل الآن للحصول على وصول كامل لكورسات الفيزياء والرياضيات.</p>
+          <p className="text-xl text-muted-foreground">سجل الآن للحصول على وصول كامل لكورسات الفيزياء والرياضيات بأحدث الطرق التعليمية.</p>
         </div>
       </div>
 
       <div className="w-full md:w-1/2 flex items-center justify-center p-8 overflow-y-auto">
         <div className="w-full max-w-md space-y-8 py-12">
+          <div className="text-center md:hidden">
+             <h2 className="text-3xl font-bold text-primary mb-2">البشمهندس</h2>
+             <p className="text-muted-foreground text-sm">أنشئ حسابك لبدء التفوق</p>
+          </div>
+
           <form onSubmit={handleRegister} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="name" className="text-sm font-bold flex items-center gap-2"><User className="w-4 h-4 text-primary" /> الاسم رباعي</Label>
@@ -120,7 +133,7 @@ export default function RegisterPage() {
               <Label htmlFor="password" title="كلمة المرور" className="text-sm font-bold">كلمة المرور</Label>
               <Input id="password" type="password" className="h-12 bg-card border-primary/10" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} required />
             </div>
-            <Button type="submit" disabled={isLoading} className="w-full h-14 bg-primary text-primary-foreground font-bold rounded-xl shadow-lg">
+            <Button type="submit" disabled={isLoading} className="w-full h-14 bg-primary text-primary-foreground font-bold rounded-xl shadow-lg hover:shadow-primary/20 transition-all">
               {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "إنشاء الحساب الآن"}
             </Button>
           </form>

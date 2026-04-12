@@ -22,6 +22,11 @@ service cloud.firestore {
       allow read, write, delete: if isOwnerAdmin() || hasAdminRole();
     }
 
+    // السماح للمستخدم برؤية سجل دوره الخاص فقط في admin_roles (ضروري لعملية الدخول)
+    match /admin_roles/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+    }
+
     // --- قواعد مخصصة لضمان عمل المنصة للطلاب ---
 
     // الكورسات متاحة للقراءة للجميع
@@ -56,6 +61,11 @@ service cloud.firestore {
     match /access_codes/{id} {
       allow read: if isSignedIn();
       allow update: if isSignedIn();
+    }
+
+    // الإشعارات
+    match /notifications/{id} {
+      allow read: if isSignedIn();
     }
   }
 }

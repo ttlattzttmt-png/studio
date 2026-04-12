@@ -31,10 +31,10 @@ export default function LoginPage() {
       let userCredential;
       
       try {
-        // محاولة تسجيل الدخول
+        // 1. محاولة تسجيل الدخول العادي
         userCredential = await signInWithEmailAndPassword(auth, email, password);
       } catch (authError: any) {
-        // إذا كان بريد الأدمن المخصص ولم يتم إنشاؤه بعد (المرة الأولى فقط)
+        // إذا كان بريد الأدمن المخصص ولم يتم إنشاؤه بعد (لأول مرة في المشروع)
         if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase() && (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential')) {
           try {
             userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -48,14 +48,23 @@ export default function LoginPage() {
 
       const uid = userCredential.user.uid;
 
-      // منطق التحقق والتوجيه للمسؤول
+      // 2. تحديث تاريخ آخر دخول
+      try {
+        const studentRef = doc(firestore, 'students', uid);
+        const studentSnap = await getDoc(studentRef);
+        if (studentSnap.exists()) {
+          await setDoc(studentRef, { lastLoginDate: new Date().toISOString() }, { merge: true });
+        }
+      } catch (e) {
+        console.warn("Could not update last login date", e);
+      }
+
+      // 3. منطق التحقق والتوجيه
       if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
         const adminRoleRef = doc(firestore, 'admin_roles', uid);
         const adminRoleSnap = await getDoc(adminRoleRef);
         
         if (!adminRoleSnap.exists()) {
-          // تأكيد دور المسؤول في Firestore
-          // القواعد الآن تسمح لبريد admin@al-bashmohandes.com بإنشاء هذا السجل
           await setDoc(adminRoleRef, { role: 'admin', createdAt: serverTimestamp() });
           await setDoc(doc(firestore, 'admin_users', uid), {
             id: uid,
@@ -70,19 +79,25 @@ export default function LoginPage() {
         return;
       }
 
-      // التحقق من نوع المستخدم للتوجيه (طالب أم مسؤول)
-      const adminDocRef = doc(firestore, 'admin_roles', uid);
-      const adminDoc = await getDoc(adminDocRef);
-      
-      if (adminDoc.exists()) {
-        router.push('/admin');
-      } else {
+      // التحقق من كونه مسؤول من خلال جدول الصلاحيات بحذر
+      try {
+        const adminDocRef = doc(firestore, 'admin_roles', uid);
+        const adminDoc = await getDoc(adminDocRef);
+        
+        if (adminDoc.exists()) {
+          router.push('/admin');
+        } else {
+          router.push('/student');
+        }
+      } catch (roleError) {
+        // إذا فشل قراءة جدول الصلاحيات (غالباً طالب)، وجهه للوحة الطلاب مباشرة
         router.push('/student');
       }
+
     } catch (error: any) {
       console.error("Login error:", error);
       let errorMessage = "يرجى التأكد من البيانات والمحاولة مرة أخرى.";
-      if (error.code === 'auth/wrong-password') errorMessage = "كلمة المرور غير صحيحة.";
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') errorMessage = "بيانات الدخول غير صحيحة.";
       if (error.code === 'auth/user-not-found') errorMessage = "هذا الحساب غير موجود.";
       
       toast({
