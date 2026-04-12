@@ -105,18 +105,33 @@ export default function ManageCourses() {
 
   const handleDeleteCourse = async (id: string) => {
     if (!firestore) return;
-    if (!confirm('هل أنت متأكد من حذف هذا الكورس نهائياً؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+    
+    // نافذة تأكيد قبل الحذف
+    const confirmDelete = window.confirm('هل أنت متأكد من حذف هذا الكورس نهائياً؟ لا يمكن التراجع عن هذا الإجراء.');
+    if (!confirmDelete) return;
     
     setIsDeleting(id);
     try {
-      await deleteDoc(doc(firestore, 'courses', id));
-      toast({ title: "تم الحذف بنجاح", description: "تم إزالة الكورس وكافة بياناته." });
+      // تنفيذ عملية الحذف في Firestore
+      const courseDocRef = doc(firestore, 'courses', id);
+      await deleteDoc(courseDocRef);
+      
+      toast({ 
+        title: "تم الحذف بنجاح", 
+        description: "تم إزالة الكورس وكافة بياناته من النظام." 
+      });
     } catch (e: any) {
       console.error("Delete error:", e);
+      let errorMessage = "حدث خطأ غير متوقع أثناء الحذف.";
+      
+      if (e.code === 'permission-denied') {
+        errorMessage = "ليس لديك صلاحية كافية لحذف الكورسات. يرجى التأكد من تسجيل دخولك كمسؤول.";
+      }
+      
       toast({ 
         variant: "destructive", 
         title: "فشل الحذف", 
-        description: e.code === 'permission-denied' ? "ليس لديك صلاحية لحذف هذا الكورس." : "حدث خطأ غير متوقع." 
+        description: errorMessage 
       });
     } finally {
       setIsDeleting(null);
@@ -247,7 +262,7 @@ export default function ManageCourses() {
                       onClick={() => handleDeleteCourse(course.id)}
                     >
                       {isDeleting === course.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                      حذف
+                      حذف الكورس
                     </Button>
                   </div>
                 </div>

@@ -8,7 +8,7 @@ service cloud.firestore {
     }
 
     // دالة التحقق من كونه مسؤول (Admin)
-    // نعتمد على البريد الإلكتروني بشكل أساسي أو وجود سجل في admin_roles
+    // نعتمد على البريد الإلكتروني بشكل مباشر لكسر أي حلقة مفرغة في الصلاحيات
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == "admin@al-bashmohandes.com" ||
@@ -42,16 +42,12 @@ service cloud.firestore {
     // الكورسات ومحتوياتها
     match /courses/{courseId} {
       allow read: if true;
+      // السماح بكافة العمليات (إنشاء، تعديل، حذف) إذا كان المستخدم مسؤولاً
       allow write, delete: if isAdmin();
 
-      match /content/{contentId} {
+      match /{allSubcollections=**} {
         allow read: if isSignedIn();
         allow write, delete: if isAdmin();
-        
-        match /{allSubcollections=**} {
-          allow read: if isSignedIn();
-          allow write, delete: if isAdmin();
-        }
       }
     }
 
