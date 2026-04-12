@@ -17,7 +17,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collectionGroup, doc, updateDoc, query } from 'firebase/firestore';
+import { collectionGroup, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 
@@ -27,7 +27,7 @@ export default function PendingActivationsPage() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
 
-  // استراتيجية جديدة: جلب كافة الاشتراكات والتصفية برمجياً لتجنب خطأ الفهارس (Indexes)
+  // استراتيجية جلب كافة الاشتراكات والتصفية برمجياً لتجنب خطأ الفهارس
   const enrollmentsRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return collectionGroup(firestore, 'enrollments');
@@ -40,7 +40,7 @@ export default function PendingActivationsPage() {
     if (!allEnrollments) return [];
     
     return allEnrollments
-      .filter(req => req.status === 'pending') // تصفية المعلق فقط برمجياً
+      .filter(req => req.status === 'pending')
       .filter(req => {
         const searchLower = searchTerm.toLowerCase();
         const courseTitle = (req.courseTitle || '').toLowerCase();
@@ -50,7 +50,7 @@ export default function PendingActivationsPage() {
       .sort((a, b) => {
         const dateA = a.enrollmentDate ? new Date(a.enrollmentDate).getTime() : 0;
         const dateB = b.enrollmentDate ? new Date(b.enrollmentDate).getTime() : 0;
-        return dateB - dateA; // الأحدث أولاً
+        return dateB - dateA;
       });
   }, [allEnrollments, searchTerm]);
 
@@ -68,7 +68,7 @@ export default function PendingActivationsPage() {
       });
     } catch (e) { 
       console.error(e);
-      toast({ variant: "destructive", title: "خطأ في التفعيل", description: "تأكد من صلاحيات المسؤول واتصالك بالإنترنت." });
+      toast({ variant: "destructive", title: "خطأ في التفعيل", description: "تأكد من صلاحيات المسؤول." });
     }
   };
 
@@ -95,12 +95,10 @@ export default function PendingActivationsPage() {
           <div className="space-y-2">
             <h3 className="text-2xl font-bold text-destructive">مشكلة في الاتصال</h3>
             <p className="text-muted-foreground max-w-lg mx-auto">
-              عذراً، فشل جلب البيانات. يرجى التأكد من تسجيل دخولك كمسؤول وأن الإنترنت مستقر.
+              عذراً، فشل جلب البيانات. يرجى التأكد من تسجيل دخولك كمسؤول.
             </p>
           </div>
-          <Button onClick={() => window.location.reload()} variant="outline" className="border-destructive/30 hover:bg-destructive/10">
-            تحديث الصفحة
-          </Button>
+          <Button onClick={() => window.location.reload()} variant="outline">تحديث الصفحة</Button>
         </Card>
       ) : (
         <Card className="bg-card border-primary/5 shadow-2xl overflow-hidden rounded-[2.5rem]">
@@ -122,7 +120,7 @@ export default function PendingActivationsPage() {
                 {isLoading ? (
                   <div className="flex flex-col items-center justify-center py-40 gap-4">
                     <Loader2 className="w-12 h-12 animate-spin text-primary" />
-                    <p className="font-bold text-muted-foreground italic">جاري جلب الطلبات المتزامنة...</p>
+                    <p className="font-bold text-muted-foreground italic">جاري جلب الطلبات...</p>
                   </div>
                 ) : filteredRequests.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-40 text-muted-foreground opacity-30 italic">
@@ -132,7 +130,11 @@ export default function PendingActivationsPage() {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {filteredRequests.map((req) => (
-                      <RequestCard key={req.id} req={req} onActivate={handleActivate} />
+                      <RequestCard 
+                        key={`${req.studentId}-${req.id}`} 
+                        req={req} 
+                        onActivate={handleActivate} 
+                      />
                     ))}
                   </div>
                 )}
@@ -147,8 +149,6 @@ export default function PendingActivationsPage() {
 
 function RequestCard({ req, onActivate }: { req: any, onActivate: (r: any) => void }) {
   const firestore = useFirestore();
-  
-  // جلب بيانات الطالب الأصلية لحظياً لضمان الدقة
   const studentRef = useMemoFirebase(() => 
     req.studentId ? doc(firestore, 'students', req.studentId) : null, 
     [firestore, req.studentId]
@@ -205,7 +205,7 @@ function RequestCard({ req, onActivate }: { req: any, onActivate: (r: any) => vo
 
         <Button 
           onClick={() => onActivate(req)}
-          className="w-full h-14 bg-accent hover:bg-accent/90 text-white font-bold rounded-2xl shadow-xl shadow-accent/10 gap-2 text-base transition-transform active:scale-95"
+          className="w-full h-14 bg-accent hover:bg-accent/90 text-white font-bold rounded-2xl shadow-xl gap-2 text-base transition-transform active:scale-95"
         >
           <CheckCircle2 className="w-5 h-5" /> تفعيل الكورس الآن
         </Button>

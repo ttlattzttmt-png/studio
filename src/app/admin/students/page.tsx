@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -84,7 +83,6 @@ export default function AdminStudents() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* قسم طلبات التفعيل مع التعديلات الجديدة */}
         <Card className="lg:col-span-1 bg-accent/5 border-accent/20 h-[80vh] flex flex-col text-right overflow-hidden shadow-xl">
           <CardHeader className="border-b border-accent/10 shrink-0 bg-accent/10">
             <CardTitle className="text-sm font-bold flex items-center gap-2 justify-end">
@@ -101,7 +99,11 @@ export default function AdminStudents() {
                   </div>
                 ) : (
                   pendingRequests.map(req => (
-                    <RequestItem key={req.id} req={req} onActivate={handleActivateEnrollment} />
+                    <RequestItem 
+                      key={`${req.studentId}-${req.id}`} 
+                      req={req} 
+                      onActivate={handleActivateEnrollment} 
+                    />
                   ))
                 )}
               </div>
@@ -109,7 +111,6 @@ export default function AdminStudents() {
           </CardContent>
         </Card>
 
-        {/* جدول الطلاب العام */}
         <Card className="lg:col-span-3 bg-card border-primary/5 shadow-sm">
           <CardHeader className="border-b bg-secondary/5 flex justify-end">
             <div className="relative w-full max-w-sm">
@@ -200,9 +201,6 @@ export default function AdminStudents() {
   );
 }
 
-/**
- * مكون فرعي لعرض تفاصيل الطالب داخل طلب التفعيل
- */
 function RequestItem({ req, onActivate }: { req: any, onActivate: (r: any) => void }) {
   const firestore = useFirestore();
   const studentRef = useMemoFirebase(() => req.studentId ? doc(firestore, 'students', req.studentId) : null, [firestore, req.studentId]);
