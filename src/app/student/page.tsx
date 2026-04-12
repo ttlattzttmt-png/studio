@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Play, Trophy, Loader2, Megaphone, Clock, Search } from 'lucide-react';
+import { Play, Trophy, Loader2, Megaphone, Clock } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from '@/firebase';
