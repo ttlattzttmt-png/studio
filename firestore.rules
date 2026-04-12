@@ -7,74 +7,47 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // دالة التحقق من كونه مسؤول (Admin) - التحقق المباشر بالبريد
+    // دالة التحقق من كونه مسؤول (Admin) - التحقق المباشر والأكيد
     function isAdmin() {
-      return isSignedIn() && request.auth.token.email == "admin@al-bashmohandes.com";
+      return isSignedIn() && (
+        request.auth.token.email == "admin@al-bashmohandes.com" || 
+        exists(/databases/$(database)/documents/admin_roles/$(request.auth.uid))
+      );
     }
 
-    // دالة التحقق من ملكية البيانات (للطالب)
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+    // --- قاعدة ذهبية: المسؤول له صلاحيات مطلقة على كل شيء ---
+    match /{allPaths=**} {
+      allow read, write: if isAdmin();
     }
 
-    // --- القواعد العامة ---
+    // --- قواعد مخصصة للطلاب (لضمان عمل المنصة بشكل طبيعي) ---
+
+    // الكورسات متاحة للقراءة للجميع
+    match /courses/{courseId} {
+      allow read: if true;
+      match /{allSubcollections=**} {
+        allow read: if isSignedIn();
+      }
+    }
 
     // الإشعارات
     match /notifications/{id} {
       allow read: if true;
-      allow write, delete: if isAdmin();
     }
 
-    // سجلات الأدمن
-    match /admin_roles/{uid} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin() || (isSignedIn() && request.auth.token.email == "admin@al-bashmohandes.com");
-    }
-    
-    match /admin_users/{uid} {
-      allow read, write: if isAdmin() || isOwner(uid);
-    }
-
-    // الكورسات - السماح الكامل للأدمن بكافة العمليات بما فيها الحذف الفعلي
-    match /courses/{courseId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
-
-      // السماح بالحذف والتحكم في كافة المحتويات الفرعية
-      match /{allSubcollections=**} {
-        allow read: if isSignedIn();
-        allow create, update, delete: if isAdmin();
-      }
-    }
-
-    // الأكواد
-    match /access_codes/{id} {
-      allow read, write, delete: if isAdmin();
-      allow update: if isSignedIn();
-    }
-
-    // بيانات الطلاب
+    // بيانات الطلاب (الطالب يرى بياناته فقط، والأدمن يرى الكل عبر القاعدة العامة أعلاه)
     match /students/{studentId} {
-      allow read: if isOwner(studentId) || isAdmin();
-      allow write: if isOwner(studentId) || isAdmin();
+      allow read, write: if isSignedIn() && request.auth.uid == studentId;
       
       match /{allSubcollections=**} {
-        allow read: if isOwner(studentId) || isAdmin();
-        allow write: if isOwner(studentId) || isAdmin();
+        allow read, write: if isSignedIn() && request.auth.uid == studentId;
       }
     }
 
-    // قواعد الـ Collection Group - للسماح للأدمن بجلب البيانات عبر الطلاب
-    match /{path=**}/enrollments/{id} {
-      allow read, list: if isAdmin() || (isSignedIn() && path.status == 'active');
-    }
-    
-    match /{path=**}/quiz_attempts/{id} {
-      allow read, list: if isAdmin();
-    }
-
-    match /{path=**}/video_progress/{id} {
-      allow read, list: if isAdmin();
+    // السماح بالاستعلام عن الأكواد للطلاب للتحقق منها
+    match /access_codes/{id} {
+      allow read: if isSignedIn();
+      allow update: if isSignedIn();
     }
   }
 }

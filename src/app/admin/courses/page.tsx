@@ -22,9 +22,7 @@ import {
   Trash2, 
   Loader2, 
   Youtube, 
-  ImageIcon,
-  Save,
-  AlertTriangle
+  ImageIcon
 } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -106,13 +104,11 @@ export default function ManageCourses() {
   const handleDeleteCourse = async (id: string) => {
     if (!firestore) return;
     
-    // تأكيد الحذف برسالة واضحة
     const confirmDelete = window.confirm('⚠️ تحذير: سيتم حذف هذا الكورس نهائياً من قاعدة البيانات. هل أنت متأكد؟');
     if (!confirmDelete) return;
     
     setIsDeleting(id);
     try {
-      // تنفيذ عملية الحذف المباشرة والانتظار (Await) للتأكد من نجاحها في السيرفر
       const courseRef = doc(firestore, 'courses', id);
       await deleteDoc(courseRef);
       
@@ -122,13 +118,12 @@ export default function ManageCourses() {
       });
     } catch (e: any) {
       console.error("Critical Deletion Error:", e);
-      let errorMsg = "حدث خطأ غير متوقع أثناء الاتصال بقاعدة البيانات.";
-      if (e.code === 'permission-denied') {
-        errorMsg = "ليس لديك صلاحية لحذف هذا الكورس. يرجى مراجعة بريد المسؤول.";
-      }
+      let errorMsg = "فشل الحذف. تأكد من اتصالك بالإنترنت.";
+      if (e.code === 'permission-denied') errorMsg = "ليس لديك صلاحية لحذف هذا الكورس.";
+      
       toast({ 
         variant: "destructive", 
-        title: "فشل الحذف", 
+        title: "خطأ", 
         description: errorMsg 
       });
     } finally {
@@ -164,10 +159,10 @@ export default function ManageCourses() {
                 <Textarea className="text-right" placeholder="اكتب نبذة عن محتوى الكورس..." value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
               </div>
               <div className="space-y-2">
-                <Label>رابط صورة الغلاف (Direct Link)</Label>
+                <Label>رابط صورة الغلاف</Label>
                 <div className="relative">
                   <ImageIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input className="pr-10 text-right" placeholder="ألصق رابط الصورة هنا (اختياري)" value={formData.imageUrl} onChange={(e) => setFormData({...formData, imageUrl: e.target.value})} />
+                  <Input className="pr-10 text-right" placeholder="ألصق رابط الصورة المباشر هنا" value={formData.imageUrl} onChange={(e) => setFormData({...formData, imageUrl: e.target.value})} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">

@@ -10,8 +10,7 @@ import {
   AlertTriangle, 
   BookOpen, 
   RefreshCw,
-  Search,
-  XCircle
+  Search
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc, deleteDoc, query, orderBy } from 'firebase/firestore';
@@ -38,26 +37,28 @@ export default function DeleteCoursesPage() {
   const handleDelete = async (id: string, title: string) => {
     if (!firestore) return;
     
-    // تأكيد نهائي قبل المسح
-    const confirmed = window.confirm(`⚠️ تحذير نهائي: هل أنت متأكد من حذف كورس "${title}" بالكامل؟ لا يمكن التراجع عن هذه الخطوة.`);
+    const confirmed = window.confirm(`⚠️ تحذير نهائي: هل أنت متأكد من حذف كورس "${title}" بالكامل من قاعدة البيانات؟ لا يمكن التراجع.`);
     if (!confirmed) return;
 
     setIsDeleting(id);
     try {
-      // تنفيذ عملية الحذف المباشرة من قاعدة البيانات
+      // تنفيذ عملية الحذف المباشرة بانتظار رد السيرفر
       const courseRef = doc(firestore, 'courses', id);
       await deleteDoc(courseRef);
       
       toast({ 
         title: "تم الحذف بنجاح", 
-        description: `تمت إزالة كورس ${title} نهائياً من المنصة.` 
+        description: `تمت إزالة كورس ${title} نهائياً من قاعدة البيانات.` 
       });
     } catch (e: any) {
       console.error("Critical Deletion Error:", e);
+      let errorMsg = "حدث خطأ غير متوقع.";
+      if (e.code === 'permission-denied') errorMsg = "السيرفر رفض العملية (نقص صلاحيات).";
+      
       toast({ 
         variant: "destructive", 
         title: "فشل الحذف", 
-        description: "حدث خطأ أثناء محاولة الوصول لقاعدة البيانات." 
+        description: errorMsg 
       });
     } finally {
       setIsDeleting(null);
@@ -77,7 +78,7 @@ export default function DeleteCoursesPage() {
           <h1 className="text-4xl font-headline font-bold text-destructive mb-2 flex items-center gap-3 justify-end">
             مركز الحذف النهائي <AlertTriangle className="w-8 h-8" />
           </h1>
-          <p className="text-muted-foreground">احذر! أي كورس يتم حذفه من هنا يختفي من عند كافة الطلاب فوراً.</p>
+          <p className="text-muted-foreground">أي كورس يتم حذفه من هنا يختفي من عند كافة الطلاب ومن قاعدة البيانات فوراً.</p>
         </div>
         <div className="bg-accent/10 text-accent px-6 py-3 rounded-2xl border border-accent/20 flex items-center gap-3">
           <RefreshCw className="w-5 h-5 animate-pulse" />
@@ -106,7 +107,7 @@ export default function DeleteCoursesPage() {
           ) : !filteredCourses || filteredCourses.length === 0 ? (
             <div className="text-center py-20 text-muted-foreground opacity-30 italic">
               <BookOpen className="w-20 h-20 mx-auto mb-4" />
-              <p className="text-xl">لا توجد كورسات مطابقة للبحث.</p>
+              <p className="text-xl">لا توجد كورسات متاحة حالياً.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
