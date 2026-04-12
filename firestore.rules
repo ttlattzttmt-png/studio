@@ -7,7 +7,7 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // دالة التحقق من كونه المسؤول المالك (عبر البريد الإلكتروني) - الأولوية القصوى
+    // دالة التحقق من كونه المسؤول المالك (عبر البريد الإلكتروني) - الأولوية المطلقة
     function isOwnerAdmin() {
       return isSignedIn() && request.auth.token.email == "admin@al-bashmohandes.com";
     }
@@ -17,7 +17,7 @@ service cloud.firestore {
       return isSignedIn() && exists(/databases/$(database)/documents/admin_roles/$(request.auth.uid));
     }
 
-    // --- القاعدة الذهبية: المسؤول له صلاحيات مطلقة وشاملة ---
+    // --- القاعدة الذهبية: المسؤول له صلاحيات مطلقة وشاملة في كل مكان ---
     match /{allPaths=**} {
       allow read, write, delete: if isOwnerAdmin() || hasAdminRole();
     }
@@ -27,8 +27,6 @@ service cloud.firestore {
     // الكورسات متاحة للقراءة للجميع
     match /courses/{courseId} {
       allow read: if true;
-      // السماح بالحذف الصريح للأدمن (تأكيد إضافي)
-      allow delete: if isOwnerAdmin() || hasAdminRole();
       
       match /{allSubcollections=**} {
         allow read: if isSignedIn();
@@ -36,9 +34,13 @@ service cloud.firestore {
       }
     }
 
-    // الإشعارات
-    match /notifications/{id} {
-      allow read: if true;
+    // دعم استعلام المجموعات (Collection Group Queries) للمسؤول
+    match /{path=**}/enrollments/{id} {
+      allow read, list: if isOwnerAdmin() || hasAdminRole();
+    }
+    
+    match /{path=**}/quiz_attempts/{id} {
+      allow read, list: if isOwnerAdmin() || hasAdminRole();
     }
 
     // بيانات الطلاب (الطالب يرى بياناته فقط)
