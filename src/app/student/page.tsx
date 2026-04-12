@@ -30,13 +30,14 @@ export default function StudentDashboard() {
   }, [firestore, user?.uid, isUserLoading]);
 
   const notificationsRef = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
+    // استعلام الإشعارات مع حماية من الأخطاء
     return query(collection(firestore, 'notifications'), orderBy('createdAt', 'desc'), limit(5));
-  }, [firestore]);
+  }, [firestore, user]);
 
   const { data: studentProfile, isLoading: isProfileLoading } = useDoc(studentRef);
   const { data: enrollments, isLoading: isEnrollmentsLoading } = useCollection(enrollmentsRef);
-  const { data: notifications, isLoading: isNotificationsLoading } = useCollection(notificationsRef);
+  const { data: notifications, isLoading: isNotificationsLoading, error: notifError } = useCollection(notificationsRef);
 
   if (!mounted || isUserLoading) {
     return (
@@ -143,6 +144,10 @@ export default function StudentDashboard() {
              <CardContent className="p-0">
                 {isNotificationsLoading ? (
                   <div className="p-8 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-primary" /></div>
+                ) : notifError ? (
+                  <div className="p-10 text-center">
+                    <p className="text-xs text-destructive italic font-bold">عذراً، فشل جلب التنبيهات حالياً.</p>
+                  </div>
                 ) : !notifications || notifications.length === 0 ? (
                   <div className="text-center py-10">
                     <p className="text-xs text-muted-foreground italic">لا توجد رسائل حالياً.</p>

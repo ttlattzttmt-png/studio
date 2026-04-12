@@ -35,8 +35,12 @@ service cloud.firestore {
       
       match /{allSubcollections=**} {
         allow read: if isSignedIn();
-        allow write, delete: if isOwnerAdmin() || hasAdminRole();
       }
+    }
+
+    // الإشعارات - السماح بالبحث والقراءة لجميع الطلاب المسجلين
+    match /notifications/{notificationId} {
+      allow read, list: if isSignedIn();
     }
 
     // دعم استعلام المجموعات (Collection Group Queries) للمسؤول
@@ -48,7 +52,7 @@ service cloud.firestore {
       allow read, list: if isOwnerAdmin() || hasAdminRole();
     }
 
-    // بيانات الطلاب (الطالب يرى بياناته فقط)
+    // بيانات الطلاب (الطالب يرى ويحدث بياناته فقط)
     match /students/{studentId} {
       allow read, write: if isSignedIn() && request.auth.uid == studentId;
       
@@ -61,11 +65,6 @@ service cloud.firestore {
     match /access_codes/{id} {
       allow read: if isSignedIn();
       allow update: if isSignedIn();
-    }
-
-    // الإشعارات
-    match /notifications/{id} {
-      allow read: if isSignedIn();
     }
   }
 }

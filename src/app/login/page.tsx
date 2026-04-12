@@ -30,65 +30,46 @@ export default function LoginPage() {
     try {
       let userCredential;
       
+      // 1. محاولة تسجيل الدخول عبر Auth
       try {
-        // 1. محاولة تسجيل الدخول العادي
         userCredential = await signInWithEmailAndPassword(auth, email, password);
       } catch (authError: any) {
-        // إذا كان بريد الأدمن المخصص ولم يتم إنشاؤه بعد (لأول مرة في المشروع)
-        if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase() && (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential')) {
-          try {
-            userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          } catch (createError) {
-            throw authError;
-          }
+        // حالة خاصة للأدمن لأول مرة فقط
+        if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase() && 
+           (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential')) {
+          userCredential = await createUserWithEmailAndPassword(auth, email, password);
         } else {
-          throw authError;
+          throw authError; // توقف هنا لو البيانات غلط فعلاً
         }
       }
 
       const uid = userCredential.user.uid;
+      const userEmail = userCredential.user.email?.toLowerCase();
 
-      // 2. تحديث تاريخ آخر دخول (اختياري، لا يعطل الدخول إذا فشل)
-      try {
-        const studentRef = doc(firestore, 'students', uid);
-        setDoc(studentRef, { lastLoginDate: new Date().toISOString() }, { merge: true });
-      } catch (e) {
-        console.warn("Meta update skipped");
-      }
+      // 2. تحديث بيانات الدخول في الخلفية (اختياري)
+      setDoc(doc(firestore, 'students', uid), { lastLoginDate: new Date().toISOString() }, { merge: true }).catch(() => {});
 
-      // 3. منطق التحقق والتوجيه الفوري
-      if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+      // 3. التوجيه الذكي بناءً على البريد الإلكتروني (أسرع وأضمن من فحص الصلاحيات المعقد)
+      if (userEmail === ADMIN_EMAIL.toLowerCase()) {
         // تأمين وثيقة الأدمن إذا كانت مفقودة
         const adminRoleRef = doc(firestore, 'admin_roles', uid);
-        const adminRoleSnap = await getDoc(adminRoleRef);
+        const adminRoleSnap = await getDoc(adminRoleRef).catch(() => null);
         
-        if (!adminRoleSnap.exists()) {
+        if (!adminRoleSnap?.exists()) {
           await setDoc(adminRoleRef, { role: 'admin', createdAt: serverTimestamp() });
           await setDoc(doc(firestore, 'admin_users', uid), {
             id: uid,
             name: 'المشرف العام',
-            email: email,
+            email: userEmail,
             registrationDate: new Date().toISOString()
           });
         }
         
         toast({ title: "مرحباً بك يا بشمهندس", description: "جاري فتح لوحة التحكم..." });
         router.push('/admin');
-        return;
-      }
-
-      // توجيه الطلاب - نحاول التأكد من الصلاحيات ولكن لا نوقف العملية إذا حدث خطأ صلاحيات
-      try {
-        const adminDocRef = doc(firestore, 'admin_roles', uid);
-        const adminDoc = await getDoc(adminDocRef);
-        
-        if (adminDoc.exists()) {
-          router.push('/admin');
-        } else {
-          router.push('/student');
-        }
-      } catch (roleError) {
-        // إذا فشل قراءة جدول الصلاحيات (غالباً طالب)، وجهه للوحة الطلاب مباشرة
+      } else {
+        // أي مستخدم آخر هو طالب
+        toast({ title: "تم الدخول بنجاح", description: "مرحباً بك في منصتك التعليمية." });
         router.push('/student');
       }
 
@@ -97,6 +78,7 @@ export default function LoginPage() {
       let errorMessage = "يرجى التأكد من البيانات والمحاولة مرة أخرى.";
       if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') errorMessage = "بيانات الدخول غير صحيحة.";
       if (error.code === 'auth/user-not-found') errorMessage = "هذا الحساب غير موجود.";
+      if (error.code === 'auth/too-many-requests') errorMessage = "تم حظر الدخول مؤقتاً بسبب محاولات كثيرة خاطئة.";
       
       toast({
         variant: "destructive",
