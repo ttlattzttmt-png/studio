@@ -21,7 +21,6 @@ import {
   Edit3, 
   Trash2, 
   Loader2, 
-  BookOpen, 
   Youtube, 
   ImageIcon,
   Save
@@ -77,7 +76,7 @@ export default function ManageCourses() {
       setFormData({ title: '', description: '', price: '', targetAcademicYear: 'الصف الثالث الثانوي', imageUrl: '' });
     } catch (e: any) {
       console.error(e);
-      toast({ variant: "destructive", title: "خطأ", description: "فشل إضافة الكورس. تأكد من اتصالك بالإنترنت." });
+      toast({ variant: "destructive", title: "خطأ", description: "فشل إضافة الكورس." });
     } finally {
       setIsAdding(false);
     }
@@ -106,28 +105,25 @@ export default function ManageCourses() {
   const handleDeleteCourse = async (id: string) => {
     if (!firestore) return;
     
-    // نافذة تأكيد قبل الحذف
-    const confirmDelete = window.confirm('هل أنت متأكد من حذف هذا الكورس نهائياً؟ لا يمكن التراجع عن هذا الإجراء.');
+    const confirmDelete = window.confirm('⚠️ تنبيه هام: هل أنت متأكد من حذف هذا الكورس نهائياً؟ سيتم مسح بيانات الكورس من قاعدة البيانات.');
     if (!confirmDelete) return;
     
     setIsDeleting(id);
     try {
-      // تنفيذ عملية الحذف في Firestore
+      // تنفيذ الحذف الفعلي من Firestore
       const courseDocRef = doc(firestore, 'courses', id);
       await deleteDoc(courseDocRef);
       
       toast({ 
         title: "تم الحذف بنجاح", 
-        description: "تم إزالة الكورس وكافة بياناته من النظام." 
+        description: "تمت إزالة الكورس نهائياً من المنصة." 
       });
     } catch (e: any) {
-      console.error("Delete error:", e);
+      console.error("Delete execution error:", e);
       let errorMessage = "حدث خطأ غير متوقع أثناء الحذف.";
-      
       if (e.code === 'permission-denied') {
-        errorMessage = "ليس لديك صلاحية كافية لحذف الكورسات. يرجى التأكد من تسجيل دخولك كمسؤول.";
+        errorMessage = "ليس لديك صلاحية حذف الكورسات. تأكد من بريد المسؤول.";
       }
-      
       toast({ 
         variant: "destructive", 
         title: "فشل الحذف", 
@@ -257,12 +253,12 @@ export default function ManageCourses() {
                     
                     <Button 
                       variant="ghost" 
-                      className="gap-2 text-destructive h-11" 
+                      className="gap-2 text-destructive h-11 hover:bg-destructive/10" 
                       disabled={isDeleting === course.id}
                       onClick={() => handleDeleteCourse(course.id)}
                     >
                       {isDeleting === course.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                      حذف الكورس
+                      حذف نهائي
                     </Button>
                   </div>
                 </div>
