@@ -7,7 +7,7 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // دالة التحقق من كونه مسؤول (Admin)
+    // دالة التحقق من كونه مسؤول (Admin) - مبسطة لضمان أعلى استقرار
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == "admin@al-bashmohandes.com" ||
@@ -22,7 +22,7 @@ service cloud.firestore {
 
     // --- القواعد العامة ---
 
-    // الإشعارات: الكل يقرأ، الأدمن يكتب ويحذف
+    // الإشعارات
     match /notifications/{id} {
       allow read: if true;
       allow write, delete: if isAdmin();
@@ -38,10 +38,9 @@ service cloud.firestore {
       allow read, write: if isAdmin() || isOwner(uid);
     }
 
-    // الكورسات ومحتوياتها
+    // الكورسات ومحتوياتها - السماح الكامل للأدمن بالحذف
     match /courses/{courseId} {
       allow read: if true;
-      // السماح الصريح للمسؤول بالحذف والإضافة والتعديل
       allow create, update, delete: if isAdmin();
 
       match /{allSubcollections=**} {
@@ -67,7 +66,7 @@ service cloud.firestore {
       }
     }
 
-    // قواعد الـ Collection Group
+    // قواعد الـ Collection Group - لتمكين الأدمن من رؤية كافة الطلبات
     match /{path=**}/enrollments/{id} {
       allow read, list: if isAdmin();
     }

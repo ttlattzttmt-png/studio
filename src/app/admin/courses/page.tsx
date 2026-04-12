@@ -110,7 +110,7 @@ export default function ManageCourses() {
     
     setIsDeleting(id);
     try {
-      // تنفيذ الحذف الفعلي من Firestore
+      // تنفيذ الحذف الفعلي والمباشر من Firestore
       const courseDocRef = doc(firestore, 'courses', id);
       await deleteDoc(courseDocRef);
       
@@ -196,8 +196,12 @@ export default function ManageCourses() {
       <div className="grid grid-cols-1 gap-6">
         {isLoading ? (
           <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>
-        ) : courses?.map((course, i) => (
-          <Card key={course.id} className="bg-card hover:border-primary/20 transition-all group overflow-hidden border-primary/5">
+        ) : !courses || courses.length === 0 ? (
+          <div className="text-center py-20 bg-secondary/5 rounded-3xl border-2 border-dashed">
+            <p className="text-muted-foreground italic">لا توجد كورسات مضافة حالياً.</p>
+          </div>
+        ) : courses.map((course, i) => (
+          <Card key={course.id} className="bg-card hover:border-primary/20 transition-all group overflow-hidden border-primary/5 shadow-md">
             <CardContent className="p-0">
               <div className="flex flex-col md:flex-row-reverse text-right">
                 <div className="relative w-full md:w-72 h-52 md:h-auto overflow-hidden bg-secondary">
@@ -253,7 +257,7 @@ export default function ManageCourses() {
                     
                     <Button 
                       variant="ghost" 
-                      className="gap-2 text-destructive h-11 hover:bg-destructive/10" 
+                      className="gap-2 text-destructive h-11 hover:bg-destructive/10 font-bold" 
                       disabled={isDeleting === course.id}
                       onClick={() => handleDeleteCourse(course.id)}
                     >
