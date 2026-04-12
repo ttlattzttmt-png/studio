@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -39,6 +38,7 @@ export default function ManageCourses() {
   const { toast } = useToast();
   
   const [isAdding, setIsAdding] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [editingCourse, setEditingCourse] = useState<any>(null);
   const [formData, setFormData] = useState({
     title: '',
@@ -58,13 +58,16 @@ export default function ManageCourses() {
   const { data: courses, isLoading } = useCollection(coursesRef);
 
   const handleAddCourse = async () => {
-    if (!firestore || !user) return;
+    if (!firestore || !user || !formData.title) {
+      toast({ variant: "destructive", title: "بيانات ناقصة", description: "يرجى كتابة عنوان الكورس على الأقل." });
+      return;
+    }
     setIsAdding(true);
     try {
       await addDoc(collection(firestore, 'courses'), {
         title: formData.title,
         description: formData.description,
-        price: Number(formData.price),
+        price: Number(formData.price) || 0,
         targetAcademicYear: formData.targetAcademicYear,
         imageUrl: formData.imageUrl || '',
         createdAt: serverTimestamp(),
@@ -72,9 +75,9 @@ export default function ManageCourses() {
       });
       toast({ title: "تمت الإضافة", description: "تم إنشاء الكورس بنجاح." });
       setFormData({ title: '', description: '', price: '', targetAcademicYear: 'الصف الثالث الثانوي', imageUrl: '' });
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      toast({ variant: "destructive", title: "خطأ", description: "فشل إضافة الكورس." });
+      toast({ variant: "destructive", title: "خطأ", description: "فشل إضافة الكورس. تأكد من اتصالك بالإنترنت." });
     } finally {
       setIsAdding(false);
     }
@@ -87,7 +90,7 @@ export default function ManageCourses() {
       await updateDoc(ref, {
         title: editingCourse.title,
         description: editingCourse.description,
-        price: Number(editingCourse.price),
+        price: Number(editingCourse.price) || 0,
         targetAcademicYear: editingCourse.targetAcademicYear,
         imageUrl: editingCourse.imageUrl || '',
         updatedAt: serverTimestamp()
@@ -102,12 +105,21 @@ export default function ManageCourses() {
 
   const handleDeleteCourse = async (id: string) => {
     if (!firestore) return;
-    if (!confirm('هل أنت متأكد من حذف هذا الكورس؟')) return;
+    if (!confirm('هل أنت متأكد من حذف هذا الكورس نهائياً؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+    
+    setIsDeleting(id);
     try {
       await deleteDoc(doc(firestore, 'courses', id));
-      toast({ title: "تم الحذف", description: "تم إزالة الكورس نهائياً." });
-    } catch (e) {
-      console.error(e);
+      toast({ title: "تم الحذف بنجاح", description: "تم إزالة الكورس وكافة بياناته." });
+    } catch (e: any) {
+      console.error("Delete error:", e);
+      toast({ 
+        variant: "destructive", 
+        title: "فشل الحذف", 
+        description: e.code === 'permission-denied' ? "ليس لديك صلاحية لحذف هذا الكورس." : "حدث خطأ غير متوقع." 
+      });
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -205,7 +217,7 @@ export default function ManageCourses() {
                       <Video className="w-4 h-4" /> إدارة المحتوى
                     </Button>
                     
-                    <Dialog open={!!editingCourse} onOpenChange={(o) => !o && setEditingCourse(null)}>
+                    <Dialog open={!!editingCourse && editingCourse.id === course.id} onOpenChange={(o) => !o && setEditingCourse(null)}>
                       <DialogTrigger asChild>
                         <Button variant="outline" className="gap-2 border-primary/20 text-primary h-11" onClick={() => setEditingCourse(course)}>
                           <Edit3 className="w-4 h-4" /> تعديل
@@ -228,8 +240,14 @@ export default function ManageCourses() {
                       </DialogContent>
                     </Dialog>
                     
-                    <Button variant="ghost" className="gap-2 text-destructive h-11" onClick={() => handleDeleteCourse(course.id)}>
-                      <Trash2 className="w-4 h-4" /> حذف
+                    <Button 
+                      variant="ghost" 
+                      className="gap-2 text-destructive h-11" 
+                      disabled={isDeleting === course.id}
+                      onClick={() => handleDeleteCourse(course.id)}
+                    >
+                      {isDeleting === course.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      حذف
                     </Button>
                   </div>
                 </div>
