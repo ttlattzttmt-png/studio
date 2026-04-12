@@ -36,23 +36,14 @@ export default function StudentDashboard() {
 
   const { data: studentProfile, isLoading: isProfileLoading } = useDoc(studentRef);
   const { data: enrollments, isLoading: isEnrollmentsLoading } = useCollection(enrollmentsRef);
-  const { data: notifications, isLoading: isNotificationsLoading, error: notifError } = useCollection(notificationsRef);
+  const { data: notifications, isLoading: isNotificationsLoading } = useCollection(notificationsRef);
 
   if (!mounted || isUserLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   }
 
   if (!user) {
-    return (
-      <div className="p-20 text-center space-y-4">
-        <p className="text-muted-foreground italic">يرجى تسجيل الدخول أولاً للوصول للوحة التحكم.</p>
-        <Link href="/login"><Button variant="outline">انتقل لصفحة الدخول</Button></Link>
-      </div>
-    );
+    return <div className="p-20 text-center space-y-4"><p>يرجى تسجيل الدخول أولاً.</p><Link href="/login"><Button>انتقل للدخول</Button></Link></div>;
   }
 
   const activeEnrollments = enrollments?.filter(e => e.status === 'active') || [];
@@ -80,29 +71,21 @@ export default function StudentDashboard() {
            <Card className="bg-primary text-primary-foreground p-8 rounded-[2rem] shadow-2xl relative overflow-hidden text-right">
               <div className="relative z-10 space-y-4">
                 <h2 className="text-2xl font-bold">هل تبحث عن كورس جديد؟</h2>
-                <p className="opacity-90 max-w-md text-sm leading-relaxed">تصفح مكتبة الكورسات المتاحة واطلب الانضمام لأي كورس بضغطة زر واحدة. بمجرد الطلب سيقوم البشمهندس بتفعيل الكورس لك.</p>
-                <Link href="/courses">
-                  <Button className="bg-white text-primary font-bold rounded-xl h-12 px-8 mt-4 hover:bg-white/90">
-                    استعرض الكورسات الآن <Search className="w-4 h-4 mr-2" />
-                  </Button>
-                </Link>
+                <p className="opacity-90 max-w-md text-sm leading-relaxed">تصفح مكتبة الكورسات المتاحة واطلب الانضمام بضغطة زر واحدة.</p>
+                <Link href="/courses"><Button className="bg-white text-primary font-bold rounded-xl mt-4">استعرض الكورسات الآن</Button></Link>
               </div>
               <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
            </Card>
 
            <div>
-              <div className="flex flex-row-reverse items-center justify-between mb-6">
-                <h2 className="text-2xl font-headline font-bold">دروسي المفعلة</h2>
-                <span className="text-muted-foreground text-xs font-bold">إجمالي ({activeEnrollments.length}) كورس</span>
-              </div>
-              
+              <h2 className="text-2xl font-headline font-bold mb-6">دروسي المفعلة</h2>
               {isEnrollmentsLoading ? (
                 <div className="p-10 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></div>
               ) : activeEnrollments.length === 0 ? (
                 <div className="p-16 text-center bg-secondary/10 rounded-3xl border-2 border-dashed border-primary/10">
                   <Play className="w-12 h-12 text-primary/20 mx-auto mb-4" />
-                  <p className="text-muted-foreground font-medium mb-6">لا توجد دروس مفعلة حالياً.</p>
-                  <Link href="/courses"><Button className="bg-primary text-primary-foreground font-bold rounded-xl">اطلب انضمام لكورس الآن</Button></Link>
+                  <p className="text-muted-foreground mb-6">لا توجد دروس مفعلة حالياً.</p>
+                  <Link href="/courses"><Button className="bg-primary text-primary-foreground font-bold rounded-xl">اطلب كورس الآن</Button></Link>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -115,48 +98,35 @@ export default function StudentDashboard() {
         </div>
 
         <div className="space-y-8">
-           {pendingEnrollments && pendingEnrollments.length > 0 && (
+           {pendingEnrollments.length > 0 && (
              <Card className="bg-accent/5 border-accent/20 text-right">
-                <CardHeader>
-                  <CardTitle className="text-lg font-bold flex flex-row-reverse items-center gap-2 justify-start">
-                    <Clock className="w-5 h-5 text-accent" /> بانتظار التفعيل
-                  </CardTitle>
-                </CardHeader>
+                <CardHeader><CardTitle className="text-lg font-bold">بانتظار التفعيل</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
                   {pendingEnrollments.map(en => (
-                    <div key={en.id} className="p-3 bg-card border rounded-xl text-xs flex flex-row-reverse justify-between items-center hover:border-accent/30 transition-colors">
-                      <span className="font-bold">{en.courseTitle || en.courseId}</span>
+                    <div key={en.id} className="p-3 bg-card border rounded-xl text-xs flex flex-row-reverse justify-between items-center">
+                      <span className="font-bold">{en.courseTitle || 'كورس'}</span>
                       <span className="text-[9px] text-accent font-bold animate-pulse">جاري المراجعة...</span>
                     </div>
                   ))}
-                  <p className="text-[9px] text-muted-foreground pt-2 font-medium">سيتم تفعيل الكورسات أعلاه بواسطة البشمهندس خلال وقت قصير.</p>
                 </CardContent>
              </Card>
            )}
 
            <Card className="bg-card border-primary/10 shadow-sm overflow-hidden text-right">
              <CardHeader className="border-b bg-secondary/5 py-4">
-               <CardTitle className="text-lg font-bold flex flex-row-reverse items-center gap-2 justify-start">
-                 <Megaphone className="w-5 h-5 text-primary" /> آخر التنبيهات
-               </CardTitle>
+               <CardTitle className="text-lg font-bold">آخر التنبيهات</CardTitle>
              </CardHeader>
              <CardContent className="p-0">
                 {isNotificationsLoading ? (
                   <div className="p-8 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-primary" /></div>
-                ) : notifError ? (
-                  <div className="p-10 text-center">
-                    <p className="text-xs text-muted-foreground italic">لا توجد رسائل حالياً.</p>
-                  </div>
                 ) : !notifications || notifications.length === 0 ? (
-                  <div className="text-center py-10">
-                    <p className="text-xs text-muted-foreground italic">لا توجد رسائل حالياً.</p>
-                  </div>
+                  <div className="text-center py-10"><p className="text-xs text-muted-foreground italic">لا توجد رسائل حالياً.</p></div>
                 ) : (
-                  <div className="divide-y max-h-[400px] overflow-y-auto">
+                  <div className="divide-y">
                     {notifications.map((notif: any) => (
                       <div key={notif.id} className="p-5 hover:bg-secondary/10 transition-colors">
                         <h5 className="text-sm font-bold text-primary mb-1">{notif.title}</h5>
-                        <p className="text-[10px] text-muted-foreground line-clamp-2 leading-relaxed">{notif.message}</p>
+                        <p className="text-[10px] text-muted-foreground line-clamp-2">{notif.message}</p>
                       </div>
                     ))}
                   </div>
@@ -180,23 +150,16 @@ function CourseCardSummary({ enrollment, index }: { enrollment: any, index: numb
         <div className="relative h-24 bg-secondary">
            <Image 
             src={course?.imageUrl || PlaceHolderImages[(index % 3) + 1]?.imageUrl || ''} 
-            alt="" 
-            fill 
-            className="object-cover group-hover:scale-105 transition-transform duration-500" 
-            unoptimized={!!course?.imageUrl}
+            alt="" fill className="object-cover" unoptimized={!!course?.imageUrl}
           />
            <div className="absolute inset-0 bg-black/40" />
         </div>
         <CardContent className="p-6">
-           <div className="flex flex-row-reverse justify-between items-center mb-4">
-             <span className="text-[10px] font-bold px-2 py-1 bg-accent/10 text-accent rounded-full">مفعل</span>
-             <Play className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" />
-           </div>
            <h4 className="text-lg font-bold mb-4">{enrollment.courseTitle || enrollment.courseId}</h4>
            <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden mb-2">
              <div className="h-full bg-primary" style={{ width: `${enrollment.progressPercentage || 0}%` }} />
            </div>
-           <p className="text-[10px] text-muted-foreground">نسبة الإنجاز: {enrollment.progressPercentage || 0}%</p>
+           <p className="text-[10px] text-muted-foreground">إنجاز: {enrollment.progressPercentage || 0}%</p>
         </CardContent>
       </Card>
     </Link>

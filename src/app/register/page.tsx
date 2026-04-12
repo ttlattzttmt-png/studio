@@ -34,13 +34,12 @@ export default function RegisterPage() {
 
     setIsLoading(true);
     try {
-      // 1. إنشاء حساب في Auth
+      // 1. إنشاء الحساب
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const uid = userCredential.user.uid;
 
-      // 2. إنشاء وثيقة الطالب في Firestore وانتظارها تماماً
-      const studentDocRef = doc(firestore, 'students', uid);
-      await setDoc(studentDocRef, {
+      // 2. كتابة بيانات الطالب (ننتظر تماماً)
+      await setDoc(doc(firestore, 'students', uid), {
         id: uid,
         name: formData.name,
         email: formData.email,
@@ -53,24 +52,20 @@ export default function RegisterPage() {
       });
 
       toast({
-        title: "تم إنشاء الحساب بنجاح",
-        description: "مرحباً بك يا بشمهندس في عائلتنا."
+        title: "تم التسجيل بنجاح",
+        description: "أهلاً بك في عائلة البشمهندس."
       });
       
-      // تأخير بسيط لضمان تحديث قاعدة البيانات وتزامنها قبل التحويل
-      setTimeout(() => {
-        router.push('/student');
-      }, 800);
+      router.push('/student');
 
     } catch (error: any) {
       console.error("Registration error:", error);
-      let errorMessage = "حدث خطأ ما، يرجى المحاولة لاحقاً.";
-      if (error.code === 'auth/email-already-in-use') errorMessage = "هذا البريد الإلكتروني مستخدم بالفعل.";
-      if (error.code === 'auth/weak-password') errorMessage = "كلمة المرور ضعيفة جداً.";
+      let errorMessage = "حدث خطأ أثناء التسجيل، يرجى المحاولة مرة أخرى.";
+      if (error.code === 'auth/email-already-in-use') errorMessage = "هذا البريد مسجل بالفعل.";
       
       toast({
         variant: "destructive",
-        title: "خطأ في إنشاء الحساب",
+        title: "فشل إنشاء الحساب",
         description: errorMessage
       });
     } finally {
@@ -80,9 +75,9 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
-      <div className="hidden md:flex md:w-1/2 bg-card items-center justify-center p-12 border-l relative overflow-hidden">
+      <div className="hidden md:flex md:w-1/2 bg-card items-center justify-center p-12 border-l relative overflow-hidden text-right">
         <div className="absolute inset-0 bg-primary/5 blur-3xl" />
-        <div className="max-w-md space-y-8 animate-in fade-in slide-in-from-right duration-700 relative z-10 text-right">
+        <div className="max-w-md space-y-8 animate-in fade-in slide-in-from-right duration-700 relative z-10">
           <div className="flex items-center gap-3 justify-end">
             <span className="text-4xl font-headline font-bold text-primary">البشمهندس</span>
             <ShieldCheck className="w-10 h-10 text-primary" />
@@ -94,11 +89,6 @@ export default function RegisterPage() {
 
       <div className="w-full md:w-1/2 flex items-center justify-center p-8 overflow-y-auto">
         <div className="w-full max-w-md space-y-8 py-12">
-          <div className="text-center md:hidden">
-             <h2 className="text-3xl font-bold text-primary mb-2">البشمهندس</h2>
-             <p className="text-muted-foreground text-sm">أنشئ حسابك لبدء التفوق</p>
-          </div>
-
           <form onSubmit={handleRegister} className="space-y-6 text-right">
             <div className="space-y-2">
               <Label htmlFor="name" className="text-sm font-bold flex items-center gap-2 justify-end">الاسم رباعي <User className="w-4 h-4 text-primary" /></Label>
@@ -133,7 +123,7 @@ export default function RegisterPage() {
               <Label htmlFor="password" title="كلمة المرور" className="text-sm font-bold flex items-center gap-2 justify-end">كلمة المرور <Lock className="w-4 h-4 text-primary" /></Label>
               <Input id="password" type="password" className="h-12 bg-card border-primary/10 text-right" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} required />
             </div>
-            <Button type="submit" disabled={isLoading} className="w-full h-14 bg-primary text-primary-foreground font-bold rounded-xl shadow-lg hover:shadow-primary/20 transition-all">
+            <Button type="submit" disabled={isLoading} className="w-full h-14 bg-primary text-primary-foreground font-bold rounded-xl shadow-lg">
               {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "إنشاء الحساب الآن"}
             </Button>
           </form>

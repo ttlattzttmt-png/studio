@@ -27,11 +27,11 @@ export default function LoginPage() {
     
     setIsLoading(true);
     try {
-      // 1. تسجيل الدخول الأساسي عبر Firebase Auth
+      // 1. تسجيل الدخول عبر Firebase Auth
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const userEmail = userCredential.user.email?.toLowerCase();
 
-      // 2. التوجيه المباشر والذكي بناءً على البريد الإلكتروني (أضمن وسيلة لتجنب أخطاء فحص القواعد)
+      // 2. التوجيه المباشر والذكي (أسرع وأضمن وسيلة)
       if (userEmail === ADMIN_EMAIL.toLowerCase()) {
         toast({ title: "مرحباً بك يا بشمهندس", description: "جاري فتح لوحة التحكم..." });
         router.push('/admin');
@@ -43,11 +43,8 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error("Login error:", error);
       let errorMessage = "بيانات الدخول غير صحيحة، يرجى التأكد والمحاولة مرة أخرى.";
-      
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
         errorMessage = "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
-      } else if (error.code === 'auth/too-many-requests') {
-        errorMessage = "تم حظر الدخول مؤقتاً بسبب محاولات كثيرة خاطئة.";
       }
       
       toast({
