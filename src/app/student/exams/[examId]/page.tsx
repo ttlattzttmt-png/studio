@@ -17,7 +17,7 @@ import {
   Trophy,
   LayoutDashboard
 } from 'lucide-react';
-import { useUser, useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { useUser, useFirebase, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, addDoc, doc, getDocs, query, orderBy, where, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
