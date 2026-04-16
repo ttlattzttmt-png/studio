@@ -13,7 +13,8 @@ import {
   PlusCircle,
   CheckCircle,
   GraduationCap,
-  Ticket
+  Ticket,
+  AlertCircle
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, query, orderBy, doc, setDoc } from 'firebase/firestore';
