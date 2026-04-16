@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useAuth, initiateSignOut, useUser } from '@/firebase';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 interface SidebarNavProps {
   isAdmin?: boolean;
@@ -126,6 +126,9 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="p-0 w-72 text-right">
+            <SheetHeader className="sr-only">
+              <SheetTitle>قائمة التنقل</SheetTitle>
+            </SheetHeader>
             <NavContent />
           </SheetContent>
         </Sheet>

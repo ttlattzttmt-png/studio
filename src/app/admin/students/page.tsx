@@ -135,6 +135,9 @@ export default function AdminStudents() {
 
       <Dialog open={!!selectedStudent} onOpenChange={() => setSelectedStudent(null)}>
         <DialogContent className="max-w-5xl bg-card border-primary/20 p-0 overflow-hidden rounded-[2.5rem]">
+          <DialogHeader className="sr-only">
+            <DialogTitle>تفاصيل ملف الطالب: {selectedStudent?.name}</DialogTitle>
+          </DialogHeader>
           <ScrollArea className="max-h-[90vh]">
             <div className="p-8 bg-gradient-to-l from-primary/10 to-transparent border-b">
               <div className="flex flex-col md:flex-row items-center gap-6 justify-end text-right">
