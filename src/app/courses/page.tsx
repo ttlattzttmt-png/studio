@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import { Navbar } from '@/components/ui/navbar';
 import { Footer } from '@/components/ui/footer';
@@ -12,74 +11,48 @@ import {
   Search, 
   Loader2,
   PlusCircle,
-  CheckCircle
+  CheckCircle,
+  GraduationCap,
+  Ticket
 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, query, orderBy, doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
 
 export default function CoursesPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [isRequesting, setIsRequesting] = useState<string | null>(null);
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
 
-  const coursesRef = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'courses'), orderBy('createdAt', 'desc'));
-  }, [firestore]);
+  const studentRef = useMemoFirebase(() => user ? doc(firestore, 'students', user.uid) : null, [firestore, user]);
+  const { data: student } = useDoc(studentRef);
 
+  const coursesRef = useMemoFirebase(() => query(collection(firestore, 'courses'), orderBy('createdAt', 'desc')), [firestore]);
   const { data: courses, isLoading } = useCollection(coursesRef);
 
-  const enrollmentsRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return collection(firestore, 'students', user.uid, 'enrollments');
-  }, [firestore, user]);
-
+  const enrollmentsRef = useMemoFirebase(() => user ? collection(firestore, 'students', user.uid, 'enrollments') : null, [firestore, user]);
   const { data: myEnrollments } = useCollection(enrollmentsRef);
 
-  const handleRequestEnrollment = async (course: any) => {
-    if (!user || !firestore) {
-      toast({ title: "يرجى تسجيل الدخول", description: "يجب أن تملك حساباً لطلب الانضمام." });
-      return;
+  // تصفية الكورسات حسب السنة الدراسية للطالب والبحث
+  const filteredCourses = useMemo(() => {
+    if (!courses) return [];
+    let filtered = courses;
+    
+    // إذا كان الطالب مسجلاً، أظهر له كورسات سنته الدراسية فقط
+    if (student?.academicYear) {
+      filtered = filtered.filter(c => c.targetAcademicYear === student.academicYear);
     }
 
-    setIsRequesting(course.id);
-    try {
-      await setDoc(doc(firestore, 'students', user.uid, 'enrollments', course.id), {
-        id: course.id,
-        courseId: course.id,
-        studentId: user.uid,
-        status: 'pending',
-        enrollmentDate: new Date().toISOString(),
-        progressPercentage: 0,
-        isCompleted: false,
-        courseTitle: course.title
-      });
-
-      toast({ 
-        title: "تم إرسال طلبك", 
-        description: "سيقوم البشمهندس بمراجعة طلبك وتفعيل الكورس لك قريباً." 
-      });
-    } catch (e) {
-      console.error(e);
-      toast({ variant: "destructive", title: "خطأ", description: "فشل إرسال الطلب." });
-    } finally {
-      setIsRequesting(null);
+    if (searchTerm) {
+      filtered = filtered.filter(c => 
+        c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.description.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
-  };
-
-  const getCourseStatus = (courseId: string) => {
-    const enrollment = myEnrollments?.find(e => e.courseId === courseId);
-    if (!enrollment) return 'none';
-    return enrollment.status || 'pending';
-  };
-
-  const filteredCourses = courses?.filter(course => 
-    course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    course.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    return filtered;
+  }, [courses, student, searchTerm]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -89,69 +62,63 @@ export default function CoursesPage() {
         <div className="container mx-auto px-4">
           <div className="text-center mb-16 space-y-4">
             <h1 className="text-5xl font-headline font-bold">مكتبة الكورسات</h1>
-            <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
-              اختر الكورس المناسب واطلب الانضمام، وسيقوم فريق البشمهندس بتفعيل حسابك فوراً.
+            <p className="text-muted-foreground max-w-2xl mx-auto text-lg italic">
+              {student ? `نعرض لك كورسات: ${student.academicYear}` : "اختر الكورس المناسب وابدأ رحلة التفوق."}
             </p>
           </div>
 
-          <div className="max-w-2xl mx-auto mb-12">
-            <div className="relative group">
-              <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
+          <div className="max-w-4xl mx-auto mb-12 flex flex-col md:flex-row gap-4">
+            <div className="relative flex-grow">
+              <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input 
-                placeholder="ابحث عن كورس..." 
-                className="h-16 pr-12 text-lg bg-card border-primary/10 rounded-2xl shadow-xl shadow-primary/5 focus:border-primary transition-all text-right"
+                placeholder="ابحث عن كورس محدد..." 
+                className="h-16 pr-12 text-lg bg-card border-primary/10 rounded-2xl shadow-xl text-right"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+            <Link href="/student/redeem" className="shrink-0">
+               <Button className="h-16 px-8 bg-primary text-primary-foreground font-bold rounded-2xl gap-2 shadow-lg">
+                  <Ticket className="w-5 h-5" /> تفعيل كود
+               </Button>
+            </Link>
           </div>
 
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-4">
-              <Loader2 className="w-12 h-12 animate-spin text-primary" />
-              <p className="text-muted-foreground font-bold">جاري جلب الكورسات...</p>
+            <div className="flex justify-center py-20"><Loader2 className="w-12 h-12 animate-spin text-primary" /></div>
+          ) : filteredCourses.length === 0 ? (
+            <div className="text-center py-20 bg-secondary/10 rounded-3xl border-2 border-dashed border-primary/20">
+               <AlertCircle className="w-16 h-16 mx-auto mb-4 opacity-20" />
+               <p className="text-muted-foreground">لا توجد كورسات متاحة حالياً تطابق صفك الدراسي.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredCourses?.map((course, idx) => {
-                const status = getCourseStatus(course.id);
+              {filteredCourses.map((course, idx) => {
+                const enrollment = myEnrollments?.find(e => e.courseId === course.id);
+                const isActive = enrollment?.status === 'active';
+                
                 return (
-                  <div key={course.id} className="group bg-card rounded-3xl border border-primary/5 overflow-hidden hover:shadow-2xl transition-all flex flex-col">
-                    <div className="relative h-56">
-                      <Image
-                        src={course.imageUrl || PlaceHolderImages[(idx % 3) + 1]?.imageUrl || ''}
-                        alt={course.title}
-                        fill
-                        className="object-cover"
-                        unoptimized={!!course.imageUrl}
-                      />
-                      <div className="absolute top-4 right-4 bg-primary text-primary-foreground text-xs font-bold px-4 py-1.5 rounded-full">
+                  <div key={course.id} className="group bg-card rounded-[2.5rem] border border-primary/5 overflow-hidden hover:shadow-2xl transition-all flex flex-col text-right">
+                    <div className="relative h-64">
+                      <Image src={course.imageUrl || PlaceHolderImages[(idx % 3) + 1].imageUrl} alt="" fill className="object-cover group-hover:scale-105 transition-transform duration-700" unoptimized={!!course.imageUrl} />
+                      <div className="absolute top-4 right-4 bg-primary text-primary-foreground text-[10px] font-black px-3 py-1.5 rounded-full shadow-xl">
                         {course.targetAcademicYear}
                       </div>
                     </div>
-                    <div className="p-8 flex-grow flex flex-col text-right">
-                      <h3 className="text-2xl font-headline font-bold mb-3">{course.title}</h3>
-                      <p className="text-muted-foreground line-clamp-2 text-sm mb-6">{course.description}</p>
+                    <div className="p-8 flex-grow flex flex-col">
+                      <h3 className="text-2xl font-bold mb-3">{course.title}</h3>
+                      <p className="text-muted-foreground text-sm line-clamp-2 mb-6">{course.description}</p>
                       
                       <div className="mt-auto pt-6 border-t border-primary/5 flex flex-row-reverse items-center justify-between">
-                        <p className="text-2xl font-black text-accent">{course.price} ج.م</p>
-                        
-                        {status === 'active' ? (
-                          <Button disabled className="bg-accent text-white gap-2 rounded-xl">
-                            <CheckCircle className="w-4 h-4" /> مفعل
-                          </Button>
-                        ) : status === 'pending' ? (
-                          <Button disabled className="bg-secondary text-muted-foreground gap-2 rounded-xl italic">
-                            قيد الانتظار...
-                          </Button>
+                        <div className="text-2xl font-black text-accent">{course.price} ج.م</div>
+                        {isActive ? (
+                          <Link href={`/student/courses/${course.id}`}>
+                            <Button className="bg-accent text-white gap-2 rounded-xl h-11"><CheckCircle className="w-4 h-4" /> فتح الكورس</Button>
+                          </Link>
                         ) : (
-                          <Button 
-                            onClick={() => handleRequestEnrollment(course)}
-                            disabled={isRequesting === course.id}
-                            className="bg-primary text-primary-foreground font-bold rounded-xl h-12 px-6"
-                          >
-                            {isRequesting === course.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <><PlusCircle className="w-4 h-4 ml-2" /> طلب انضمام</>}
-                          </Button>
+                          <Link href="/student/redeem">
+                            <Button className="bg-primary text-primary-foreground font-bold rounded-xl h-11 px-6">اشترك الآن</Button>
+                          </Link>
                         )}
                       </div>
                     </div>
@@ -162,7 +129,6 @@ export default function CoursesPage() {
           )}
         </div>
       </main>
-
       <Footer />
     </div>
   );

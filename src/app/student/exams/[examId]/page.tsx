@@ -12,15 +12,15 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Loader2, 
   Clock, 
-  ChevronLeft,
-  ChevronRight,
-  Link as LinkIcon,
   CheckCircle2,
-  ImageIcon
+  AlertTriangle,
+  Trophy,
+  LayoutDashboard
 } from 'lucide-react';
 import { useUser, useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, addDoc, doc, getDocs, query, orderBy, where, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
 
 export default function TakeExamPage() {
   const { examId } = useParams();
@@ -34,10 +34,24 @@ export default function TakeExamPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [courseId, setCourseId] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [finishedResult, setFinishedResult] = useState<any>(null);
+  const [alreadyAttempted, setAlreadyAttempted] = useState(false);
 
+  // البحث عن الكورس المرتبط بالامتحان والتأكد من عدم وجود محاولة سابقة
   useEffect(() => {
-    const findCourse = async () => {
-      if (!firestore) return;
+    const checkStatus = async () => {
+      if (!firestore || !user || !examId) return;
+      
+      // 1. فحص هل أدى الطالب هذا الامتحان من قبل؟
+      const attemptsRef = collection(firestore, 'students', user.uid, 'quiz_attempts');
+      const qAttempt = query(attemptsRef, where('courseContentId', '==', examId));
+      const attemptSnap = await getDocs(qAttempt);
+      if (!attemptSnap.empty) {
+        setAlreadyAttempted(true);
+        return;
+      }
+
+      // 2. البحث عن كود الكورس
       const coursesRef = collection(firestore, 'courses');
       const snap = await getDocs(coursesRef);
       for (const courseDoc of snap.docs) {
@@ -48,55 +62,40 @@ export default function TakeExamPage() {
         }
       }
     };
-    findCourse();
-  }, [firestore, examId]);
+    checkStatus();
+  }, [firestore, user, examId]);
 
-  const examRef = useMemoFirebase(() => {
-    if (!firestore || !courseId || !examId) return null;
-    return doc(firestore, 'courses', courseId, 'content', examId as string);
-  }, [firestore, courseId, examId]);
+  const examRef = useMemoFirebase(() => 
+    (firestore && courseId && examId) ? doc(firestore, 'courses', courseId, 'content', examId as string) : null
+  , [firestore, courseId, examId]);
   
   const { data: exam } = useDoc(examRef);
 
   useEffect(() => {
-    if (exam?.durationMinutes && timeLeft === null) {
-      setTimeLeft(exam.durationMinutes * 60);
-    }
+    if (exam?.durationMinutes && timeLeft === null) setTimeLeft(exam.durationMinutes * 60);
   }, [exam, timeLeft]);
 
   useEffect(() => {
-    if (timeLeft === null || timeLeft <= 0) {
-      if (timeLeft === 0) handleSubmit();
-      return;
-    }
-    const timer = setInterval(() => setTimeLeft(prev => (prev ? prev - 1 : 0)), 1000);
+    if (timeLeft === 0 && !finishedResult) handleSubmit();
+    if (!timeLeft || timeLeft <= 0) return;
+    const timer = setInterval(() => setTimeLeft(p => (p ? p - 1 : 0)), 1000);
     return () => clearInterval(timer);
   }, [timeLeft]);
 
-  const questionsRef = useMemoFirebase(() => {
-    if (!firestore || !courseId || !examId) return null;
-    return query(collection(firestore, 'courses', courseId, 'content', examId as string, 'questions'), orderBy('orderIndex', 'asc'));
-  }, [firestore, courseId, examId]);
+  const questionsRef = useMemoFirebase(() => 
+    (firestore && courseId && examId) ? query(collection(firestore, 'courses', courseId, 'content', examId as string, 'questions'), orderBy('orderIndex', 'asc')) : null
+  , [firestore, courseId, examId]);
 
   const { data: questions, isLoading: isQsLoading } = useCollection(questionsRef);
-  const currentQuestion = questions?.[activeQuestionIndex];
 
   const handleSubmit = async () => {
     if (isSubmitting || !firestore || !user || !questions || !courseId) return;
     setIsSubmitting(true);
     
     try {
-      const attemptRef = await addDoc(collection(firestore, 'students', user.uid, 'quiz_attempts'), {
-        studentId: user.uid,
-        courseContentId: examId,
-        courseId: courseId,
-        submittedAt: new Date().toISOString(),
-        isGraded: false,
-        score: 0
-      });
-
       let totalScoreAchieved = 0;
       let totalMaxPoints = 0;
+      const submissionAnswers = [];
 
       for (const q of questions) {
         totalMaxPoints += q.points;
@@ -114,156 +113,143 @@ export default function TakeExamPage() {
           }
         }
 
-        await addDoc(collection(firestore, 'students', user.uid, 'quiz_attempts', attemptRef.id, 'answers'), {
+        submissionAnswers.push({
           questionId: q.id,
           questionType: q.questionType,
           mcqSelectedOptionId: studentAns.mcqOptionId || null,
           essayAnswerText: studentAns.essayText || '',
-          essayAnswerFileUrl: studentAns.essayImageUrl || '', // رابط الصورة حقه
+          essayAnswerFileUrl: studentAns.essayImageUrl || '',
           isCorrect: q.questionType === 'MCQ' ? isCorrect : false,
           scoreAchieved: q.questionType === 'MCQ' ? scoreAchieved : 0,
           maxPoints: q.points
         });
       }
 
-      const finalScorePercentage = totalMaxPoints > 0 ? Math.round((totalScoreAchieved / totalMaxPoints) * 100) : 0;
+      const finalPercentage = totalMaxPoints > 0 ? Math.round((totalScoreAchieved / totalMaxPoints) * 100) : 0;
       
-      const updateRef = doc(firestore, 'students', user.uid, 'quiz_attempts', attemptRef.id);
-      await updateDoc(updateRef, {
-        score: finalScorePercentage,
-        isGraded: questions.every(q => q.questionType === 'MCQ')
+      // حفظ المحاولة
+      const attemptRef = await addDoc(collection(firestore, 'students', user.uid, 'quiz_attempts'), {
+        studentId: user.uid,
+        courseContentId: examId,
+        courseId: courseId,
+        submittedAt: new Date().toISOString(),
+        isGraded: questions.every(q => q.questionType === 'MCQ'),
+        score: finalPercentage,
+        pointsAchieved: totalScoreAchieved,
+        totalPoints: totalMaxPoints
       });
 
-      toast({ title: "تم تسليم الامتحان بنجاح", description: "تم حفظ إجاباتك بنجاح." });
-      router.push('/student/exams');
-    } catch (e: any) {
-      console.error("Submission Error:", e);
-      toast({ 
-        variant: "destructive", 
-        title: "فشل التسليم", 
-        description: "حدث خطأ في الاتصال، يرجى المحاولة مرة أخرى." 
-      });
+      // حفظ الإجابات داخل المحاولة
+      for (const ansData of submissionAnswers) {
+        await addDoc(collection(firestore, 'students', user.uid, 'quiz_attempts', attemptRef.id, 'answers'), ansData);
+      }
+
+      setFinishedResult({ score: finalPercentage, points: totalScoreAchieved, total: totalMaxPoints });
+      toast({ title: "تم التسليم بنجاح" });
+    } catch (e) {
+      console.error(e);
+      toast({ variant: "destructive", title: "فشل الحفظ" });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  if (alreadyAttempted) return (
+    <div className="min-h-screen flex items-center justify-center p-8 text-center bg-background">
+      <Card className="max-w-md p-10 space-y-6 rounded-[2.5rem] border-primary/20 shadow-2xl">
+         <AlertTriangle className="w-20 h-20 text-primary mx-auto opacity-50" />
+         <h2 className="text-2xl font-bold">عذراً، لا يمكنك الإعادة</h2>
+         <p className="text-muted-foreground">لقد قمت بتأدية هذا الامتحان مسبقاً. نظام المنصة يسمح بمحاولة واحدة فقط لكل طالب لضمان الجدية.</p>
+         <Link href="/student/exams"><Button className="w-full h-12 bg-primary font-bold rounded-xl">عرض سجل درجاتي</Button></Link>
+      </Card>
+    </div>
+  );
 
-  if (isUserLoading || isQsLoading) return <div className="flex justify-center py-40"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
+  if (finishedResult) return (
+    <div className="min-h-screen flex items-center justify-center p-8 bg-background animate-in fade-in zoom-in duration-500">
+       <Card className="max-w-lg w-full p-12 text-center space-y-8 rounded-[3rem] border-accent/20 shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-full h-2 bg-accent" />
+          <Trophy className="w-24 h-24 text-accent mx-auto animate-bounce" />
+          <div className="space-y-2">
+             <h2 className="text-4xl font-headline font-black">أحسنت يا بشمهندس!</h2>
+             <p className="text-muted-foreground italic">تم استلام إجاباتك بنجاح، إليك ملخص النتيجة:</p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+             <div className="p-6 bg-accent/5 rounded-3xl border border-accent/10">
+                <p className="text-5xl font-black text-accent">{finishedResult.score}%</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">النسبة المئوية</p>
+             </div>
+             <div className="p-6 bg-primary/5 rounded-3xl border border-primary/10">
+                <p className="text-5xl font-black text-primary">{finishedResult.points}/{finishedResult.total}</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">النقاط المحققة</p>
+             </div>
+          </div>
+          <div className="pt-4 space-y-4">
+             <p className="text-xs text-muted-foreground">سيقوم البشمهندس بمراجعة الأسئلة المقالية (إن وجدت) واعتماد النتيجة النهائية قريباً.</p>
+             <Link href="/student/dashboard"><Button className="w-full h-14 bg-secondary font-bold rounded-2xl gap-2"><LayoutDashboard className="w-5 h-5" /> العودة للوحة التحكم</Button></Link>
+          </div>
+       </Card>
+    </div>
+  );
+
+  if (isUserLoading || isQsLoading || !exam) return <div className="flex justify-center py-40"><Loader2 className="w-12 h-12 animate-spin text-primary" /></div>;
+
+  const currentQuestion = questions?.[activeQuestionIndex];
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background pb-20 select-none" onContextMenu={(e) => e.preventDefault()}>
       <div className="sticky top-0 z-50 bg-card border-b p-4 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="text-xl font-bold bg-primary/10 px-4 py-2 rounded-xl text-primary flex items-center gap-2">
-            <Clock className="w-5 h-5" /> {timeLeft !== null ? formatTime(timeLeft) : '--:--'}
+            <Clock className="w-5 h-5" /> {timeLeft ? `${Math.floor(timeLeft/60)}:${(timeLeft%60).toString().padStart(2,'0')}` : '--:--'}
           </div>
-          <h1 className="font-bold text-lg hidden md:block">{exam?.title}</h1>
+          <h1 className="font-bold text-lg hidden md:block">{exam.title}</h1>
         </div>
-        <div className="flex items-center gap-2">
-           <span className="text-xs text-muted-foreground hidden sm:block">سؤال {activeQuestionIndex + 1} من {questions?.length}</span>
-           <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-primary text-primary-foreground font-bold px-8 shadow-lg shadow-primary/20">
-             {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin ml-2" /> جاري التسليم...</> : "إنهاء وتسليم"}
-           </Button>
-        </div>
+        <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-primary text-primary-foreground font-bold px-8 rounded-xl shadow-lg">إنهاء وتسليم</Button>
       </div>
 
-      <main className="container mx-auto p-4 md:p-8 max-w-4xl">
+      <main className="container mx-auto p-4 md:p-8 max-w-4xl space-y-8">
         {currentQuestion && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <Card className="bg-card shadow-2xl border-primary/10 overflow-hidden">
-              <CardHeader className="border-b bg-secondary/10 flex flex-row justify-between items-center px-8 py-4">
-                <Badge variant="outline" className="text-primary border-primary/30">سؤال {activeQuestionIndex + 1}</Badge>
-                <Badge variant="secondary">{currentQuestion.points} نقاط</Badge>
-              </CardHeader>
-              <CardContent className="p-8 space-y-8 text-right">
-                {currentQuestion.questionImageUrl && (
-                  <div className="relative w-full h-[400px] bg-black/5 rounded-2xl overflow-hidden border border-dashed border-primary/20">
-                    <img 
-                      src={currentQuestion.questionImageUrl} 
-                      alt="Question" 
-                      className="w-full h-full object-contain" 
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+            <Card className="bg-card border-primary/10 shadow-2xl rounded-[2.5rem] overflow-hidden">
+               <CardHeader className="bg-secondary/10 px-8 py-4 border-b flex flex-row justify-between items-center">
+                  <Badge variant="outline" className="text-primary font-bold">سؤال {activeQuestionIndex + 1}</Badge>
+                  <Badge variant="secondary">{currentQuestion.points} نقاط</Badge>
+               </CardHeader>
+               <CardContent className="p-8 text-right space-y-8">
+                  <h2 className="text-3xl font-bold leading-tight">{currentQuestion.questionText}</h2>
+                  {currentQuestion.questionImageUrl && (
+                    <div className="w-full h-80 bg-black/5 rounded-3xl overflow-hidden border border-dashed border-primary/20">
+                      <img src={currentQuestion.questionImageUrl} alt="Question" className="w-full h-full object-contain" />
+                    </div>
+                  )}
+                  {currentQuestion.questionType === 'MCQ' ? (
+                    <MCQOptions 
+                      courseId={courseId!} 
+                      examId={examId as string} 
+                      qId={currentQuestion.id} 
+                      selected={answers[currentQuestion.id]?.mcqOptionId}
+                      onSelect={(id: string) => setAnswers({...answers, [currentQuestion.id]: { mcqOptionId: id }})}
                     />
-                  </div>
-                )}
-                
-                <h2 className="text-3xl font-bold leading-tight">{currentQuestion.questionText}</h2>
-                
-                {currentQuestion.questionType === 'MCQ' ? (
-                  <QuestionOptions 
-                    courseId={courseId!} 
-                    examId={examId as string} 
-                    questionId={currentQuestion.id} 
-                    selectedId={answers[currentQuestion.id]?.mcqOptionId}
-                    onSelect={(id: string) => setAnswers({...answers, [currentQuestion.id]: { mcqOptionId: id }})}
-                  />
-                ) : (
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                      <Label className="text-sm font-bold block mb-2">أكتب إجابتك هنا (اختياري إذا ستقوم برفع صورة):</Label>
-                      <Textarea 
-                        placeholder="ابدأ الكتابة هنا..." 
-                        className="min-h-[200px] text-lg bg-background border-primary/10 focus:border-primary"
-                        value={answers[currentQuestion.id]?.essayText || ''}
-                        onChange={(e) => setAnswers({...answers, [currentQuestion.id]: { ...answers[currentQuestion.id], essayText: e.target.value }})}
-                      />
-                    </div>
-                    
-                    <div className="p-6 bg-secondary/20 rounded-2xl border-2 border-dashed border-primary/20 space-y-4">
-                      <div className="flex items-center gap-2 text-primary font-bold">
-                        <ImageIcon className="w-5 h-5" />
-                        <span>أو ألصق رابط صورة حلك اليدوي هنا (Google Drive / Link)</span>
-                      </div>
-                      <div className="relative">
-                        <LinkIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input 
-                          placeholder="رابط الصورة المباشر..." 
-                          className="pr-10 text-right bg-background border-primary/10"
-                          value={answers[currentQuestion.id]?.essayImageUrl || ''}
-                          onChange={(e) => setAnswers({...answers, [currentQuestion.id]: { ...answers[currentQuestion.id], essayImageUrl: e.target.value }})}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
+                  ) : (
+                    <Textarea 
+                      placeholder="أكتب إجابتك المقالية هنا..." 
+                      className="min-h-[250px] bg-background text-lg border-primary/10 rounded-2xl"
+                      value={answers[currentQuestion.id]?.essayText || ''}
+                      onChange={(e) => setAnswers({...answers, [currentQuestion.id]: { essayText: e.target.value }})}
+                    />
+                  )}
+               </CardContent>
             </Card>
 
             <div className="flex justify-between items-center gap-4">
-              <Button 
-                variant="outline" 
-                size="lg"
-                className="h-14 px-8 rounded-xl font-bold border-primary/20"
-                disabled={activeQuestionIndex === 0} 
-                onClick={() => setActiveQuestionIndex(prev => prev - 1)}
-              >
-                 السابق <ChevronRight className="w-5 h-5 mr-2" />
-              </Button>
-              
-              <div className="flex-grow flex justify-center gap-2 overflow-x-auto py-2">
-                {questions?.map((_, i) => (
-                  <button 
-                    key={i} 
-                    onClick={() => setActiveQuestionIndex(i)}
-                    className={`w-3 h-3 rounded-full transition-all ${i === activeQuestionIndex ? 'bg-primary scale-125' : (answers[questions[i].id]?.mcqOptionId || answers[questions[i].id]?.essayText || answers[questions[i].id]?.essayImageUrl) ? 'bg-accent' : 'bg-muted hover:bg-muted-foreground'}`} 
-                  />
-                ))}
-              </div>
-              
-              <Button 
-                variant="outline" 
-                size="lg"
-                className="h-14 px-8 rounded-xl font-bold border-primary/20"
-                disabled={activeQuestionIndex === (questions?.length || 1) - 1} 
-                onClick={() => setActiveQuestionIndex(prev => prev + 1)}
-              >
-                التالي <ChevronLeft className="w-5 h-5 ml-2" />
-              </Button>
+               <Button variant="outline" className="h-14 px-8 rounded-2xl font-bold" disabled={activeQuestionIndex === 0} onClick={() => setActiveQuestionIndex(p => p - 1)}>السابق</Button>
+               <div className="flex-grow flex justify-center gap-2">
+                  {questions.map((_, i) => (
+                    <div key={i} className={`w-2.5 h-2.5 rounded-full ${i === activeQuestionIndex ? 'bg-primary scale-125' : answers[questions[i].id] ? 'bg-accent' : 'bg-muted'}`} />
+                  ))}
+               </div>
+               <Button variant="outline" className="h-14 px-8 rounded-2xl font-bold" disabled={activeQuestionIndex === questions.length - 1} onClick={() => setActiveQuestionIndex(p => p + 1)}>التالي</Button>
             </div>
           </div>
         )}
@@ -272,21 +258,16 @@ export default function TakeExamPage() {
   );
 }
 
-function QuestionOptions({ courseId, examId, questionId, selectedId, onSelect }: any) {
-  const { firestore } = useFirebase();
-  const optionsRef = useMemoFirebase(() => {
-    if (!firestore || !courseId || !examId || !questionId) return null;
-    return collection(firestore, 'courses', courseId, 'content', examId, 'questions', questionId, 'options');
-  }, [firestore, courseId, examId, questionId]);
-
+function MCQOptions({ courseId, examId, qId, selected, onSelect }: any) {
+  const firestore = useFirestore();
+  const optionsRef = useMemoFirebase(() => collection(firestore, 'courses', courseId, 'content', examId, 'questions', qId, 'options'), [firestore, courseId, examId, qId]);
   const { data: options } = useCollection(optionsRef);
-
   return (
-    <RadioGroup value={selectedId} onValueChange={onSelect} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {options?.map((opt) => (
-        <div key={opt.id} className={`flex items-center gap-4 p-6 border-2 rounded-2xl cursor-pointer transition-all ${selectedId === opt.id ? 'border-primary bg-primary/5 shadow-inner' : 'hover:bg-primary/5 hover:border-primary/30'}`}>
-          <RadioGroupItem value={opt.id} id={opt.id} className="w-6 h-6" />
-          <Label htmlFor={opt.id} className="flex-grow font-bold text-lg cursor-pointer leading-relaxed">{opt.optionText}</Label>
+    <RadioGroup value={selected} onValueChange={onSelect} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {options?.map(opt => (
+        <div key={opt.id} className={`flex items-center gap-4 p-6 border-2 rounded-2xl cursor-pointer transition-all ${selected === opt.id ? 'border-primary bg-primary/5' : 'hover:bg-secondary/20'}`} onClick={() => onSelect(opt.id)}>
+          <RadioGroupItem value={opt.id} id={opt.id} className="w-5 h-5" />
+          <Label htmlFor={opt.id} className="flex-grow font-bold text-lg cursor-pointer">{opt.optionText}</Label>
         </div>
       ))}
     </RadioGroup>

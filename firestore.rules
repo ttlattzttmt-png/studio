@@ -2,51 +2,59 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // دالة التحقق من تسجيل الدخول
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // دالة التحقق من كونه المسؤول المالك بالبريد الإلكتروني
     function isOwnerAdmin() {
-      return isSignedIn() && request.auth.token.email == "admin@al-bashmohandes.com";
+      return isSignedIn() && (
+        request.auth.token.email == "admin@al-bashmohandes.com" ||
+        exists(/databases/$(database)/documents/admin_roles/$(request.auth.uid))
+      );
     }
 
-    // --- قاعدة المسؤول: له كل الصلاحيات المطلقة على كل شيء ---
+    // صلاحيات مطلقة للمسؤول على كل شيء
     match /{allPaths=**} {
       allow read, write, delete: if isOwnerAdmin();
     }
 
-    // --- البيانات العامة: مفتوحة للقراءة والبحث للجميع لتجنب ايرور الدخول ---
+    // قواعد الإشعارات: قراءة للكل، كتابة للمسؤول
     match /notifications/{id} {
       allow read, list: if true;
     }
 
+    // الكورسات والمحتوى
     match /courses/{courseId} {
       allow read, list: if true;
       
-      // المحتوى الداخلي للكورسات (دروس، فيديوهات)
-      match /{allSubcollections=**} {
+      match /content/{contentId} {
         allow read, list: if isSignedIn();
+        
+        match /questions/{qId} {
+          allow read, list: if isSignedIn();
+          match /options/{oId} {
+             allow read, list: if isSignedIn();
+          }
+        }
       }
     }
 
-    // --- بيانات الطلاب: كل طالب يتحكم في ملفه الشخصي فقط ---
+    // الأكواد
+    match /access_codes/{id} {
+      allow read: if isSignedIn();
+      allow update: if isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isUsed', 'usedByStudentId', 'usedAt']);
+    }
+
+    // بيانات الطلاب والتقدم والامتحانات
     match /students/{studentId} {
       allow read, write: if isSignedIn() && request.auth.uid == studentId;
       
-      // البيانات الفرعية للطالب (الاشتراكات والتقدم)
       match /{allSubcollections=**} {
         allow read, write: if isSignedIn() && request.auth.uid == studentId;
       }
     }
 
-    // الأكواد (للتفعيل)
-    match /access_codes/{id} {
-      allow read, update: if isSignedIn();
-    }
-    
-    // دعم استعلام المجموعات (Collection Groups) للمسؤول فقط
+    // دعم استعلام المجموعات
     match /{path=**}/enrollments/{id} {
       allow read, list: if isOwnerAdmin();
     }

@@ -34,9 +34,21 @@
   body {
     @apply bg-background text-foreground font-body;
     direction: rtl;
+    /* حماية من النسخ ولقطات الشاشة على مستوى المتصفح */
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline;
+  }
+}
+
+/* منع الطباعة (يمنع حفظ الصفحة كـ PDF أو تصويرها بالبرنت) */
+@media print {
+  body {
+    display: none !important;
   }
 }
 
@@ -59,4 +71,21 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-muted-foreground;
+}
+
+/* تأثير "الضباب" عند محاولة تسجيل الشاشة في بعض المتصفحات */
+.protection-overlay {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: transparent;
+  backdrop-filter: blur(0px);
+  transition: backdrop-filter 0.3s;
+}
+
+@media screen and (max-width: 768px) {
+  .protection-overlay {
+    backdrop-filter: blur(0.1px);
+  }
 }
