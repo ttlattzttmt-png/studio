@@ -112,12 +112,12 @@ export default function CoursesPage() {
                       <p className="text-muted-foreground text-sm line-clamp-2 mb-6">{course.description}</p>
                       
                       <div className="mt-auto pt-6 border-t border-primary/5 flex flex-row-reverse items-center justify-between">
-                        <div className="text-2xl font-black text-accent">{isFree ? 'ميجاناً' : `${course.price} ج.م`}</div>
+                        <div className="text-2xl font-black text-accent">{isFree ? 'مجاناً' : `${course.price} ج.م`}</div>
                         {isActive || isFree ? (
                           <Link href={`/student/courses/${course.id}`}>
                             <Button className="bg-accent text-white gap-2 rounded-xl h-11">
-                              {isFree ? <PlayCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />} 
-                              {isFree ? "ابدأ التعلم الآن" : "فتح الكورس"}
+                              {isFree && !isActive ? <PlayCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />} 
+                              {isFree && !isActive ? "ابدأ التعلم الآن" : "فتح الكورس"}
                             </Button>
                           </Link>
                         ) : (

@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from 'next/link';
@@ -13,7 +12,7 @@ export function Navbar() {
     <nav className="fixed top-0 left-0 right-0 z-50 border-b bg-background/80 backdrop-blur-md">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href={user ? "/student" : "/"} className="flex items-center gap-2">
             <span className="text-2xl font-headline font-bold text-primary">البشمهندس</span>
             <ShieldCheck className="w-6 h-6 text-primary" />
           </Link>

@@ -38,6 +38,31 @@ export default function CourseViewer() {
     return contents?.filter(c => c.isVisible !== false) || [];
   }, [contents]);
 
+  // ميزة الاشتراك التلقائي للكورسات المجانية
+  useEffect(() => {
+    const handleFreeAutoEnroll = async () => {
+      if (course && course.price === 0 && !enrollment && user && firestore) {
+        try {
+          await setDoc(doc(firestore, 'students', user.uid, 'enrollments', id as string), {
+            id: id,
+            courseId: id,
+            studentId: user.uid,
+            status: 'active',
+            enrollmentDate: new Date().toISOString(),
+            activationDate: new Date().toISOString(),
+            progressPercentage: 0,
+            isCompleted: false,
+            courseTitle: course.title,
+            isFreeAccess: true
+          });
+        } catch (e) {
+          console.error("Auto-enroll failed:", e);
+        }
+      }
+    };
+    handleFreeAutoEnroll();
+  }, [course, enrollment, user, firestore, id]);
+
   useEffect(() => {
     if (visibleContents.length > 0 && !activeContent) {
       setActiveContent(visibleContents[0]);
@@ -61,7 +86,6 @@ export default function CourseViewer() {
     return <div className="flex justify-center py-40"><Loader2 className="w-12 animate-spin text-primary" /></div>;
   }
 
-  // السماح بالدخول إذا كان الكورس مفعلاً للطالب أو إذا كان الكورس مجانياً (سعره 0)
   const isFree = course?.price === 0;
   const hasAccess = (enrollment && enrollment.status === 'active') || isFree;
 
