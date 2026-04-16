@@ -6,7 +6,7 @@ import { Footer } from '@/components/ui/footer';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, orderBy, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Loader2, PlayCircle, CheckCircle, FileQuestion, BookOpen, Clock, Lock } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
