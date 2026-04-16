@@ -15,10 +15,11 @@ import {
   Trash2,
   Clock,
   User as UserIcon,
-  RefreshCw
+  RefreshCw,
+  BookOpen
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useDoc, useUser } from '@/firebase';
-import { collectionGroup, query, updateDoc, doc, collection, getDocs, deleteDoc, orderBy } from 'firebase/firestore';
+import { collectionGroup, query, updateDoc, doc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdminGradingPage() {
@@ -28,26 +29,37 @@ export default function AdminGradingPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
 
-  // جلب كافة المحاولات مرتبة بالأحدث مع تزامن لحظي
+  // جلب كافة المحاولات بتزامن لحظي بدون orderBy لتجنب أخطاء الفهارس التي قد تخفي البيانات
   const attemptsRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    return query(collectionGroup(firestore, 'quiz_attempts'), orderBy('submittedAt', 'desc'));
+    return collectionGroup(firestore, 'quiz_attempts');
   }, [firestore, user]);
   
-  const { data: attempts, isLoading, error } = useCollection(attemptsRef);
+  const { data: rawAttempts, isLoading, error } = useCollection(attemptsRef);
 
-  // تصفية المحاولات بناءً على البحث
+  // تصفية وترتيب المحاولات برمجياً لضمان الدقة والسرعة
   const filteredAttempts = useMemo(() => {
-    if (!attempts) return [];
-    return attempts.filter(a => 
-      (a.studentId || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-      (a.courseContentId || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [attempts, searchTerm]);
+    if (!rawAttempts) return [];
+    
+    return rawAttempts
+      .filter(a => {
+        const searchLower = searchTerm.toLowerCase();
+        return (
+          (a.studentId || '').toLowerCase().includes(searchLower) || 
+          (a.courseContentId || '').toLowerCase().includes(searchLower) ||
+          (a.id || '').toLowerCase().includes(searchLower)
+        );
+      })
+      .sort((a, b) => {
+        const dateA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+        const dateB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+        return dateB - dateA; // الأحدث أولاً
+      });
+  }, [rawAttempts, searchTerm]);
 
   const handleDeleteAttempt = async (attempt: any) => {
     if (!firestore) return;
-    if (!confirm("🚨 تحذير: هل أنت متأكد من حذف هذه المحاولة نهائياً؟")) return;
+    if (!confirm("🚨 تحذير: هل أنت متأكد من حذف هذه المحاولة نهائياً من السيرفر؟")) return;
     try {
       await deleteDoc(doc(firestore, 'students', attempt.studentId, 'quiz_attempts', attempt.id));
       toast({ title: "تم الحذف بنجاح" });
@@ -119,7 +131,7 @@ export default function AdminGradingPage() {
         </div>
         <div className="bg-primary/10 text-primary px-4 py-2 rounded-xl border border-primary/20 flex items-center gap-2">
           <RefreshCw className="w-4 h-4 animate-spin-slow" />
-          <span className="text-xs font-bold">تزامن حيّ للمحاولات</span>
+          <span className="text-xs font-bold">تزامن حيّ: {filteredAttempts.length} محاولة</span>
         </div>
       </div>
 
@@ -130,7 +142,7 @@ export default function AdminGradingPage() {
             <div className="relative">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input 
-                placeholder="ابحث بمعرف الطالب أو الامتحان..." 
+                placeholder="ابحث بمعرف الطالب..." 
                 className="w-full bg-background border-primary/10 rounded-xl h-11 pr-10 text-right text-xs focus:border-primary outline-none transition-all" 
                 value={searchTerm} 
                 onChange={(e) => setSearchTerm(e.target.value)} 
@@ -141,10 +153,10 @@ export default function AdminGradingPage() {
              {isLoading ? (
                <div className="flex flex-col items-center justify-center py-20 gap-2">
                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                 <p className="text-[10px] text-muted-foreground">جاري جلب البيانات...</p>
+                 <p className="text-[10px] text-muted-foreground">جاري جلب المحاولات...</p>
                </div>
              ) : filteredAttempts.length === 0 ? (
-               <div className="text-center py-20 text-muted-foreground italic text-xs">لا توجد محاولات مطابقة.</div>
+               <div className="text-center py-20 text-muted-foreground italic text-xs">لا توجد محاولات حالياً.</div>
              ) : (
                <div className="divide-y divide-primary/5 max-h-[70vh] overflow-y-auto">
                  {filteredAttempts.map((attempt) => (
@@ -156,13 +168,18 @@ export default function AdminGradingPage() {
                      <div className="flex justify-between items-center">
                         <StudentBrief studentId={attempt.studentId} />
                         <Badge className="text-[9px] h-5" variant={attempt.isGraded ? 'default' : 'secondary'}>
-                          {attempt.isGraded ? 'مكتمل' : 'بانتظار المراجعة'}
+                          {attempt.isGraded ? 'مكتمل' : 'قيد المراجعة'}
                         </Badge>
                      </div>
                      <ExamName courseId={attempt.courseId} contentId={attempt.courseContentId} />
-                     <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-1">
-                        <Clock className="w-3 h-3" />
-                        <span>{attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleString('ar-EG') : '---'}</span>
+                     <div className="flex flex-row-reverse justify-between items-center mt-1">
+                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <Clock className="w-3 h-3" />
+                          <span>{attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleDateString('ar-EG') : '---'}</span>
+                        </div>
+                        <div className="text-[10px] font-bold text-primary">
+                          {attempt.pointsAchieved ?? 0} / {attempt.totalPoints ?? 0} ({attempt.score ?? 0}%)
+                        </div>
                      </div>
                    </button>
                  ))}
@@ -199,7 +216,7 @@ function ExamName({ courseId, contentId }: { courseId: string, contentId: string
     return doc(firestore, 'courses', courseId, 'content', contentId);
   }, [firestore, courseId, contentId]);
   const { data: exam } = useDoc(examRef);
-  return <p className="font-black text-sm text-primary truncate leading-tight">{exam?.title || 'جاري تحميل اسم الامتحان...'}</p>;
+  return <p className="font-black text-sm text-primary truncate leading-tight">{exam?.title || 'كورس غير معروف'}</p>;
 }
 
 function StudentBrief({ studentId }: { studentId: string }) {
@@ -214,7 +231,7 @@ function StudentBrief({ studentId }: { studentId: string }) {
       <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
         {student?.name?.[0] || 'S'}
       </div>
-      <span className="text-xs font-bold text-foreground">{student?.name || 'طالب المنصة'}</span>
+      <span className="text-xs font-bold text-foreground truncate max-w-[120px]">{student?.name || 'طالب'}</span>
     </div>
   );
 }
@@ -233,9 +250,9 @@ function AttemptDetails({ attempt, onGrade, onRelease, onDelete }: any) {
         <div className="text-right w-full">
            <div className="flex items-center gap-3 justify-end mb-1">
              <Badge className="bg-accent text-white border-none text-xs px-3">
-               {attempt.pointsAchieved || 0} من {attempt.totalPoints || 0} نقطة
+               الدرجة: {attempt.pointsAchieved || 0} من {attempt.totalPoints || 0}
              </Badge>
-             <CardTitle className="text-2xl font-black text-primary">المجموع: {attempt.score}%</CardTitle>
+             <CardTitle className="text-2xl font-black text-primary">المجموع: {attempt.score || 0}%</CardTitle>
            </div>
            <p className="text-[10px] font-bold text-muted-foreground">حالة التصحيح: {attempt.isGraded ? 'تم الاعتماد النهائي' : 'قيد المراجعة حالياً'}</p>
         </div>
@@ -244,7 +261,7 @@ function AttemptDetails({ attempt, onGrade, onRelease, onDelete }: any) {
              <Trash2 className="w-5 h-5" />
            </Button>
            <Button onClick={() => onRelease(attempt)} className="bg-accent hover:bg-accent/90 text-white font-bold h-12 px-8 gap-2 rounded-xl shadow-lg shadow-accent/20">
-              <CheckCircle className="w-5 h-5" /> اعتماد النتيجة ونشرها
+              <CheckCircle className="w-5 h-5" /> اعتماد النتيجة
            </Button>
         </div>
       </CardHeader>
@@ -253,26 +270,26 @@ function AttemptDetails({ attempt, onGrade, onRelease, onDelete }: any) {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Loader2 className="w-12 h-12 animate-spin text-primary" />
-            <p className="text-sm italic text-muted-foreground">جاري تحميل إجابات الطالب والدرجات الأصلية...</p>
+            <p className="text-sm italic text-muted-foreground">جاري تحميل إجابات الطالب...</p>
           </div>
         ) : !answers || answers.length === 0 ? (
-          <div className="text-center py-20 opacity-30">لا توجد تفاصيل إجابات لهذه المحاولة.</div>
+          <div className="text-center py-20 opacity-30 italic">لا توجد تفاصيل إجابات متاحة لهذه المحاولة.</div>
         ) : (
           answers.map((ans, i) => (
             <div key={ans.id} className="p-6 bg-secondary/20 rounded-[2rem] border border-primary/5 text-right space-y-4 hover:border-primary/20 transition-all">
                <div className="flex justify-between items-center mb-2">
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="text-[10px] font-bold">سؤال {i+1}</Badge>
-                    <Badge className="bg-primary/10 text-primary border-none text-[10px]">الدرجة الأصلية: {ans.maxPoints} نقطة</Badge>
+                    <Badge className="bg-primary/10 text-primary border-none text-[10px]">الدرجة الأصلية: {ans.maxPoints ?? '---'} نقطة</Badge>
                   </div>
                   <div className="flex gap-1">
                      <Button 
                        size="sm" 
                        variant={ans.isCorrect ? 'default' : 'outline'} 
-                       onClick={() => onGrade(ans, true, ans.maxPoints)} 
+                       onClick={() => onGrade(ans, true, ans.maxPoints ?? 10)} 
                        className={ans.isCorrect ? 'bg-accent text-white font-black rounded-lg' : 'font-bold rounded-lg'}
                      >
-                       صحيح (+{ans.maxPoints})
+                       صحيح (+{ans.maxPoints ?? 10})
                      </Button>
                      <Button 
                        size="sm" 
