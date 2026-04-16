@@ -10,22 +10,19 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { 
   Search, 
   Loader2,
-  PlusCircle,
   CheckCircle,
-  GraduationCap,
   Ticket,
-  AlertCircle
+  AlertCircle,
+  PlayCircle
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, query, orderBy, doc, setDoc } from 'firebase/firestore';
-import { useToast } from '@/hooks/use-toast';
+import { collection, query, orderBy, doc } from 'firebase/firestore';
 import Link from 'next/link';
 
 export default function CoursesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const firestore = useFirestore();
   const { user } = useUser();
-  const { toast } = useToast();
 
   const studentRef = useMemoFirebase(() => user ? doc(firestore, 'students', user.uid) : null, [firestore, user]);
   const { data: student } = useDoc(studentRef);
@@ -36,12 +33,10 @@ export default function CoursesPage() {
   const enrollmentsRef = useMemoFirebase(() => user ? collection(firestore, 'students', user.uid, 'enrollments') : null, [firestore, user]);
   const { data: myEnrollments } = useCollection(enrollmentsRef);
 
-  // تصفية الكورسات حسب السنة الدراسية للطالب والبحث
   const filteredCourses = useMemo(() => {
     if (!courses) return [];
     let filtered = courses;
     
-    // إذا كان الطالب مسجلاً، أظهر له كورسات سنته الدراسية فقط
     if (student?.academicYear) {
       filtered = filtered.filter(c => c.targetAcademicYear === student.academicYear);
     }
@@ -97,6 +92,7 @@ export default function CoursesPage() {
               {filteredCourses.map((course, idx) => {
                 const enrollment = myEnrollments?.find(e => e.courseId === course.id);
                 const isActive = enrollment?.status === 'active';
+                const isFree = course.price === 0;
                 
                 return (
                   <div key={course.id} className="group bg-card rounded-[2.5rem] border border-primary/5 overflow-hidden hover:shadow-2xl transition-all flex flex-col text-right">
@@ -105,16 +101,24 @@ export default function CoursesPage() {
                       <div className="absolute top-4 right-4 bg-primary text-primary-foreground text-[10px] font-black px-3 py-1.5 rounded-full shadow-xl">
                         {course.targetAcademicYear}
                       </div>
+                      {isFree && (
+                        <div className="absolute bottom-4 left-4 bg-accent text-white text-[10px] font-black px-3 py-1 rounded-full shadow-lg">
+                          كورس مجاني 🎁
+                        </div>
+                      )}
                     </div>
                     <div className="p-8 flex-grow flex flex-col">
                       <h3 className="text-2xl font-bold mb-3">{course.title}</h3>
                       <p className="text-muted-foreground text-sm line-clamp-2 mb-6">{course.description}</p>
                       
                       <div className="mt-auto pt-6 border-t border-primary/5 flex flex-row-reverse items-center justify-between">
-                        <div className="text-2xl font-black text-accent">{course.price} ج.م</div>
-                        {isActive ? (
+                        <div className="text-2xl font-black text-accent">{isFree ? 'ميجاناً' : `${course.price} ج.م`}</div>
+                        {isActive || isFree ? (
                           <Link href={`/student/courses/${course.id}`}>
-                            <Button className="bg-accent text-white gap-2 rounded-xl h-11"><CheckCircle className="w-4 h-4" /> فتح الكورس</Button>
+                            <Button className="bg-accent text-white gap-2 rounded-xl h-11">
+                              {isFree ? <PlayCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />} 
+                              {isFree ? "ابدأ التعلم الآن" : "فتح الكورس"}
+                            </Button>
                           </Link>
                         ) : (
                           <Link href="/student/redeem">

@@ -5,7 +5,7 @@ import { Navbar } from '@/components/ui/navbar';
 import { Footer } from '@/components/ui/footer';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, orderBy, setDoc, serverTimestamp } from 'firebase/firestore';
-import { Loader2, PlayCircle, CheckCircle, FileQuestion, BookOpen, Clock, Lock } from 'lucide-react';
+import { Loader2, PlayCircle, CheckCircle, FileQuestion, Lock } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,14 +15,18 @@ import Link from 'next/link';
 
 export default function CourseViewer() {
   const { id } = useParams();
-  const router = useRouter();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
   const [activeContent, setActiveContent] = useState<any>(null);
 
+  // جلب بيانات الكورس للتحقق من السعر
+  const courseRef = useMemoFirebase(() => (firestore && id) ? doc(firestore, 'courses', id as string) : null, [firestore, id]);
+  const { data: course, isLoading: isCourseLoading } = useDoc(courseRef);
+
+  // جلب اشتراك الطالب
   const enrollmentRef = useMemoFirebase(() => (firestore && user && id) ? doc(firestore, 'students', user.uid, 'enrollments', id as string) : null, [firestore, user, id]);
-  const { data: enrollment, isLoading: isChecking } = useDoc(enrollmentRef);
+  const { data: enrollment, isLoading: isEnrollmentLoading } = useDoc(enrollmentRef);
   
   const contentRef = useMemoFirebase(() => (firestore && id) ? query(collection(firestore, 'courses', id as string, 'content'), orderBy('orderIndex', 'asc')) : null, [firestore, id]);
   const { data: contents, isLoading: isContentLoading } = useCollection(contentRef);
@@ -30,7 +34,6 @@ export default function CourseViewer() {
   const progressRef = useMemoFirebase(() => (firestore && user) ? collection(firestore, 'students', user.uid, 'video_progress') : null, [firestore, user]);
   const { data: watchedVideos } = useCollection(progressRef);
 
-  // تصفية المحتوى الظاهر فقط
   const visibleContents = useMemo(() => {
     return contents?.filter(c => c.isVisible !== false) || [];
   }, [contents]);
@@ -54,14 +57,23 @@ export default function CourseViewer() {
     } catch (e) { console.error(e); }
   };
 
-  if (isUserLoading || isChecking || isContentLoading) return <div className="flex justify-center py-40"><Loader2 className="w-12 animate-spin text-primary" /></div>;
+  if (isUserLoading || isCourseLoading || isEnrollmentLoading || isContentLoading) {
+    return <div className="flex justify-center py-40"><Loader2 className="w-12 animate-spin text-primary" /></div>;
+  }
 
-  if (!enrollment || enrollment.status !== 'active') {
-    return <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6">
-      <Lock className="w-20 h-20 text-destructive opacity-30" />
-      <h2 className="text-2xl font-bold">هذا الكورس غير مفعل لك</h2>
-      <Link href="/courses"><Button variant="outline">العودة للمكتبة</Button></Link>
-    </div>;
+  // السماح بالدخول إذا كان الكورس مفعلاً للطالب أو إذا كان الكورس مجانياً (سعره 0)
+  const isFree = course?.price === 0;
+  const hasAccess = (enrollment && enrollment.status === 'active') || isFree;
+
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6">
+        <Lock className="w-20 h-20 text-destructive opacity-30" />
+        <h2 className="text-2xl font-bold">هذا الكورس غير مفعل لك</h2>
+        <p className="text-muted-foreground">الكورسات المدفوعة تتطلب كود تفعيل من السكرتارية.</p>
+        <Link href="/courses"><Button variant="outline">العودة للمكتبة</Button></Link>
+      </div>
+    );
   }
 
   return (
