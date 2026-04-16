@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -23,7 +22,6 @@ import {
   Loader2, 
   Trash2, 
   Settings2,
-  Megaphone,
   Eye,
   EyeOff,
   AlertCircle,
