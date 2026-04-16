@@ -159,10 +159,10 @@ export default function AdminStudents() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <InfoBox icon={<Phone />} label="هاتف الطالب" value={selectedStudent?.studentPhoneNumber} />
                 <InfoBox icon={<Phone />} label="هاتف ولي الأمر" value={selectedStudent?.parentPhoneNumber} />
-                <InfoBox icon={<Calendar />} label="تاريخ الانضمام" value={new Date(selectedStudent?.registrationDate).toLocaleDateString('ar-EG')} />
+                <InfoBox icon={<Calendar />} label="تاريخ الانضمام" value={selectedStudent?.registrationDate ? new Date(selectedStudent.registrationDate).toLocaleDateString('ar-EG') : '---'} />
                 <InfoBox icon={<Clock />} label="آخر ظهور" value={selectedStudent?.lastLoginDate ? new Date(selectedStudent.lastLoginDate).toLocaleString('ar-EG') : '---'} />
               </div>
-              <StudentAcademicProgress studentId={selectedStudent?.id} />
+              {selectedStudent?.id && <StudentAcademicProgress studentId={selectedStudent.id} />}
             </div>
           </ScrollArea>
         </DialogContent>
@@ -184,7 +184,10 @@ function InfoBox({ icon, label, value }: any) {
 
 function StudentAcademicProgress({ studentId }: { studentId: string }) {
   const firestore = useFirestore();
-  const attemptsRef = useMemoFirebase(() => query(collection(firestore, 'students', studentId, 'quiz_attempts'), orderBy('submittedAt', 'desc')), [firestore, studentId]);
+  const attemptsRef = useMemoFirebase(() => {
+    if (!firestore || !studentId) return null;
+    return query(collection(firestore, 'students', studentId, 'quiz_attempts'), orderBy('submittedAt', 'desc'));
+  }, [firestore, studentId]);
   const { data: attempts } = useCollection(attemptsRef);
 
   return (
@@ -216,7 +219,10 @@ function StudentAcademicProgress({ studentId }: { studentId: string }) {
 
 function ExamNameInRecords({ courseId, contentId }: { courseId: string, contentId: string }) {
   const firestore = useFirestore();
-  const examRef = useMemoFirebase(() => doc(firestore, 'courses', courseId, 'content', contentId), [firestore, courseId, contentId]);
+  const examRef = useMemoFirebase(() => {
+    if (!firestore || !courseId || !contentId) return null;
+    return doc(firestore, 'courses', courseId, 'content', contentId);
+  }, [firestore, courseId, contentId]);
   const { data: exam } = useDoc(examRef);
   return <p className="text-xs font-bold text-foreground mt-1">{exam?.title || 'جاري تحميل اسم الامتحان...'}</p>;
 }

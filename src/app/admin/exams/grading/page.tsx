@@ -34,7 +34,11 @@ export default function AdminGradingPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
 
-  const attemptsRef = useMemoFirebase(() => collectionGroup(firestore, 'quiz_attempts'), [firestore]);
+  const attemptsRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return collectionGroup(firestore, 'quiz_attempts');
+  }, [firestore, user]);
+  
   const { data: attempts, isLoading } = useCollection(attemptsRef);
 
   const filteredAttempts = attempts?.filter(a => 
@@ -151,21 +155,30 @@ export default function AdminGradingPage() {
 
 function ExamName({ courseId, contentId }: { courseId: string, contentId: string }) {
   const firestore = useFirestore();
-  const examRef = useMemoFirebase(() => doc(firestore, 'courses', courseId, 'content', contentId), [firestore, courseId, contentId]);
+  const examRef = useMemoFirebase(() => {
+    if (!firestore || !courseId || !contentId) return null;
+    return doc(firestore, 'courses', courseId, 'content', contentId);
+  }, [firestore, courseId, contentId]);
   const { data: exam } = useDoc(examRef);
   return <p className="font-bold text-sm text-primary truncate">{exam?.title || 'جاري تحميل الاسم...'}</p>;
 }
 
 function StudentBrief({ studentId }: { studentId: string }) {
   const firestore = useFirestore();
-  const studentRef = useMemoFirebase(() => doc(firestore, 'students', studentId), [firestore, studentId]);
+  const studentRef = useMemoFirebase(() => {
+    if (!firestore || !studentId) return null;
+    return doc(firestore, 'students', studentId);
+  }, [firestore, studentId]);
   const { data: student } = useDoc(studentRef);
   return <span className="text-[10px] font-bold text-muted-foreground">{student?.name || 'طالب المنصة'}</span>;
 }
 
 function AttemptDetails({ attempt, onGrade, onRelease, onDelete }: any) {
   const firestore = useFirestore();
-  const answersRef = useMemoFirebase(() => query(collection(firestore, 'students', attempt.studentId, 'quiz_attempts', attempt.id, 'answers')), [firestore, attempt]);
+  const answersRef = useMemoFirebase(() => {
+    if (!firestore || !attempt?.studentId || !attempt?.id) return null;
+    return collection(firestore, 'students', attempt.studentId, 'quiz_attempts', attempt.id, 'answers');
+  }, [firestore, attempt]);
   const { data: answers, isLoading } = useCollection(answersRef);
 
   return (
