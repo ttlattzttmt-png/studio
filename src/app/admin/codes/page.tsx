@@ -14,7 +14,7 @@ import {
   DialogTrigger,
   DialogFooter
 } from "@/components/ui/dialog";
-import { Search, Plus, Ticket, Loader2, Trash2, User, BookOpen } from 'lucide-react';
+import { Search, Plus, Ticket, Loader2, Trash2, User, BookOpen, RefreshCw } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -45,10 +45,14 @@ export default function ManageCodes() {
     setIsGenerating(true);
     try {
       const count = parseInt(genData.count);
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      
       for (let i = 0; i < count; i++) {
-        const randomPart1 = Math.random().toString(36).substring(2, 6).toUpperCase();
-        const randomPart2 = Math.random().toString(36).substring(2, 6).toUpperCase();
-        const randomCode = `ENG-${randomPart1}-${randomPart2}`;
+        // توليد كود من 12 رمزاً بدون فواصل
+        let randomCode = '';
+        for (let j = 0; j < 12; j++) {
+          randomCode += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
         
         await addDoc(collection(firestore, 'access_codes'), {
           code: randomCode,
@@ -60,7 +64,7 @@ export default function ManageCodes() {
           usedAt: null
         });
       }
-      toast({ title: "تم التوليد بنجاح", description: `تم إنشاء ${count} كود تفعيل بنجاح.` });
+      toast({ title: "تم التوليد بنجاح", description: `تم إنشاء ${count} كود تفعيل (12 رمزاً) بنجاح.` });
       setGenData({ ...genData, courseId: '' });
     } catch (e) {
       console.error(e);
@@ -72,10 +76,10 @@ export default function ManageCodes() {
 
   const handleDeleteCode = async (id: string) => {
     if (!firestore) return;
-    if (!confirm('هل أنت متأكد من حذف هذا الكود؟')) return;
+    if (!confirm('هل أنت متأكد من حذف هذا الكود نهائياً؟')) return;
     try {
       await deleteDoc(doc(firestore, 'access_codes', id));
-      toast({ title: "تم الحذف", description: "تم حذف الكود بنجاح." });
+      toast({ title: "تم الحذف", description: "تم حذف الكود من السيرفر." });
     } catch (e) { 
       console.error(e);
     }
@@ -91,9 +95,9 @@ export default function ManageCodes() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-headline font-bold mb-2">إدارة الأكواد والتزامن</h1>
-          <p className="text-muted-foreground">أنشئ أكواداً لفتح كورسات محددة وتابع من استخدمها لحظياً.</p>
+        <div className="text-right">
+          <h1 className="text-3xl md:text-4xl font-headline font-bold mb-2">إدارة أكواد التفعيل</h1>
+          <p className="text-muted-foreground">أنشئ أكواداً مكونة من 12 رمزاً لفتح الكورسات ومتابعة استخدامها لحظياً.</p>
         </div>
         <Dialog>
           <DialogTrigger asChild>
@@ -101,8 +105,8 @@ export default function ManageCodes() {
               <Plus className="w-6 h-6" /> توليد أكواد جديدة
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-card">
-            <DialogHeader><DialogTitle className="text-2xl font-bold text-right">توليد أكواد لفتح كورس</DialogTitle></DialogHeader>
+          <DialogContent className="bg-card text-right">
+            <DialogHeader><DialogTitle className="text-2xl font-bold text-right">توليد أكواد ذكية (12 رمزاً)</DialogTitle></DialogHeader>
             <div className="space-y-6 py-4">
               <div className="space-y-2 text-right">
                 <label className="text-sm font-bold">الكورس المستهدف</label>
@@ -117,62 +121,63 @@ export default function ManageCodes() {
               </div>
               <div className="space-y-2 text-right">
                 <label className="text-sm font-bold">كمية الأكواد</label>
-                <Input type="number" value={genData.count} onChange={(e) => setGenData({...genData, count: e.target.value})} className="h-12 bg-background" />
+                <Input type="number" value={genData.count} onChange={(e) => setGenData({...genData, count: e.target.value})} className="h-12 bg-background text-right" />
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={handleGenerateCodes} disabled={isGenerating || !genData.courseId} className="w-full h-12 bg-primary font-bold">توليد الآن</Button>
+              <Button onClick={handleGenerateCodes} disabled={isGenerating || !genData.courseId} className="w-full h-12 bg-primary font-bold rounded-xl">توليد الآن</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
-      <Card className="bg-card overflow-hidden">
-        <CardHeader className="border-b bg-secondary/20 py-4">
+      <Card className="bg-card border-primary/5 shadow-xl rounded-[2rem] overflow-hidden">
+        <CardHeader className="border-b bg-secondary/5 py-4 flex flex-row-reverse items-center justify-between">
           <div className="relative w-full max-w-md">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input 
-              placeholder="بحث عن كود أو طالب..." 
-              className="pr-10 bg-background border-primary/10 text-right" 
+              placeholder="بحث عن كود محدد..." 
+              className="pr-10 bg-background border-primary/10 text-right h-12 rounded-xl" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+          </div>
+          <div className="flex items-center gap-2 text-primary font-bold text-xs">
+            <RefreshCw className="w-4 h-4 animate-spin-slow" /> تزامن حيّ
           </div>
         </CardHeader>
         <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="text-right min-w-[150px]">الكود</TableHead>
-                <TableHead className="text-right min-w-[200px]">اسم الكورس</TableHead>
-                <TableHead className="text-right min-w-[100px]">الحالة</TableHead>
-                <TableHead className="text-right min-w-[150px]">الطالب</TableHead>
-                <TableHead className="text-left min-w-[80px]">إجراءات</TableHead>
+              <TableRow className="hover:bg-transparent border-b-2">
+                <TableHead className="text-right">كود التفعيل (12 رمزاً)</TableHead>
+                <TableHead className="text-right">الكورس</TableHead>
+                <TableHead className="text-right">الحالة</TableHead>
+                <TableHead className="text-right">المستخدم</TableHead>
+                <TableHead className="text-left">إجراء</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isCodesLoading ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-10"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="text-center py-20"><Loader2 className="w-10 h-10 animate-spin mx-auto text-primary" /></TableCell></TableRow>
               ) : !filteredCodes || filteredCodes.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground">لا توجد أكواد حالياً.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">لا توجد أكواد مسجلة حالياً.</TableCell></TableRow>
               ) : (
                 filteredCodes.map((c: any) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-mono font-bold text-primary">{c.code}</TableCell>
+                  <TableRow key={c.id} className="hover:bg-primary/5 transition-colors">
+                    <TableCell className="font-mono font-bold text-primary text-lg tracking-wider">{c.code}</TableCell>
+                    <TableCell><CourseName courseId={c.courseId} /></TableCell>
                     <TableCell>
-                      <CourseName courseId={c.courseId} />
-                    </TableCell>
-                    <TableCell>
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold border ${c.isUsed ? 'bg-accent/10 text-accent border-accent/20' : 'bg-primary/10 text-primary border-primary/20'}`}>
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-black border ${c.isUsed ? 'bg-accent/10 text-accent border-accent/20' : 'bg-primary/10 text-primary border-primary/20'}`}>
                         {c.isUsed ? 'مستخدم' : 'متاح'}
                       </span>
                     </TableCell>
                     <TableCell>
-                      {c.isUsed ? <StudentName studentId={c.usedByStudentId} /> : <span className="text-xs opacity-30 italic">---</span>}
+                      {c.isUsed ? <StudentName studentId={c.usedByStudentId} /> : <span className="text-[10px] opacity-20 italic">---</span>}
                     </TableCell>
                     <TableCell className="text-left">
-                      <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteCode(c.id)}>
-                        <Trash2 className="w-4 h-4" />
+                      <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 rounded-full" onClick={() => handleDeleteCode(c.id)}>
+                        <Trash2 className="w-5 h-5" />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -191,9 +196,9 @@ function CourseName({ courseId }: { courseId: string }) {
   const courseRef = useMemoFirebase(() => courseId ? doc(firestore, 'courses', courseId) : null, [firestore, courseId]);
   const { data: course } = useDoc(courseRef);
   return (
-    <div className="flex items-center gap-2">
-      <BookOpen className="w-3 h-3 text-primary" />
-      <span className="text-xs font-bold">{course?.title || <span className="opacity-30 italic">جاري جلب الاسم...</span>}</span>
+    <div className="flex items-center gap-2 justify-end">
+      <span className="text-xs font-bold text-foreground">{course?.title || '...'}</span>
+      <BookOpen className="w-3 h-3 text-primary opacity-50" />
     </div>
   );
 }
@@ -203,9 +208,9 @@ function StudentName({ studentId }: { studentId: string }) {
   const studentRef = useMemoFirebase(() => studentId ? doc(firestore, 'students', studentId) : null, [firestore, studentId]);
   const { data: student } = useDoc(studentRef);
   return (
-    <div className="flex items-center gap-1 text-[10px] text-accent font-bold">
+    <div className="flex items-center gap-2 justify-end text-accent">
+      <span className="text-xs font-bold">{student?.name || 'مستخدم'}</span>
       <User className="w-3 h-3" />
-      {student?.name || 'طالب مجهول'}
     </div>
   );
 }

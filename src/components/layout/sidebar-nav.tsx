@@ -15,7 +15,7 @@ import {
   Megaphone,
   Menu,
   Search,
-  UserPlus,
+  Ticket,
   Trash2
 } from 'lucide-react';
 import { useAuth, initiateSignOut, useUser } from '@/firebase';
@@ -43,8 +43,8 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
   const adminLinks = [
     { label: 'لوحة التحكم', icon: <PieChart className="w-5 h-5" />, href: '/admin' },
     { label: 'إدارة الكورسات', icon: <Video className="w-5 h-5" />, href: '/admin/courses' },
+    { label: 'أكواد التفعيل', icon: <Ticket className="w-5 h-5" />, href: '/admin/codes' },
     { label: 'حذف الكورسات', icon: <Trash2 className="w-5 h-5" />, href: '/admin/courses/delete' },
-    { label: 'طلبات التفعيل', icon: <UserPlus className="w-5 h-5" />, href: '/admin/activations' },
     { label: 'الطلاب والرقابة', icon: <Users className="w-5 h-5" />, href: '/admin/students' },
     { label: 'بناء الاختبارات', icon: <ClipboardList className="w-5 h-5" />, href: '/admin/exams' },
     { label: 'مركز التصحيح', icon: <BrainCircuit className="w-5 h-5" />, href: '/admin/exams/grading' },

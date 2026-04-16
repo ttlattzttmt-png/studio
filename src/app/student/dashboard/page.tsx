@@ -1,9 +1,8 @@
-
 "use client";
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BookOpen, PlayCircle, Clock, ChevronLeft } from 'lucide-react';
+import { BookOpen, PlayCircle, Clock, ChevronLeft, Ticket } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import Link from 'next/link';
@@ -24,20 +23,26 @@ export default function StudentDashboard() {
   if (isUserLoading) return <div className="flex justify-center py-40"><Clock className="w-10 h-10 animate-spin text-primary" /></div>;
 
   const activeEnrollments = enrollments?.filter(e => e.status === 'active') || [];
-  const pendingEnrollments = enrollments?.filter(e => e.status === 'pending') || [];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 text-right">
       <div className="flex flex-col md:flex-row-reverse justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-4xl font-headline font-bold mb-2">كورساتي المفعلة</h1>
-          <p className="text-muted-foreground">هنا تجد كافة المحتويات التعليمية التي تم تفعيلها لك.</p>
+          <p className="text-muted-foreground">هنا تجد كافة المحتويات التعليمية التي قمت بتفعيلها باستخدام الأكواد.</p>
         </div>
-        <Link href="/courses">
-          <Button className="bg-primary text-primary-foreground font-bold rounded-xl gap-2 h-12 shadow-lg shadow-primary/20">
-            <BookOpen className="w-5 h-5" /> استكشف المزيد
-          </Button>
-        </Link>
+        <div className="flex gap-3">
+          <Link href="/student/redeem">
+            <Button className="bg-accent hover:bg-accent/90 text-white font-bold rounded-xl gap-2 h-12 shadow-lg">
+              <Ticket className="w-5 h-5" /> تفعيل كود جديد
+            </Button>
+          </Link>
+          <Link href="/courses">
+            <Button variant="outline" className="border-primary/20 text-primary font-bold rounded-xl gap-2 h-12">
+              <BookOpen className="w-5 h-5" /> مكتبة الكورسات
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <section>
@@ -53,33 +58,17 @@ export default function StudentDashboard() {
           <Card className="p-20 text-center border-dashed border-2 bg-secondary/10 rounded-[2rem]">
             <PlayCircle className="w-20 h-20 mx-auto mb-6 opacity-10 text-primary" />
             <p className="text-xl text-muted-foreground mb-8">لا توجد كورسات مفعلة في حسابك حالياً.</p>
-            <Link href="/courses">
-              <Button size="lg" variant="outline" className="border-primary/20 text-primary h-14 px-10 rounded-2xl font-bold">تصفح المكتبة واطلب الانضمام</Button>
-            </Link>
+            <div className="flex flex-col md:flex-row justify-center gap-4">
+              <Link href="/student/redeem">
+                <Button size="lg" className="bg-primary text-primary-foreground h-14 px-10 rounded-2xl font-bold">لديك كود؟ فعله الآن</Button>
+              </Link>
+              <Link href="/courses">
+                <Button size="lg" variant="outline" className="border-primary/20 text-primary h-14 px-10 rounded-2xl font-bold">تصفح الكورسات المتاحة</Button>
+              </Link>
+            </div>
           </Card>
         )}
       </section>
-
-      {pendingEnrollments.length > 0 && (
-        <section className="pt-8 border-t">
-          <h2 className="text-2xl font-bold mb-6 flex flex-row-reverse items-center gap-2">
-            <Clock className="w-6 h-6 text-primary" /> طلبات قيد المراجعة
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {pendingEnrollments.map((en) => (
-              <Card key={en.id} className="bg-primary/5 border-primary/20 shadow-sm">
-                <CardContent className="p-5 flex flex-row-reverse justify-between items-center">
-                  <div>
-                    <p className="font-bold text-sm mb-1">{en.courseTitle}</p>
-                    <p className="text-[10px] text-muted-foreground italic">سيتم التفعيل قريباً...</p>
-                  </div>
-                  <span className="text-[9px] font-bold text-primary bg-primary/10 px-2 py-1 rounded-full animate-pulse">معلق</span>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }
