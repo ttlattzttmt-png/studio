@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -195,9 +196,12 @@ function StudentAcademicProgress({ studentId }: { studentId: string }) {
           {attempts?.map(a => (
             <div key={a.id} className="p-6 bg-card border rounded-2xl flex flex-row-reverse justify-between items-center text-right shadow-sm">
                <div>
-                  <p className="font-bold text-lg mb-1">نتيجة: {a.score}%</p>
-                  <p className="text-xs text-muted-foreground">التاريخ: {new Date(a.submittedAt).toLocaleString('ar-EG')}</p>
-                  <p className="text-[10px] text-primary mt-1 font-bold">ID: {a.courseContentId}</p>
+                  <div className="flex flex-row-reverse items-center gap-4">
+                    <p className="font-black text-2xl text-primary">{a.score}%</p>
+                    <p className="font-bold text-muted-foreground">الدرجة: {a.pointsAchieved} / {a.totalPoints}</p>
+                  </div>
+                  <ExamNameInRecords courseId={a.courseId} contentId={a.courseContentId} />
+                  <p className="text-xs text-muted-foreground mt-1">التاريخ: {new Date(a.submittedAt).toLocaleString('ar-EG')}</p>
                </div>
                <Badge variant={a.isGraded ? "default" : "secondary"}>
                   {a.isGraded ? "تم التصحيح" : "قيد المراجعة"}
@@ -208,4 +212,11 @@ function StudentAcademicProgress({ studentId }: { studentId: string }) {
        </div>
     </div>
   );
+}
+
+function ExamNameInRecords({ courseId, contentId }: { courseId: string, contentId: string }) {
+  const firestore = useFirestore();
+  const examRef = useMemoFirebase(() => doc(firestore, 'courses', courseId, 'content', contentId), [firestore, courseId, contentId]);
+  const { data: exam } = useDoc(examRef);
+  return <p className="text-xs font-bold text-foreground mt-1">{exam?.title || 'جاري تحميل اسم الامتحان...'}</p>;
 }

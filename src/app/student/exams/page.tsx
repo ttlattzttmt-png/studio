@@ -53,7 +53,6 @@ function ExamResultCard({ attempt }: { attempt: any }) {
   
   const { data: exam } = useDoc(examRef);
 
-  // الدرجة تظهر فقط إذا وافق الأدمن أو إذا كان الكورس مضبوطاً على الإظهار الفوري
   const canShowScore = exam?.allowInstantResultsDisplay || attempt.isGraded;
 
   return (
@@ -65,11 +64,14 @@ function ExamResultCard({ attempt }: { attempt: any }) {
         <CardTitle className="text-lg truncate max-w-[200px]">{exam?.title || 'جاري تحميل الاسم...'}</CardTitle>
       </CardHeader>
       <CardContent className="p-6">
-        <div className="flex items-center justify-center p-8 bg-secondary/20 rounded-2xl relative overflow-hidden border border-white/5 shadow-inner">
+        <div className="flex flex-col items-center justify-center p-8 bg-secondary/20 rounded-2xl relative overflow-hidden border border-white/5 shadow-inner">
           {canShowScore ? (
             <div className="text-center animate-in zoom-in duration-300">
-              <p className="text-5xl font-black text-primary">{attempt.score}%</p>
-              <p className="text-xs text-muted-foreground mt-2 font-bold uppercase tracking-widest">الدرجة النهائية</p>
+              <div className="flex flex-col items-center">
+                <p className="text-5xl font-black text-primary">{attempt.score}%</p>
+                <p className="text-sm font-bold text-muted-foreground mt-2">الدرجة: {attempt.pointsAchieved} من {attempt.totalPoints}</p>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-3 font-bold uppercase tracking-widest">الدرجة النهائية</p>
             </div>
           ) : (
             <div className="text-center opacity-40 flex flex-col items-center">

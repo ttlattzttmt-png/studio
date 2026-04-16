@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -32,7 +33,6 @@ export default function AdminGradingPage() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const attemptsRef = useMemoFirebase(() => collectionGroup(firestore, 'quiz_attempts'), [firestore]);
   const { data: attempts, isLoading } = useCollection(attemptsRef);
@@ -87,7 +87,7 @@ export default function AdminGradingPage() {
       });
 
       toast({ title: "تم الاعتماد", description: `النتيجة (${finalPercentage}%) أصبحت متاحة للطالب.` });
-      setSelectedAttempt({...attempt, isGraded: true, score: finalPercentage});
+      setSelectedAttempt({...attempt, isGraded: true, score: finalPercentage, pointsAchieved: totalScoreAchieved, totalPoints: totalMaxPoints});
     } catch (e) { console.error(e); }
   };
 
@@ -105,7 +105,7 @@ export default function AdminGradingPage() {
           <CardHeader className="border-b">
             <div className="relative">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input placeholder="بحث عن طالب..." className="pr-10 bg-background text-right" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              <input placeholder="بحث عن طالب..." className="w-full bg-background border-primary/10 rounded-xl h-10 pr-10 text-right text-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
           </CardHeader>
           <CardContent className="p-0 max-h-[70vh] overflow-y-auto">
@@ -171,14 +171,14 @@ function AttemptDetails({ attempt, onGrade, onRelease, onDelete }: any) {
   return (
     <Card className="bg-card border-primary/20 shadow-2xl animate-in zoom-in-95">
       <CardHeader className="border-b bg-secondary/5 flex flex-row items-center justify-between p-6">
-        <div>
-           <CardTitle className="text-xl font-bold">مراجعة الإجابات</CardTitle>
-           <p className="text-xs text-muted-foreground">المجموع الحالي: {attempt.pointsAchieved || 0} من {attempt.totalPoints || 0}</p>
+        <div className="text-right">
+           <CardTitle className="text-xl font-black text-primary">المجموع: {attempt.score}%</CardTitle>
+           <p className="text-xs font-bold text-muted-foreground mt-1">الدرجات: {attempt.pointsAchieved || 0} من {attempt.totalPoints || 0}</p>
         </div>
         <div className="flex gap-2">
            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => onDelete(attempt)}><Trash2 className="w-5 h-5" /></Button>
-           <Button onClick={() => onRelease(attempt)} className="bg-accent hover:bg-accent/90 text-white font-bold h-10 px-6 gap-2">
-              <CheckCircle className="w-4 h-4" /> اعتماد النتيجة
+           <Button onClick={() => onRelease(attempt)} className="bg-accent hover:bg-accent/90 text-white font-bold h-10 px-6 gap-2 rounded-xl">
+              <CheckCircle className="w-4 h-4" /> اعتماد ونشر النتيجة
            </Button>
         </div>
       </CardHeader>
@@ -186,17 +186,17 @@ function AttemptDetails({ attempt, onGrade, onRelease, onDelete }: any) {
         {isLoading ? <Loader2 className="w-10 h-10 animate-spin mx-auto" /> : answers?.map((ans, i) => (
           <div key={ans.id} className="p-4 bg-secondary/20 rounded-2xl border text-right space-y-3">
              <div className="flex justify-between items-center mb-2">
-                <Badge variant="outline" className="text-[10px]">سؤال {i+1} ({ans.questionType})</Badge>
+                <Badge variant="outline" className="text-[10px]">سؤال {i+1} ({ans.questionType}) - {ans.maxPoints} نقطة</Badge>
                 <div className="flex gap-1">
-                   <Button size="sm" variant={ans.isCorrect ? 'default' : 'outline'} onClick={() => onGrade(ans, true, ans.maxPoints)} className={ans.isCorrect ? 'bg-accent' : ''}>صحيح</Button>
-                   <Button size="sm" variant={ans.isCorrect === false ? 'destructive' : 'outline'} onClick={() => onGrade(ans, false, 0)}>خطأ</Button>
+                   <Button size="sm" variant={ans.isCorrect ? 'default' : 'outline'} onClick={() => onGrade(ans, true, ans.maxPoints)} className={ans.isCorrect ? 'bg-accent font-bold' : 'font-bold'}>صحيح</Button>
+                   <Button size="sm" variant={ans.isCorrect === false ? 'destructive' : 'outline'} onClick={() => onGrade(ans, false, 0)} className="font-bold">خطأ</Button>
                 </div>
              </div>
-             {ans.essayAnswerText && <p className="p-3 bg-background rounded-xl text-sm whitespace-pre-wrap">{ans.essayAnswerText}</p>}
+             {ans.essayAnswerText && <p className="p-3 bg-background rounded-xl text-sm whitespace-pre-wrap leading-relaxed">{ans.essayAnswerText}</p>}
              {ans.essayAnswerFileUrl && (
                <div className="relative w-full h-64 rounded-xl overflow-hidden bg-black/5">
                  <img src={ans.essayAnswerFileUrl} alt="Student answer" className="w-full h-full object-contain" />
-                 <a href={ans.essayAnswerFileUrl} target="_blank" className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-[10px]">عرض كبير</a>
+                 <a href={ans.essayAnswerFileUrl} target="_blank" className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-[10px]">عرض الصورة بالحجم الكامل</a>
                </div>
              )}
           </div>
