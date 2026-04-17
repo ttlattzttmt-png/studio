@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -27,7 +27,7 @@ import {
   CheckCircle2,
   User as UserIcon
 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, doc, query, orderBy, deleteDoc, collectionGroup } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
@@ -197,7 +197,6 @@ function InfoBox({ icon, label, value }: any) {
 
 function StudentEnrollmentsProgress({ studentId }: { studentId: string }) {
   const firestore = useFirestore();
-  // استخدام الفلترة البرمجية لضمان عمل الصفحة فوراً
   const enrollmentsGroupRef = useMemoFirebase(() => collectionGroup(firestore, 'enrollments'), [firestore]);
   const { data: allEnrollments, isLoading } = useCollection(enrollmentsGroupRef);
 
