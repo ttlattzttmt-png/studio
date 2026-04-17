@@ -37,30 +37,54 @@ export default function TakeExamPage() {
   const [alreadyAttempted, setAlreadyAttempted] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
 
-  // 🛡️ نظام الحماية الفولاذي المشدد (للامتحانات فقط)
+  // 🛡️ نظام الحماية الفولاذي المشدد جداً (للأجهزة المحمولة والكمبيوتر)
   useEffect(() => {
+    if (finishedResult) return;
+
     const handleContext = (e: MouseEvent) => e.preventDefault();
+    
     const handleKey = (e: KeyboardEvent) => {
-      const forbidden = ['PrintScreen', 'p', 's', 'i', 'j', 'u', 'c'];
-      if (e.key === 'PrintScreen' || (e.ctrlKey && forbidden.includes(e.key.toLowerCase())) || e.key === 'F12') {
+      const forbidden = ['printscreen', 'p', 's', 'i', 'j', 'u', 'c'];
+      if (
+        e.key.toLowerCase() === 'printscreen' || 
+        (e.ctrlKey && forbidden.includes(e.key.toLowerCase())) || 
+        e.key === 'F12' ||
+        (e.metaKey && e.shiftKey && e.key === '4') // Mac Screenshot
+      ) {
         e.preventDefault();
         setIsBlocked(true);
       }
     };
-    const handleAction = () => setIsBlocked(true);
-    const handleRestore = () => { if (!finishedResult) setTimeout(() => setIsBlocked(false), 1500); };
+
+    // التحسس لأي حركة مريبة (تصغير المتصفح، سحب شريط الإشعارات، لقطة شاشة)
+    const triggerProtection = () => {
+      setIsBlocked(true);
+      // تسجيل المحاولة في الكونسول للرقابة المستقبلية
+      console.warn("Unauthorized screen action detected!");
+    };
+
+    const restoreView = () => {
+      if (!finishedResult) {
+        // تأخير بسيط لضمان انتهاء عملية التقاط الشاشة قبل العودة
+        setTimeout(() => setIsBlocked(false), 2000);
+      }
+    };
 
     document.addEventListener('contextmenu', handleContext);
     document.addEventListener('keydown', handleKey);
-    window.addEventListener('blur', handleAction);
-    window.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') handleAction(); });
-    window.addEventListener('focus', handleRestore);
+    
+    // أهم أحداث منع التصوير على الموبايل
+    window.addEventListener('blur', triggerProtection);
+    window.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') triggerProtection();
+    });
+    window.addEventListener('focus', restoreView);
 
     return () => {
       document.removeEventListener('contextmenu', handleContext);
       document.removeEventListener('keydown', handleKey);
-      window.removeEventListener('blur', handleAction);
-      window.removeEventListener('focus', handleRestore);
+      window.removeEventListener('blur', triggerProtection);
+      window.removeEventListener('focus', restoreView);
     };
   }, [finishedResult]);
 
@@ -158,12 +182,16 @@ export default function TakeExamPage() {
   };
 
   if (isBlocked) return (
-    <div className="fixed inset-0 z-[100000] bg-black flex flex-col items-center justify-center text-center p-6 select-none animate-in fade-in duration-150">
-       <ShieldAlert className="w-20 h-20 text-primary animate-pulse mb-8" />
-       <h2 className="text-4xl font-black text-white mb-4">🚨 محتوى محمي</h2>
-       <p className="text-xl text-primary font-bold mb-8">يمنع تصوير الشاشة أو التسجيل أثناء الامتحان.</p>
-       <p className="text-muted-foreground max-w-lg font-bold">الرجاء العودة لصفحة المتصفح لمواصلة الحل. سيتم إرسال بلاغ في حال تكرار المحاولة.</p>
-       <Button onClick={() => setIsBlocked(false)} className="mt-12 bg-white text-black font-black px-10 h-14 rounded-2xl">أكمل الامتحان</Button>
+    <div className="fixed inset-0 z-[999999] bg-black flex flex-col items-center justify-center text-center p-8 select-none animate-in fade-in duration-300">
+       <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-8 animate-pulse">
+         <ShieldAlert className="w-12 h-12 text-primary" />
+       </div>
+       <h2 className="text-3xl font-black text-white mb-4">🚨 محتوى محمي</h2>
+       <p className="text-xl text-primary font-bold mb-6">يمنع منعاً باتاً تصوير الشاشة أو تسجيلها أثناء الامتحان.</p>
+       <p className="text-muted-foreground max-w-lg leading-relaxed font-bold">
+         لقد تم تعتيم الشاشة لحماية خصوصية المحتوى. يرجى العودة لصفحة الامتحان فوراً لمواصلة الحل.
+       </p>
+       <Button onClick={() => setIsBlocked(false)} className="mt-12 bg-white text-black hover:bg-white/90 font-black px-12 h-14 rounded-2xl shadow-2xl">أكمل الامتحان</Button>
     </div>
   );
 

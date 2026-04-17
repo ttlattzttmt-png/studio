@@ -26,8 +26,8 @@ export default function AdminGradingPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
 
-  // جلب الطلاب لربط الأسماء بالبحث الحقيقي الرباعي
-  const studentsRef = useMemoFirebase(() => collection(firestore, 'students'), [firestore]);
+  // جلب كافة الطلاب لبناء خارطة الأسماء الحقيقية
+  const studentsRef = useMemoFirebase(() => (firestore ? collection(firestore, 'students') : null), [firestore]);
   const { data: allStudents } = useCollection(studentsRef);
 
   // جلب كافة المحاولات بتزامن لحظي
@@ -38,21 +38,21 @@ export default function AdminGradingPage() {
   
   const { data: rawAttempts, isLoading } = useCollection(attemptsRef);
 
-  // خارطة أسماء الطلاب (Student ID -> Name)
+  // إنشاء خارطة أسماء الطلاب (Student ID -> Full Info)
   const studentMap = useMemo(() => {
     const map: Record<string, any> = {};
     allStudents?.forEach(s => { map[s.id] = s; });
     return map;
   }, [allStudents]);
 
-  // البحث والفلترة البرمجية بالاسم الحقيقي
+  // البحث والفلترة البرمجية بالاسم الرباعي الحقيقي
   const filteredAttempts = useMemo(() => {
     if (!rawAttempts) return [];
     
     return rawAttempts
       .filter(a => {
         const studentInfo = studentMap[a.studentId] || {};
-        const studentName = (studentInfo.name || a.studentName || '').toLowerCase();
+        const studentName = (studentInfo.name || a.studentName || 'طالب مجهول').toLowerCase();
         const searchLower = searchTerm.toLowerCase();
         return studentName.includes(searchLower) || a.studentId.toLowerCase().includes(searchLower);
       })
@@ -125,7 +125,7 @@ export default function AdminGradingPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-headline font-bold mb-2">مركز التصحيح والاعتماد</h1>
-          <p className="text-muted-foreground text-sm font-bold">راجع إجابات الطلاب واعتمد الدرجات النهائية بالبحث بالاسم الرباعي.</p>
+          <p className="text-muted-foreground text-sm font-bold">راجع إجابات الطلاب واعتمد الدرجات النهائية بالبحث بالاسم الرباعي الحقيقي.</p>
         </div>
         <div className="bg-primary/10 text-primary px-4 py-2 rounded-xl border border-primary/20 flex items-center gap-2">
           <RefreshCw className="w-4 h-4 animate-spin-slow" />
@@ -175,7 +175,7 @@ export default function AdminGradingPage() {
                           {attempt.isGraded ? 'مكتمل' : 'قيد المراجعة'}
                         </Badge>
                      </div>
-                     <ExamName courseId={attempt.courseId} contentId={attempt.courseContentId} />
+                     <ExamNameByDoc courseId={attempt.courseId} contentId={attempt.courseContentId} />
                      <div className="flex flex-row-reverse justify-between items-center mt-1">
                         <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-bold">
                           <Clock className="w-3 h-3" />
@@ -207,7 +207,7 @@ export default function AdminGradingPage() {
   );
 }
 
-function ExamName({ courseId, contentId }: { courseId: string, contentId: string }) {
+function ExamNameByDoc({ courseId, contentId }: { courseId: string, contentId: string }) {
   const firestore = useFirestore();
   const examRef = useMemoFirebase(() => (firestore && courseId && contentId) ? doc(firestore, 'courses', courseId, 'content', contentId) : null, [firestore, courseId, contentId]);
   const { data: exam } = useDoc(examRef);

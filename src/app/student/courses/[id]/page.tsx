@@ -127,35 +127,35 @@ export default function CourseViewer() {
           <div className="lg:col-span-2 space-y-6">
             {activeContent?.contentType === 'Video' ? (
               <div className="space-y-4 animate-in fade-in duration-500">
-                <div className="aspect-video bg-black rounded-[2.5rem] overflow-hidden border-4 border-primary/5 shadow-2xl relative group">
+                <div className="aspect-video bg-black rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden border-4 border-primary/5 shadow-2xl relative group">
                    <iframe 
                     src={`https://www.youtube.com/embed/${getYouTubeId(activeContent.youtubeLink)}?rel=0&modestbranding=1&autoplay=1`} 
                     className="w-full h-full" 
                     allowFullScreen 
                    />
-                   <div className="absolute inset-0 pointer-events-none border-[20px] border-transparent" />
+                   <div className="absolute inset-0 pointer-events-none border-[10px] md:border-[20px] border-transparent" />
                 </div>
-                <Card className="bg-card p-8 rounded-[2.5rem] border-primary/10 shadow-xl">
-                  <div className="flex flex-col md:flex-row-reverse justify-between items-center gap-6">
+                <Card className="bg-card p-4 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] border-primary/10 shadow-xl">
+                  <div className="flex flex-col md:flex-row-reverse justify-between items-center gap-4 md:gap-6">
                     <div className="w-full text-right">
-                      <div className="flex items-center gap-3 justify-end mb-2">
-                        <Badge variant="outline" className="text-primary font-black border-primary/20 px-3">شرح فيديو 🎥</Badge>
-                        <h1 className="text-3xl font-black">{activeContent.title}</h1>
+                      <div className="flex items-center gap-2 md:gap-3 justify-end mb-2">
+                        <Badge variant="outline" className="text-primary font-black border-primary/20 px-2 md:px-3 text-[10px] md:text-xs">شرح فيديو 🎥</Badge>
+                        <h1 className="text-lg md:text-3xl font-black">{activeContent.title}</h1>
                       </div>
-                      <p className="text-muted-foreground text-sm font-bold flex items-center gap-2 justify-end">
-                         محتوى تعليمي محمي - يمنع التصوير <ShieldAlert className="w-4 h-4 text-primary" />
+                      <p className="text-muted-foreground text-[10px] md:text-sm font-bold flex items-center gap-2 justify-end">
+                         محتوى تعليمي محمي - يمنع التصوير <ShieldAlert className="w-3 h-3 md:w-4 md:h-4 text-primary" />
                       </p>
                     </div>
                     <Button 
                       onClick={() => markAsWatched(activeContent.id)} 
                       disabled={watchedVideos?.some(v => v.courseContentId === activeContent.id)} 
                       className={cn(
-                        "h-14 px-10 font-black rounded-2xl shadow-xl shrink-0 gap-2 transition-all active:scale-95",
+                        "w-full md:w-auto h-12 md:h-14 px-6 md:px-10 font-black rounded-xl md:rounded-2xl shadow-xl shrink-0 gap-2 transition-all active:scale-95 text-xs md:text-base",
                         watchedVideos?.some(v => v.courseContentId === activeContent.id) ? "bg-accent text-white" : "bg-primary text-primary-foreground"
                       )}
                     >
                       {watchedVideos?.some(v => v.courseContentId === activeContent.id) ? (
-                        <><CheckCircle className="w-5 h-5" /> تمت المشاهدة</>
+                        <><CheckCircle className="w-4 h-4 md:w-5 md:h-5" /> تمت المشاهدة</>
                       ) : (
                         "تعليم كـ مكتمل ✅"
                       )}
@@ -164,14 +164,14 @@ export default function CourseViewer() {
                 </Card>
               </div>
             ) : activeContent ? (
-              <Card className="bg-primary/5 border-2 border-dashed border-primary/20 p-20 text-center space-y-8 rounded-[3.5rem] shadow-inner">
-                <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary shadow-xl"><FileQuestion className="w-12 h-12" /></div>
-                <div className="space-y-3">
-                  <h2 className="text-4xl font-headline font-black">{activeContent.title}</h2>
-                  <p className="text-muted-foreground font-black text-lg">اختبار تقييمي لقياس مستوى استيعابك وتفوقك في الدرس.</p>
+              <Card className="bg-primary/5 border-2 border-dashed border-primary/20 p-8 md:p-20 text-center space-y-6 md:space-y-8 rounded-[2rem] md:rounded-[3.5rem] shadow-inner">
+                <div className="w-16 h-16 md:w-24 md:h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary shadow-xl"><FileQuestion className="w-8 h-8 md:w-12 md:h-12" /></div>
+                <div className="space-y-2 md:space-y-3">
+                  <h2 className="text-2xl md:text-4xl font-headline font-black leading-tight">{activeContent.title}</h2>
+                  <p className="text-muted-foreground font-black text-sm md:text-lg">اختبار تقييمي لقياس مستوى استيعابك وتفوقك في الدرس.</p>
                 </div>
-                <Link href={`/student/exams/${activeContent.id}`}>
-                  <Button size="lg" className="h-16 px-14 bg-primary font-black rounded-2xl text-xl shadow-2xl hover:scale-105 transition-transform active:scale-95">
+                <Link href={`/student/exams/${activeContent.id}`} className="block">
+                  <Button size="lg" className="w-full md:w-auto h-14 md:h-16 px-10 md:px-14 bg-primary font-black rounded-xl md:rounded-2xl text-base md:text-xl shadow-2xl hover:scale-105 transition-transform active:scale-95">
                     ابدأ الامتحان الآن ✍️
                   </Button>
                 </Link>
@@ -179,12 +179,12 @@ export default function CourseViewer() {
             ) : null}
           </div>
           <div className="lg:col-span-1">
-            <Card className="bg-card border-primary/10 overflow-hidden shadow-2xl rounded-[3rem] sticky top-24">
-              <CardHeader className="border-b bg-secondary/5 py-6 px-8 flex flex-row-reverse items-center justify-between">
-                <CardTitle className="text-xl font-black">محتوى الكورس</CardTitle>
-                <Badge className="bg-primary/10 text-primary border-none font-black">{enrollment?.progressPercentage || 0}% تم</Badge>
+            <Card className="bg-card border-primary/10 overflow-hidden shadow-2xl rounded-[1.5rem] md:rounded-[3rem] sticky top-24">
+              <CardHeader className="border-b bg-secondary/5 py-4 md:py-6 px-6 md:px-8 flex flex-row-reverse items-center justify-between">
+                <CardTitle className="text-base md:text-xl font-black">محتوى الكورس</CardTitle>
+                <Badge className="bg-primary/10 text-primary border-none font-black text-[10px] md:text-xs">{enrollment?.progressPercentage || 0}% تم</Badge>
               </CardHeader>
-              <CardContent className="p-0 max-h-[60vh] overflow-y-auto">
+              <CardContent className="p-0 max-h-[40vh] md:max-h-[60vh] overflow-y-auto">
                 {visibleContents.map((item, idx) => {
                   const watched = watchedVideos?.some(v => v.courseContentId === item.id);
                   const isActive = activeContent?.id === item.id;
@@ -193,19 +193,19 @@ export default function CourseViewer() {
                       key={item.id} 
                       onClick={() => setActiveContent(item)} 
                       className={cn(
-                        "w-full p-6 text-right flex flex-row-reverse items-center gap-4 transition-all border-b last:border-0", 
+                        "w-full p-4 md:p-6 text-right flex flex-row-reverse items-center gap-3 md:gap-4 transition-all border-b last:border-0", 
                         isActive ? "bg-primary/10 border-r-4 border-primary" : "hover:bg-secondary/10"
                       )}
                     >
                       <div className={cn(
-                        "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-black shadow-sm", 
+                        "w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center shrink-0 font-black shadow-sm text-xs md:text-sm", 
                         watched ? "bg-accent text-white" : isActive ? "bg-primary text-primary-foreground" : "bg-secondary"
                       )}>
-                        {watched ? <CheckCircle className="w-5 h-5" /> : idx + 1}
+                        {watched ? <CheckCircle className="w-4 h-4 md:w-5 md:h-5" /> : idx + 1}
                       </div>
                       <div className="flex-grow min-w-0">
-                        <p className={cn("font-black text-sm truncate mb-0.5", isActive ? "text-primary" : "")}>{item.title}</p>
-                        <span className="text-[9px] text-muted-foreground uppercase font-black tracking-widest">
+                        <p className={cn("font-black text-xs md:text-sm truncate mb-0.5", isActive ? "text-primary" : "")}>{item.title}</p>
+                        <span className="text-[8px] md:text-[9px] text-muted-foreground uppercase font-black tracking-widest">
                           {item.contentType === 'Video' ? 'شرح فيديو ممتع' : 'امتحان الكتروني هام'}
                         </span>
                       </div>
