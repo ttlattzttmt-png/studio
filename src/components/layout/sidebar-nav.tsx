@@ -34,20 +34,44 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
   const { user } = useUser();
   const [open, setOpen] = useState(false);
 
-  // حماية عالمية من لقطات الشاشة
+  // 🛡️ نظام الحماية الفولاذي: منع لقطات الشاشة والنسخ والطباعة
   useEffect(() => {
+    // 1. منع الزر الأيمن
     const handleContext = (e: MouseEvent) => e.preventDefault();
+    
+    // 2. منع اختصارات لوحة المفاتيح (PrintScreen, Ctrl+P, Ctrl+S, Inspect)
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'PrintScreen' || (e.ctrlKey && e.key === 'p')) {
+      if (
+        e.key === 'PrintScreen' || 
+        (e.ctrlKey && e.key === 'p') || 
+        (e.ctrlKey && e.key === 's') ||
+        (e.ctrlKey && e.shiftKey && e.key === 'I') ||
+        (e.ctrlKey && e.shiftKey && e.key === 'J') ||
+        e.key === 'F12'
+      ) {
         e.preventDefault();
-        alert('🚨 عذراً، تصوير الشاشة أو الطباعة غير مسموح بها لحماية المحتوى.');
+        alert('🚨 نظام الحماية: لا يسمح بتصوير الشاشة أو محاولة سحب المحتوى.');
       }
     };
+
+    // 3. كشف محاولة فقدان التركيز (تستخدم لتعطيل التسجيل في بعض المتصفحات)
+    const handleBlur = () => {
+      document.body.classList.add('protection-blur');
+    };
+    const handleFocus = () => {
+      document.body.classList.remove('protection-blur');
+    };
+
     document.addEventListener('contextmenu', handleContext);
     document.addEventListener('keydown', handleKey);
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+
     return () => {
       document.removeEventListener('contextmenu', handleContext);
       document.removeEventListener('keydown', handleKey);
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
     };
   }, []);
 

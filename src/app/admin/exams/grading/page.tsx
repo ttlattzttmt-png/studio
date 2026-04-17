@@ -24,6 +24,7 @@ export default function AdminGradingPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
 
+  // استراتيجية جلب كافة المحاولات بتزامن لحظي
   const attemptsRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return collectionGroup(firestore, 'quiz_attempts');
@@ -31,7 +32,7 @@ export default function AdminGradingPage() {
   
   const { data: rawAttempts, isLoading } = useCollection(attemptsRef);
 
-  // تصفية وترتيب المحاولات برمجياً - دعم البحث بالاسم المخزن في المحاولة
+  // تصفية وترتيب المحاولات برمجياً - دعم البحث بالاسم الحقيقي
   const filteredAttempts = useMemo(() => {
     if (!rawAttempts) return [];
     
@@ -40,14 +41,13 @@ export default function AdminGradingPage() {
         const searchLower = searchTerm.toLowerCase();
         return (
           (a.studentName || '').toLowerCase().includes(searchLower) || 
-          (a.studentId || '').toLowerCase().includes(searchLower) || 
-          (a.courseContentId || '').toLowerCase().includes(searchLower)
+          (a.studentId || '').toLowerCase().includes(searchLower)
         );
       })
       .sort((a, b) => {
         const dateA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
         const dateB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
-        return dateB - dateA;
+        return dateB - dateA; // ترتيب تنازلي من الأحدث للأقدم
       });
   }, [rawAttempts, searchTerm]);
 
