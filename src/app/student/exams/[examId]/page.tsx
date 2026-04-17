@@ -14,7 +14,8 @@ import {
   Trophy,
   AlertTriangle,
   ChevronRight,
-  ChevronLeft
+  ChevronLeft,
+  ShieldAlert
 } from 'lucide-react';
 import { useUser, useFirebase, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, addDoc, doc, getDocs, query, orderBy, where } from 'firebase/firestore';
@@ -34,6 +35,34 @@ export default function TakeExamPage() {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [finishedResult, setFinishedResult] = useState<any>(null);
   const [alreadyAttempted, setAlreadyAttempted] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+
+  // 🛡️ نظام الحماية الفولاذي المشدد (للامتحانات فقط)
+  useEffect(() => {
+    const handleContext = (e: MouseEvent) => e.preventDefault();
+    const handleKey = (e: KeyboardEvent) => {
+      const forbidden = ['PrintScreen', 'p', 's', 'i', 'j', 'u', 'c'];
+      if (e.key === 'PrintScreen' || (e.ctrlKey && forbidden.includes(e.key.toLowerCase())) || e.key === 'F12') {
+        e.preventDefault();
+        setIsBlocked(true);
+      }
+    };
+    const handleAction = () => setIsBlocked(true);
+    const handleRestore = () => { if (!finishedResult) setTimeout(() => setIsBlocked(false), 1500); };
+
+    document.addEventListener('contextmenu', handleContext);
+    document.addEventListener('keydown', handleKey);
+    window.addEventListener('blur', handleAction);
+    window.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') handleAction(); });
+    window.addEventListener('focus', handleRestore);
+
+    return () => {
+      document.removeEventListener('contextmenu', handleContext);
+      document.removeEventListener('keydown', handleKey);
+      window.removeEventListener('blur', handleAction);
+      window.removeEventListener('focus', handleRestore);
+    };
+  }, [finishedResult]);
 
   // جلب بيانات الطالب لحفظ الاسم الحقيقي
   const studentProfileRef = useMemoFirebase(() => user ? doc(firestore!, 'students', user.uid) : null, [firestore, user]);
@@ -65,7 +94,7 @@ export default function TakeExamPage() {
     if (!timeLeft || timeLeft <= 0) return;
     const timer = setInterval(() => setTimeLeft(p => (p ? p - 1 : 0)), 1000);
     return () => clearInterval(timer);
-  }, [timeLeft]);
+  }, [timeLeft, finishedResult]);
 
   const questionsRef = useMemoFirebase(() => (firestore && courseId && examId) ? query(collection(firestore, 'courses', courseId, 'content', examId as string, 'questions'), orderBy('orderIndex', 'asc')) : null, [firestore, courseId, examId]);
   const { data: questions, isLoading: isQsLoading } = useCollection(questionsRef);
@@ -123,9 +152,20 @@ export default function TakeExamPage() {
       }
 
       setFinishedResult({ score: finalPercentage, points: totalScoreAchieved, total: totalMaxPoints });
+      setIsBlocked(false);
       toast({ title: "تم تسليم الامتحان" });
     } catch (e) { console.error(e); } finally { setIsSubmitting(false); }
   };
+
+  if (isBlocked) return (
+    <div className="fixed inset-0 z-[100000] bg-black flex flex-col items-center justify-center text-center p-6 select-none animate-in fade-in duration-150">
+       <ShieldAlert className="w-20 h-20 text-primary animate-pulse mb-8" />
+       <h2 className="text-4xl font-black text-white mb-4">🚨 محتوى محمي</h2>
+       <p className="text-xl text-primary font-bold mb-8">يمنع تصوير الشاشة أو التسجيل أثناء الامتحان.</p>
+       <p className="text-muted-foreground max-w-lg font-bold">الرجاء العودة لصفحة المتصفح لمواصلة الحل. سيتم إرسال بلاغ في حال تكرار المحاولة.</p>
+       <Button onClick={() => setIsBlocked(false)} className="mt-12 bg-white text-black font-black px-10 h-14 rounded-2xl">أكمل الامتحان</Button>
+    </div>
+  );
 
   if (alreadyAttempted) return <div className="min-h-screen flex items-center justify-center p-6 text-center"><Card className="max-w-md p-10 rounded-[3rem] border-primary/20 shadow-2xl"><AlertTriangle className="w-16 h-16 text-primary mx-auto mb-6" /><h2 className="text-2xl font-bold">لا يمكنك إعادة الامتحان</h2><p className="text-muted-foreground mt-4">يسمح بمحاولة واحدة فقط لضمان الأمان والجدية.</p><Link href="/student/exams"><Button className="w-full mt-6 bg-primary font-bold">عرض درجاتي</Button></Link></Card></div>;
 
@@ -175,7 +215,7 @@ export default function TakeExamPage() {
 
 function MCQOptions({ courseId, examId, qId, selected, onSelect }: any) {
   const firestore = useFirestore();
-  const optionsRef = useMemoFirebase(() => collection(firestore, 'courses', courseId, 'content', examId, 'questions', qId, 'options'), [firestore, courseId, examId, qId]);
+  const optionsRef = useMemoFirebase(() => (firestore && courseId && examId && qId) ? collection(firestore, 'courses', courseId, 'content', examId, 'questions', qId, 'options') : null, [firestore, courseId, examId, qId]);
   const { data: options } = useCollection(optionsRef);
   return (
     <RadioGroup value={selected} onValueChange={onSelect} className="grid grid-cols-1 gap-4">

@@ -15,7 +15,7 @@ import {
   User as UserIcon,
   HelpCircle
 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase, useDoc, useUser } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collectionGroup, updateDoc, doc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
@@ -26,7 +26,7 @@ export default function AdminGradingPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
 
-  // جلب الطلاب لربط الأسماء بالبحث الحقيقي
+  // جلب الطلاب لربط الأسماء بالبحث الحقيقي الرباعي
   const studentsRef = useMemoFirebase(() => collection(firestore, 'students'), [firestore]);
   const { data: allStudents } = useCollection(studentsRef);
 
@@ -38,14 +38,14 @@ export default function AdminGradingPage() {
   
   const { data: rawAttempts, isLoading } = useCollection(attemptsRef);
 
-  // خارطة أسماء الطلاب للبحث بالاسم الحقيقي الرباعي
+  // خارطة أسماء الطلاب (Student ID -> Name)
   const studentMap = useMemo(() => {
     const map: Record<string, any> = {};
     allStudents?.forEach(s => { map[s.id] = s; });
     return map;
   }, [allStudents]);
 
-  // البحث والفلترة البرمجية لضمان عمل البحث بالاسم الحقيقي
+  // البحث والفلترة البرمجية بالاسم الحقيقي
   const filteredAttempts = useMemo(() => {
     if (!rawAttempts) return [];
     
@@ -125,7 +125,7 @@ export default function AdminGradingPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-headline font-bold mb-2">مركز التصحيح والاعتماد</h1>
-          <p className="text-muted-foreground text-sm font-bold">راجع إجابات الطلاب الحقيقية واعتمد الدرجات النهائية بالبحث بالاسم.</p>
+          <p className="text-muted-foreground text-sm font-bold">راجع إجابات الطلاب واعتمد الدرجات النهائية بالبحث بالاسم الرباعي.</p>
         </div>
         <div className="bg-primary/10 text-primary px-4 py-2 rounded-xl border border-primary/20 flex items-center gap-2">
           <RefreshCw className="w-4 h-4 animate-spin-slow" />
@@ -139,7 +139,7 @@ export default function AdminGradingPage() {
             <div className="relative">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input 
-                placeholder="ابحث باسم الطالب الحقيقي..." 
+                placeholder="ابحث باسم الطالب الرباعي..." 
                 className="w-full bg-background border-primary/10 rounded-xl h-12 pr-10 text-right text-xs font-bold focus:border-primary outline-none transition-all" 
                 value={searchTerm} 
                 onChange={(e) => setSearchTerm(e.target.value)} 

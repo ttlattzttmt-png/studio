@@ -52,14 +52,14 @@ export default function CourseInsightsPage() {
 
   const totalVideos = useMemo(() => contents?.filter(c => c.contentType === 'Video').length || 0, [contents]);
 
-  // إنشاء خارطة أسماء الطلاب (Student Mapping) - ضروري للبحث بالاسم الحقيقي
+  // إنشاء خارطة أسماء الطلاب (Student ID -> Student Info)
   const studentMap = useMemo(() => {
     const map: Record<string, any> = {};
     allStudents?.forEach(s => { map[s.id] = s; });
     return map;
   }, [allStudents]);
 
-  // معالجة الإحصائيات برمجياً (تزامن 100% وبحث دقيق)
+  // معالجة الإحصائيات برمجياً (تزامن 100% وبحث دقيق بالاسم الرباعي)
   const processedData = useMemo(() => {
     if (!selectedCourseId || !rawEnrollments) return [];
 
@@ -93,7 +93,7 @@ export default function CourseInsightsPage() {
       };
     });
 
-    // 3. تطبيق البحث بالاسم الحقيقي أو الهاتف
+    // 3. تطبيق البحث بالاسم الرباعي الحقيقي أو الهاتف
     const searched = stats.filter(s => 
       s.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.studentPhone.includes(searchTerm)
@@ -114,7 +114,7 @@ export default function CourseInsightsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-headline font-bold mb-2">إحصائيات المتابعة الحية</h1>
-          <p className="text-muted-foreground font-bold">راقب تقدم الطلاب، دقائق المشاهدة، والدرجات لحظياً بالاسم.</p>
+          <p className="text-muted-foreground font-bold">راقب تقدم الطلاب، دقائق المشاهدة، والدرجات لحظياً بالاسم الرباعي.</p>
         </div>
         <div className="w-full md:w-80">
           <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
@@ -145,7 +145,7 @@ export default function CourseInsightsPage() {
               <div className="relative w-full max-w-md">
                 <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input 
-                  placeholder="ابحث باسم الطالب الحقيقي..." 
+                  placeholder="ابحث باسم الطالب الرباعي الحقيقي..." 
                   className="pr-10 bg-background border-primary/10 text-right h-12 rounded-xl font-bold"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}

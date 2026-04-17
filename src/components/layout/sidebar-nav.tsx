@@ -36,54 +36,24 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
   const { user } = useUser();
   const firestore = useFirestore();
   const [open, setOpen] = useState(false);
-  const [isBlocked, setIsBlocked] = useState(false);
   
   const studentRef = useMemoFirebase(() => (user && !isAdmin) ? doc(firestore, 'students', user.uid) : null, [firestore, user, isAdmin]);
   const { data: student } = useDoc(studentRef);
 
-  // 🛡️ نظام الحماية الفولاذي: تحويل الشاشة لسواد عند محاولة التصوير أو فقدان التركيز
+  // حماية أساسية للمنصة بالكامل (منع الـ Inspect والنسخ)
   useEffect(() => {
     const handleContext = (e: MouseEvent) => e.preventDefault();
-    
     const handleKey = (e: KeyboardEvent) => {
-      const forbiddenKeys = ['PrintScreen', 'p', 's', 'i', 'j', 'u'];
-      if (
-        e.key === 'PrintScreen' || 
-        (e.ctrlKey && forbiddenKeys.includes(e.key.toLowerCase())) ||
-        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) ||
-        e.key === 'F12'
-      ) {
+      const forbiddenKeys = ['i', 'j', 'u', 'c'];
+      if ((e.ctrlKey && e.shiftKey && forbiddenKeys.includes(e.key.toLowerCase())) || e.key === 'F12') {
         e.preventDefault();
-        setIsBlocked(true);
       }
     };
-
-    const handleAction = () => {
-      // عند محاولة لقطة شاشة على الموبايل، المتصفح يطلق حدث blur أو visibilitychange
-      setIsBlocked(true);
-    };
-
-    const handleRestore = () => {
-      // تأخير بسيط لضمان أن لقطة الشاشة (التي تمت في وضع السواد) قد اكتملت
-      setTimeout(() => setIsBlocked(false), 1000);
-    };
-
     document.addEventListener('contextmenu', handleContext);
     document.addEventListener('keydown', handleKey);
-    
-    // مراقبة أحداث النظام التي تسبق لقطة الشاشة
-    window.addEventListener('blur', handleAction);
-    window.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') handleAction();
-    });
-    
-    window.addEventListener('focus', handleRestore);
-
     return () => {
       document.removeEventListener('contextmenu', handleContext);
       document.removeEventListener('keydown', handleKey);
-      window.removeEventListener('blur', handleAction);
-      window.removeEventListener('focus', handleRestore);
     };
   }, []);
 
@@ -168,19 +138,6 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
 
   return (
     <>
-      {/* 🧩 شاشة الحماية السوداء القاتمة (تظهر فوراً عند محاولة التصوير) */}
-      {isBlocked && (
-        <div className="fixed inset-0 z-[100000] bg-black flex flex-col items-center justify-center text-center p-6 select-none animate-in fade-in duration-100">
-           <div className="w-24 h-24 rounded-3xl bg-primary/10 flex items-center justify-center mb-8 border border-primary/20">
-              <ShieldAlert className="w-16 h-16 text-primary animate-pulse" />
-           </div>
-           <h2 className="text-4xl font-black text-white mb-4">🚨 محتوى محمي</h2>
-           <p className="text-2xl text-primary font-bold mb-8">عذراً، يمنع تصوير الشاشة أو التسجيل نهائياً.</p>
-           <p className="text-muted-foreground max-w-lg leading-relaxed font-bold">تم حجب المحتوى مؤقتاً لحماية حقوق الملكية. عد للمتصفح لمواصلة المتابعة.</p>
-           <Button onClick={() => setIsBlocked(false)} className="mt-12 bg-white text-black font-black px-10 h-14 rounded-2xl">العودة للدرس</Button>
-        </div>
-      )}
-
       <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b z-50 px-4 flex items-center justify-between">
         <Link href={user ? (isAdmin ? '/admin' : '/student') : '/'} className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold">ب</div>
