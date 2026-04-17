@@ -4,11 +4,12 @@ import { useParams } from 'next/navigation';
 import { Navbar } from '@/components/ui/navbar';
 import { Footer } from '@/components/ui/footer';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, orderBy, setDoc, serverTimestamp, getDocs, updateDoc } from 'firebase/firestore';
+import { doc, collection, query, orderBy, setDoc, serverTimestamp, getDocs, updateDoc, where } from 'firebase/firestore';
 import { Loader2, PlayCircle, CheckCircle, FileQuestion, Lock } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -22,6 +23,9 @@ export default function CourseViewer() {
 
   const courseRef = useMemoFirebase(() => (firestore && id) ? doc(firestore, 'courses', id as string) : null, [firestore, id]);
   const { data: course, isLoading: isCourseLoading } = useDoc(courseRef);
+
+  const studentRef = useMemoFirebase(() => (firestore && user) ? doc(firestore, 'students', user.uid) : null, [firestore, user]);
+  const { data: studentProfile } = useDoc(studentRef);
 
   const enrollmentRef = useMemoFirebase(() => (firestore && user && id) ? doc(firestore, 'students', user.uid, 'enrollments', id as string) : null, [firestore, user, id]);
   const { data: enrollment, isLoading: isEnrollmentLoading } = useDoc(enrollmentRef);
@@ -38,17 +42,17 @@ export default function CourseViewer() {
 
   // دالة متطورة لتحديث التقدم بشكل لحظي ومتزامن
   const markAsWatched = async (contentId: string) => {
-    if (!firestore || !user || !id) return;
+    if (!firestore || !user || !id || !studentProfile) return;
     try {
-      // 1. تسجيل مشاهدة الفيديو في سجل الطالب
+      // 1. تسجيل مشاهدة الفيديو في سجل الطالب مع حفظ اسم الطالب للرقابة
       const videoLogRef = doc(firestore, 'students', user.uid, 'video_progress', contentId);
       await setDoc(videoLogRef, {
         studentId: user.uid,
-        studentName: user.displayName || 'طالب المنصة',
+        studentName: studentProfile.name || 'طالب المنصة',
         courseId: id,
         courseContentId: contentId,
         isCompleted: true,
-        watchedDurationInSeconds: activeContent?.durationInSeconds || 600, // تسجيل الوقت المخصص للفيديو
+        watchedDurationInSeconds: activeContent?.durationInSeconds || 600,
         lastWatchedAt: serverTimestamp()
       });
 
@@ -63,6 +67,7 @@ export default function CourseViewer() {
       // 3. تحديث سجل الاشتراك بالنسبة الجديدة ليراها الادمن
       await updateDoc(doc(firestore, 'students', user.uid, 'enrollments', id as string), {
         progressPercentage: newPercent,
+        studentName: studentProfile.name,
         lastActivityDate: new Date().toISOString()
       });
 

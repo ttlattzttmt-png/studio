@@ -32,21 +32,21 @@ export default function CourseInsightsPage() {
   const coursesRef = useMemoFirebase(() => collection(firestore, 'courses'), [firestore]);
   const { data: courses } = useCollection(coursesRef);
 
-  // جلب كافة الاشتراكات بتزامن حي
+  // جلب كافة الاشتراكات الحية لهذا الكورس
   const enrollmentsRef = useMemoFirebase(() => {
     if (!firestore || !selectedCourseId) return null;
     return query(collectionGroup(firestore, 'enrollments'), where('courseId', '==', selectedCourseId));
   }, [firestore, selectedCourseId]);
   const { data: enrollments, isLoading: isEnLoading } = useCollection(enrollmentsRef);
 
-  // جلب كافة المحاولات بتزامن حي
+  // جلب كافة محاولات الامتحانات لهذا الكورس
   const quizAttemptsRef = useMemoFirebase(() => {
     if (!firestore || !selectedCourseId) return null;
     return query(collectionGroup(firestore, 'quiz_attempts'), where('courseId', '==', selectedCourseId));
   }, [firestore, selectedCourseId]);
   const { data: attempts } = useCollection(quizAttemptsRef);
 
-  // جلب كافة سجلات المشاهدة بتزامن حي
+  // جلب كافة سجلات المشاهدة لهذا الكورس
   const videoProgressRef = useMemoFirebase(() => {
     if (!firestore || !selectedCourseId) return null;
     return query(collectionGroup(firestore, 'video_progress'), where('courseId', '==', selectedCourseId));
@@ -67,13 +67,13 @@ export default function CourseInsightsPage() {
     if (!enrollments) return [];
     
     const stats = enrollments.map(en => {
-      // البحث عن محاولات هذا الطالب في هذا الكورس
+      // البحث عن محاولات هذا الطالب
       const studentAttempts = attempts?.filter(a => a.studentId === en.studentId) || [];
       const bestAttempt = studentAttempts.length > 0 
         ? studentAttempts.reduce((prev, current) => (prev.score > current.score) ? prev : current)
         : null;
 
-      // البحث عن فيديوهات هذا الطالب في هذا الكورس
+      // البحث عن فيديوهات هذا الطالب
       const watchedLogs = videoLogs?.filter(v => v.studentId === en.studentId && v.isCompleted) || [];
       const totalSeconds = videoLogs?.filter(v => v.studentId === en.studentId)
         .reduce((acc, curr) => acc + (curr.watchedDurationInSeconds || 0), 0) || 0;
@@ -88,13 +88,13 @@ export default function CourseInsightsPage() {
       };
     });
 
-    // تصفية بالبحث
+    // تصفية بالبحث (بمعرف الطالب حالياً وسنقوم بجلب الاسم في المكون)
     const searched = stats.filter(s => 
-      (s.studentName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (s.studentId || '').toLowerCase().includes(searchTerm.toLowerCase())
+      (s.studentId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.studentName || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // ترتيب
+    // ترتيب الأوائل
     return searched.sort((a, b) => {
       const scoreA = a.bestScore ?? -1;
       const scoreB = b.bestScore ?? -1;
@@ -145,7 +145,7 @@ export default function CourseInsightsPage() {
               <div className="relative w-full max-w-md">
                 <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input 
-                  placeholder="ابحث باسم الطالب..." 
+                  placeholder="ابحث بمعرف الطالب..." 
                   className="pr-10 bg-background border-primary/10 text-right h-11 rounded-xl"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -174,7 +174,7 @@ export default function CourseInsightsPage() {
                   {studentStats.map((stat) => (
                     <tr key={stat.id} className="hover:bg-primary/5 transition-colors group">
                       <td className="px-6 py-4">
-                        <StudentDetails studentId={stat.studentId} fallbackName={stat.studentName} />
+                        <StudentDetails studentId={stat.studentId} />
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3 justify-end">
@@ -188,7 +188,7 @@ export default function CourseInsightsPage() {
                         {stat.bestScore !== null ? (
                           <div className="flex flex-col items-end">
                             <Badge className="bg-accent text-white font-black border-none text-[10px]">{stat.bestScore}%</Badge>
-                            <span className="text-[9px] text-muted-foreground mt-1 font-bold">{stat.pointsAchieved} / {stat.totalPoints}</span>
+                            <span className="text-[9px] text-muted-foreground mt-1 font-bold">{stat.pointsAchieved} من {stat.totalPoints}</span>
                           </div>
                         ) : (
                           <Badge variant="secondary" className="opacity-40 text-[9px]">لم يمتحن</Badge>
@@ -243,7 +243,7 @@ function StatsCard({ title, value, icon, color }: any) {
   );
 }
 
-function StudentDetails({ studentId, fallbackName }: { studentId: string, fallbackName?: string }) {
+function StudentDetails({ studentId }: { studentId: string }) {
   const firestore = useFirestore();
   const studentRef = useMemoFirebase(() => studentId ? doc(firestore, 'students', studentId) : null, [firestore, studentId]);
   const { data: student } = useDoc(studentRef);
@@ -251,11 +251,11 @@ function StudentDetails({ studentId, fallbackName }: { studentId: string, fallba
   return (
     <div className="flex items-center gap-3 justify-end">
       <div className="text-right min-w-0">
-        <p className="truncate max-w-[180px] font-bold text-sm text-foreground">{student?.name || fallbackName || 'جاري التحميل...'}</p>
+        <p className="truncate max-w-[180px] font-bold text-sm text-foreground">{student?.name || 'جاري التحميل...'}</p>
         <p className="text-[9px] text-muted-foreground font-mono" dir="ltr">{student?.studentPhoneNumber || '---'}</p>
       </div>
       <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-black text-primary shrink-0 shadow-sm">
-        {student?.name?.[0] || fallbackName?.[0] || 'S'}
+        {student?.name?.[0] || 'S'}
       </div>
     </div>
   );

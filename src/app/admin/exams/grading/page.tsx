@@ -12,6 +12,7 @@ import {
   Trash2,
   Clock,
   RefreshCw,
+  User as UserIcon
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useDoc, useUser } from '@/firebase';
 import { collectionGroup, updateDoc, doc, collection, getDocs, deleteDoc } from 'firebase/firestore';
@@ -24,7 +25,7 @@ export default function AdminGradingPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
 
-  // استراتيجية جلب كافة المحاولات بتزامن لحظي
+  // جلب كافة المحاولات بتزامن لحظي
   const attemptsRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return collectionGroup(firestore, 'quiz_attempts');
@@ -32,22 +33,23 @@ export default function AdminGradingPage() {
   
   const { data: rawAttempts, isLoading } = useCollection(attemptsRef);
 
-  // تصفية وترتيب المحاولات برمجياً - دعم البحث بالاسم الحقيقي
+  // تصفية وترتيب المحاولات برمجياً لدعم البحث الفوري
   const filteredAttempts = useMemo(() => {
     if (!rawAttempts) return [];
     
     return rawAttempts
       .filter(a => {
         const searchLower = searchTerm.toLowerCase();
+        // البحث بالمعرف أو الاسم المسجل (سنستخدم مكون StudentName لعرض الاسم الحقيقي)
         return (
-          (a.studentName || '').toLowerCase().includes(searchLower) || 
-          (a.studentId || '').toLowerCase().includes(searchLower)
+          (a.studentId || '').toLowerCase().includes(searchLower) ||
+          (a.studentName || '').toLowerCase().includes(searchLower)
         );
       })
       .sort((a, b) => {
         const dateA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
         const dateB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
-        return dateB - dateA; // ترتيب تنازلي من الأحدث للأقدم
+        return dateB - dateA;
       });
   }, [rawAttempts, searchTerm]);
 
@@ -127,7 +129,7 @@ export default function AdminGradingPage() {
             <div className="relative">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input 
-                placeholder="ابحث باسم الطالب..." 
+                placeholder="ابحث بمعرف الطالب..." 
                 className="w-full bg-background border-primary/10 rounded-xl h-11 pr-10 text-right text-xs focus:border-primary outline-none transition-all" 
                 value={searchTerm} 
                 onChange={(e) => setSearchTerm(e.target.value)} 
@@ -151,10 +153,7 @@ export default function AdminGradingPage() {
                      className={`w-full p-5 text-right hover:bg-primary/5 transition-all flex flex-col gap-2 relative group ${selectedAttempt?.id === attempt.id ? 'bg-primary/10 border-r-4 border-primary' : ''}`}
                    >
                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                           <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">S</div>
-                           <span className="text-xs font-bold text-foreground truncate max-w-[120px]">{attempt.studentName || 'طالب المنصة'}</span>
-                        </div>
+                        <StudentNameDisplay studentId={attempt.studentId} />
                         <Badge className="text-[9px] h-5" variant={attempt.isGraded ? 'default' : 'secondary'}>
                           {attempt.isGraded ? 'مكتمل' : 'قيد المراجعة'}
                         </Badge>
@@ -166,7 +165,7 @@ export default function AdminGradingPage() {
                           <span>{attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleDateString('ar-EG') : '---'}</span>
                         </div>
                         <div className="text-[10px] font-bold text-primary">
-                          {attempt.pointsAchieved ?? 0} / {attempt.totalPoints ?? 0} ({attempt.score ?? 0}%)
+                          {attempt.pointsAchieved ?? 0} من {attempt.totalPoints ?? 0} ({attempt.score ?? 0}%)
                         </div>
                      </div>
                    </button>
@@ -187,6 +186,21 @@ export default function AdminGradingPage() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function StudentNameDisplay({ studentId }: { studentId: string }) {
+  const firestore = useFirestore();
+  const studentRef = useMemoFirebase(() => studentId ? doc(firestore, 'students', studentId) : null, [firestore, studentId]);
+  const { data: student } = useDoc(studentRef);
+  
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">S</div>
+      <span className="text-xs font-bold text-foreground truncate max-w-[120px]">
+        {student?.name || 'طالب مجهول'}
+      </span>
     </div>
   );
 }

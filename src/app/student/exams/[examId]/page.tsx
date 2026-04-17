@@ -12,11 +12,9 @@ import {
   Loader2, 
   Clock, 
   Trophy,
-  LayoutDashboard,
   AlertTriangle,
   ChevronRight,
-  ChevronLeft,
-  Send
+  ChevronLeft
 } from 'lucide-react';
 import { useUser, useFirebase, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, addDoc, doc, getDocs, query, orderBy, where } from 'firebase/firestore';
@@ -25,7 +23,6 @@ import Link from 'next/link';
 
 export default function TakeExamPage() {
   const { examId } = useParams();
-  const router = useRouter();
   const { user, isUserLoading } = useUser();
   const { firestore } = useFirebase();
   const { toast } = useToast();
@@ -37,6 +34,10 @@ export default function TakeExamPage() {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [finishedResult, setFinishedResult] = useState<any>(null);
   const [alreadyAttempted, setAlreadyAttempted] = useState(false);
+
+  // جلب بيانات الطالب لحفظ الاسم الحقيقي
+  const studentProfileRef = useMemoFirebase(() => user ? doc(firestore!, 'students', user.uid) : null, [firestore, user]);
+  const { data: studentProfile } = useDoc(studentProfileRef);
 
   useEffect(() => {
     const checkStatus = async () => {
@@ -70,7 +71,7 @@ export default function TakeExamPage() {
   const { data: questions, isLoading: isQsLoading } = useCollection(questionsRef);
 
   const handleSubmit = async () => {
-    if (isSubmitting || !firestore || !user || !questions || !courseId) return;
+    if (isSubmitting || !firestore || !user || !questions || !courseId || !studentProfile) return;
     setIsSubmitting(true);
     try {
       let totalScoreAchieved = 0;
@@ -107,7 +108,7 @@ export default function TakeExamPage() {
       
       const attemptRef = await addDoc(collection(firestore, 'students', user.uid, 'quiz_attempts'), {
         studentId: user.uid,
-        studentName: user.displayName || 'طالب مجهول',
+        studentName: studentProfile.name || 'طالب مجهول',
         courseContentId: examId,
         courseId: courseId,
         submittedAt: new Date().toISOString(),
@@ -128,7 +129,7 @@ export default function TakeExamPage() {
 
   if (alreadyAttempted) return <div className="min-h-screen flex items-center justify-center p-6 text-center"><Card className="max-w-md p-10 rounded-[3rem] border-primary/20 shadow-2xl"><AlertTriangle className="w-16 h-16 text-primary mx-auto mb-6" /><h2 className="text-2xl font-bold">لا يمكنك إعادة الامتحان</h2><p className="text-muted-foreground mt-4">يسمح بمحاولة واحدة فقط لضمان الأمان والجدية.</p><Link href="/student/exams"><Button className="w-full mt-6 bg-primary font-bold">عرض درجاتي</Button></Link></Card></div>;
 
-  if (finishedResult) return <div className="min-h-screen flex items-center justify-center p-8"><Card className="max-w-lg p-12 text-center rounded-[3rem] border-accent/20 shadow-2xl relative"><div className="absolute top-0 right-0 w-full h-2 bg-accent" /><Trophy className="w-20 h-20 text-accent animate-bounce mx-auto mb-6" /><h2 className="text-3xl font-black mb-6">أحسنت يا بشمهندس!</h2><div className="grid grid-cols-2 gap-4"><div className="p-6 bg-accent/5 rounded-3xl"><p className="text-5xl font-black text-accent">{finishedResult.score}%</p><p className="text-[10px] font-bold text-muted-foreground uppercase">النسبة</p></div><div className="p-6 bg-primary/5 rounded-3xl"><p className="text-5xl font-black text-primary">{finishedResult.points}/{finishedResult.total}</p><p className="text-[10px] font-bold text-muted-foreground uppercase">النقاط</p></div></div><Link href="/student/dashboard" className="block mt-8"><Button className="w-full h-14 bg-secondary font-bold rounded-2xl">العودة للوحة التحكم</Button></Link></Card></div>;
+  if (finishedResult) return <div className="min-h-screen flex items-center justify-center p-8"><Card className="max-w-lg p-12 text-center rounded-[3rem] border-accent/20 shadow-2xl relative"><div className="absolute top-0 right-0 w-full h-2 bg-accent" /><Trophy className="w-20 h-20 text-accent animate-bounce mx-auto mb-6" /><h2 className="text-3xl font-black mb-6">أحسنت يا بشمهندس!</h2><div className="grid grid-cols-2 gap-4"><div className="p-6 bg-accent/5 rounded-3xl"><p className="text-5xl font-black text-accent">{finishedResult.score}%</p><p className="text-[10px] font-bold text-muted-foreground uppercase">النسبة</p></div><div className="p-6 bg-primary/5 rounded-3xl"><p className="text-5xl font-black text-primary">{finishedResult.points}/{finishedResult.total}</p><p className="text-[10px] font-bold text-muted-foreground uppercase">الدرجة</p></div></div><Link href="/student/dashboard" className="block mt-8"><Button className="w-full h-14 bg-secondary font-bold rounded-2xl">العودة للوحة التحكم</Button></Link></Card></div>;
 
   if (isUserLoading || isQsLoading || !exam) return <div className="flex justify-center py-40"><Loader2 className="w-12 animate-spin text-primary" /></div>;
 
@@ -145,23 +146,25 @@ export default function TakeExamPage() {
         </div>
         <div className="w-full h-1 bg-secondary"><div className="h-full bg-primary transition-all" style={{ width: `${progressPercent}%` }} /></div>
       </div>
-      <main className="container mx-auto p-8 max-w-3xl space-y-6">
+      <main className="container mx-auto p-4 md:p-8 max-w-3xl space-y-6">
         {currentQ ? (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <Card className="bg-card border-primary/10 shadow-xl rounded-[2.5rem] overflow-hidden border-b-4 border-b-primary/20">
-               <CardHeader className="bg-secondary/5 px-8 py-4 border-b flex flex-row justify-between items-center"><Badge variant="outline" className="text-primary font-bold">سؤال {activeQuestionIndex + 1} من {questions?.length}</Badge><Badge variant="secondary">{currentQ.points} نقاط</Badge></CardHeader>
-               <CardContent className="p-8 text-right space-y-8">
-                  <h2 className="text-2xl font-bold leading-relaxed">{currentQ.questionText}</h2>
+               <CardHeader className="bg-secondary/5 px-6 py-4 border-b flex flex-row justify-between items-center"><Badge variant="outline" className="text-primary font-bold">سؤال {activeQuestionIndex + 1} من {questions?.length}</Badge><Badge variant="secondary">{currentQ.points} نقاط</Badge></CardHeader>
+               <CardContent className="p-6 md:p-8 text-right space-y-8">
+                  <h2 className="text-xl md:text-2xl font-bold leading-relaxed">{currentQ.questionText}</h2>
                   {currentQ.questionImageUrl && <div className="w-full rounded-2xl overflow-hidden border border-dashed border-primary/20 bg-black/5 p-2"><img src={currentQ.questionImageUrl} alt="" className="max-h-[400px] mx-auto object-contain rounded-xl" /></div>}
                   <div className="pt-4">
-                    {currentQ.questionType === 'MCQ' ? <MCQOptions courseId={courseId!} examId={examId as string} qId={currentQ.id} selected={answers[currentQ.id]?.mcqOptionId} onSelect={(id: string) => setAnswers({...answers, [currentQ.id]: { mcqOptionId: id }})} /> : <div className="space-y-2"><Label className="text-xs font-bold text-muted-foreground mr-2 mb-2 block italic">اكتب إجابتك هنا:</Label><Textarea placeholder="أدخل إجابتك المقالية..." className="min-h-[250px] bg-background/50 text-lg border-primary/10 rounded-2xl focus:border-primary p-4" value={answers[currentQ.id]?.essayText || ''} onChange={(e) => setAnswers({...answers, [currentQ.id]: { essayText: e.target.value }})} /></div>}
+                    {currentQ.questionType === 'MCQ' ? <MCQOptions courseId={courseId!} examId={examId as string} qId={currentQ.id} selected={answers[currentQ.id]?.mcqOptionId} onSelect={(id: string) => setAnswers({...answers, [currentQ.id]: { mcqOptionId: id }})} /> : <div className="space-y-2"><Label className="text-xs font-bold text-muted-foreground mr-2 mb-2 block italic">اكتب إجابتك هنا:</Label><Textarea placeholder="أدخل إجابتك المقالية..." className="min-h-[200px] bg-background/50 text-lg border-primary/10 rounded-2xl focus:border-primary p-4" value={answers[currentQ.id]?.essayText || ''} onChange={(e) => setAnswers({...answers, [currentQ.id]: { essayText: e.target.value }})} /></div>}
                   </div>
                </CardContent>
             </Card>
             <div className="flex flex-wrap items-center justify-center gap-4 mt-8">
-               <Button variant="outline" className="h-14 px-8 rounded-2xl font-bold bg-card" disabled={activeQuestionIndex === 0} onClick={() => setActiveQuestionIndex(p => p - 1)}><ChevronRight className="w-5 h-5" /> السابق</Button>
-               <Button variant="outline" className="h-14 px-8 rounded-2xl font-bold bg-card" disabled={activeQuestionIndex === (questions?.length || 0) - 1} onClick={() => setActiveQuestionIndex(p => p + 1)}>التالي <ChevronLeft className="w-5 h-5" /></Button>
-               <div className="w-full flex flex-wrap justify-center gap-2 mt-4">{questions?.map((_, i) => <div key={i} className={`w-2 h-2 rounded-full transition-all ${i === activeQuestionIndex ? 'bg-primary w-5' : answers[questions[i].id] ? 'bg-accent' : 'bg-muted'}`} />)}</div>
+               <div className="flex gap-4 w-full justify-center">
+                  <Button variant="outline" className="h-14 flex-1 max-w-[150px] rounded-2xl font-bold bg-card" disabled={activeQuestionIndex === 0} onClick={() => setActiveQuestionIndex(p => p - 1)}><ChevronRight className="w-5 h-5" /> السابق</Button>
+                  <Button variant="outline" className="h-14 flex-1 max-w-[150px] rounded-2xl font-bold bg-card" disabled={activeQuestionIndex === (questions?.length || 0) - 1} onClick={() => setActiveQuestionIndex(p => p + 1)}>التالي <ChevronLeft className="w-5 h-5" /></Button>
+               </div>
+               <div className="w-full flex flex-wrap justify-center gap-2 mt-4 px-4">{questions?.map((_, i) => <div key={i} className={`w-2 h-2 rounded-full transition-all ${i === activeQuestionIndex ? 'bg-primary w-5' : answers[questions[i].id] ? 'bg-accent' : 'bg-muted'}`} />)}</div>
             </div>
           </div>
         ) : <div className="flex justify-center py-20"><Loader2 className="w-10 animate-spin text-primary" /></div>}
@@ -177,10 +180,10 @@ function MCQOptions({ courseId, examId, qId, selected, onSelect }: any) {
   return (
     <RadioGroup value={selected} onValueChange={onSelect} className="grid grid-cols-1 gap-4">
       {options?.map(opt => (
-        <div key={opt.id} className={`flex items-center gap-4 p-6 border-2 rounded-2xl cursor-pointer transition-all ${selected === opt.id ? 'border-primary bg-primary/5' : 'border-primary/5 hover:border-primary/20'}`} onClick={() => onSelect(opt.id)}>
+        <div key={opt.id} className={`flex items-center gap-4 p-5 md:p-6 border-2 rounded-2xl cursor-pointer transition-all ${selected === opt.id ? 'border-primary bg-primary/5' : 'border-primary/5 hover:border-primary/20'}`} onClick={() => onSelect(opt.id)}>
           <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${selected === opt.id ? 'border-primary bg-primary' : 'border-muted-foreground/30'}`}>{selected === opt.id && <div className="w-2 h-2 bg-primary-foreground rounded-full" />}</div>
           <RadioGroupItem value={opt.id} id={opt.id} className="sr-only" />
-          <Label htmlFor={opt.id} className="flex-grow font-bold text-lg cursor-pointer leading-tight">{opt.optionText}</Label>
+          <Label htmlFor={opt.id} className="flex-grow font-bold text-base md:text-lg cursor-pointer leading-tight">{opt.optionText}</Label>
         </div>
       ))}
     </RadioGroup>
