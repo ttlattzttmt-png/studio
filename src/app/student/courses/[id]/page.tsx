@@ -41,19 +41,37 @@ export default function CourseViewer() {
     return contents?.filter(c => c.isVisible !== false) || [];
   }, [contents]);
 
+  const isFree = course?.price === 0;
+
+  // 🔄 نظام الاشتراك التلقائي للكورسات المجانية لضمان ظهورها في لوحة التحكم
+  useEffect(() => {
+    if (isFree && !enrollment && user && id && studentProfile && !isEnrollmentLoading && course && firestore) {
+      const enRef = doc(firestore, 'students', user.uid, 'enrollments', id as string);
+      setDoc(enRef, {
+        id: id as string,
+        courseId: id as string,
+        studentId: user.uid,
+        studentName: studentProfile.name,
+        status: 'active',
+        enrollmentDate: new Date().toISOString(),
+        activationDate: new Date().toISOString(),
+        progressPercentage: 0,
+        isCompleted: false,
+        courseTitle: course.title,
+      }, { merge: true });
+    }
+  }, [isFree, enrollment, user, id, studentProfile, isEnrollmentLoading, firestore, course]);
+
   // دالة متطورة لتحديث التقدم بشكل لحظي ومتزامن للادمن والطالب
   const markAsWatched = async (contentId: string) => {
     if (!firestore || !user || !id || !studentProfile) return;
     try {
-      // 1. تسجيل مشاهدة الفيديو مع حفظ المدة لغرض الإحصائيات (Insights)
       const videoLogRef = doc(firestore, 'students', user.uid, 'video_progress', contentId);
-      
-      // نفترض طول افتراضي للفيديو 10 دقائق إذا لم يكن مسجلاً
       const videoDuration = activeContent?.durationInSeconds || 600;
 
       await setDoc(videoLogRef, {
         studentId: user.uid,
-        studentName: studentProfile.name || 'طالب المنصة',
+        studentName: studentProfile.name,
         courseId: id,
         courseContentId: contentId,
         isCompleted: true,
@@ -61,7 +79,6 @@ export default function CourseViewer() {
         lastWatchedAt: serverTimestamp()
       });
 
-      // 2. إعادة حساب نسبة الإنجاز من السيرفر فوراً لضمان الدقة في الجانبين
       const allWatchedRef = query(collection(firestore, 'students', user.uid, 'video_progress'), where('courseId', '==', id));
       const watchedSnap = await getDocs(allWatchedRef);
       const watchedCount = watchedSnap.size;
@@ -69,7 +86,6 @@ export default function CourseViewer() {
       const totalItems = visibleContents.length || 1;
       const newPercent = Math.min(100, Math.round((watchedCount / totalItems) * 100));
 
-      // 3. تحديث سجل الاشتراك بالنسبة الجديدة والاسم للرقابة
       await updateDoc(doc(firestore, 'students', user.uid, 'enrollments', id as string), {
         progressPercentage: newPercent,
         studentName: studentProfile.name,
@@ -79,7 +95,7 @@ export default function CourseViewer() {
       toast({ title: "أحسنت!", description: `تم تحديث مستوى إنجازك إلى ${newPercent}%` });
     } catch (e) { 
       console.error(e);
-      toast({ variant: "destructive", title: "خطأ في المزامنة", description: "تأكد من اتصالك بالإنترنت." });
+      toast({ variant: "destructive", title: "خطأ في المزامنة" });
     }
   };
 
@@ -91,7 +107,6 @@ export default function CourseViewer() {
     return <div className="flex justify-center py-40"><Loader2 className="w-12 animate-spin text-primary" /></div>;
   }
 
-  const isFree = course?.price === 0;
   const hasAccess = (enrollment && enrollment.status === 'active') || isFree;
 
   if (!hasAccess) return <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6"><Lock className="w-20 h-20 text-destructive opacity-30" /><h2 className="text-2xl font-bold">هذا الكورس يتطلب تفعيل</h2><Link href="/courses"><Button variant="outline" className="rounded-xl">العودة للمكتبة</Button></Link></div>;
@@ -115,7 +130,7 @@ export default function CourseViewer() {
                         <Badge variant="outline" className="text-primary font-bold border-primary/20">شرح فيديو</Badge>
                         <h1 className="text-2xl font-black">{activeContent.title}</h1>
                       </div>
-                      <p className="text-muted-foreground text-sm font-bold">استمتع بالشرح؛ المحتوى محمي بحقوق الملكية الفكرية لمنصة البشمهندس.</p>
+                      <p className="text-muted-foreground text-sm font-bold">المحتوى محمي بحقوق الملكية الفكرية لمنصة البشمهندس.</p>
                     </div>
                     <Button 
                       onClick={() => markAsWatched(activeContent.id)} 
