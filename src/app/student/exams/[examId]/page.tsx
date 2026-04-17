@@ -206,9 +206,9 @@ export default function TakeExamPage() {
   const progressPercent = ((activeQuestionIndex + 1) / (questions?.length || 1)) * 100;
 
   return (
-    <div className="min-h-screen bg-background pb-24 select-none" onContextMenu={(e) => e.preventDefault()}>
+    <div className="min-h-screen bg-background pb-24 select-none overflow-x-hidden" onContextMenu={(e) => e.preventDefault()}>
       {/* Header المطور للموبايل */}
-      <div className="sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b shadow-sm">
+      <div className="sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b shadow-sm w-full">
         <div className="container mx-auto p-3 md:p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="text-base md:text-xl font-bold bg-primary/10 px-3 md:px-4 py-1.5 md:py-2 rounded-xl text-primary flex items-center gap-2 border border-primary/20">
@@ -278,34 +278,35 @@ export default function TakeExamPage() {
                </CardContent>
             </Card>
 
-            {/* أزرار التحكم بالموبايل */}
-            <div className="flex justify-between items-center gap-4 px-2">
+            {/* أزرار التحكم المتوافقة مع الموبايل */}
+            <div className="flex flex-wrap items-center justify-center gap-4 px-2 mb-8">
                <Button 
                 variant="outline" 
-                className="h-12 md:h-14 px-4 md:px-8 rounded-2xl font-bold border-primary/20 bg-card shadow-sm gap-2" 
+                className="h-12 md:h-14 px-6 md:px-8 rounded-2xl font-bold border-primary/20 bg-card shadow-sm gap-2 min-w-[120px] order-1" 
                 disabled={activeQuestionIndex === 0} 
                 onClick={() => setActiveQuestionIndex(p => p - 1)}
                >
-                  <ChevronRight className="w-5 h-5" /> <span className="hidden md:block">السابق</span>
+                  <ChevronRight className="w-5 h-5" /> <span>السابق</span>
                </Button>
                
-               <div className="flex-grow flex justify-center gap-1.5 md:gap-2">
-                  {questions?.map((_, i) => (
-                    <div 
-                      key={i} 
-                      className={`w-2 h-2 rounded-full transition-all duration-300 ${i === activeQuestionIndex ? 'bg-primary w-4 md:w-6' : answers[questions[i].id] ? 'bg-accent/60' : 'bg-muted-foreground/30'}`} 
-                    />
-                  ))}
-               </div>
-
                <Button 
                 variant="outline" 
-                className="h-12 md:h-14 px-4 md:px-8 rounded-2xl font-bold border-primary/20 bg-card shadow-sm gap-2" 
+                className="h-12 md:h-14 px-6 md:px-8 rounded-2xl font-bold border-primary/20 bg-card shadow-sm gap-2 min-w-[120px] order-2" 
                 disabled={activeQuestionIndex === questions.length - 1} 
                 onClick={() => setActiveQuestionIndex(p => p + 1)}
                >
-                  <span className="hidden md:block">التالي</span> <ChevronLeft className="w-5 h-5" />
+                  <span>التالي</span> <ChevronLeft className="w-5 h-5" />
                </Button>
+
+               {/* شريط النقاط المنفصل والملتف تلقائياً */}
+               <div className="w-full flex flex-wrap justify-center gap-1.5 md:gap-2 px-4 py-2 order-3">
+                  {questions?.map((_, i) => (
+                    <div 
+                      key={i} 
+                      className={`w-2 h-2 rounded-full transition-all duration-300 ${i === activeQuestionIndex ? 'bg-primary w-5' : answers[questions[i].id] ? 'bg-accent/60' : 'bg-muted-foreground/30'}`} 
+                    />
+                  ))}
+               </div>
             </div>
           </div>
         ) : (
