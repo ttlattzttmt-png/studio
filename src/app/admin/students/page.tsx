@@ -24,10 +24,11 @@ import {
   Clock,
   Trash2,
   BookOpen,
-  CheckCircle2
+  CheckCircle2,
+  User as UserIcon
 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, doc, query, orderBy, deleteDoc, where } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { collection, doc, query, orderBy, deleteDoc, collectionGroup } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdminStudents() {
@@ -62,10 +63,10 @@ export default function AdminStudents() {
   );
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 text-right">
         <div>
-          <h1 className="text-4xl font-headline font-bold">إدارة شؤون الطلاب</h1>
+          <h1 className="text-4xl font-headline font-bold">إدارة شؤون الطلاب والرقابة</h1>
           <p className="text-muted-foreground">تابع ملفات الطلاب، درجاتهم، ونشاطهم التعليمي لحظة بلحظة.</p>
         </div>
         <div className="bg-primary/10 text-primary px-6 py-3 rounded-2xl border border-primary/20 font-bold shadow-lg">
@@ -133,41 +134,52 @@ export default function AdminStudents() {
 
       <Dialog open={!!selectedStudent} onOpenChange={() => setSelectedStudent(null)}>
         <DialogContent className="max-w-5xl bg-card border-primary/20 p-0 overflow-hidden rounded-[2.5rem]">
-          <DialogHeader className="sr-only"><DialogTitle>ملف: {selectedStudent?.name}</DialogTitle></DialogHeader>
-          <ScrollArea className="max-h-[90vh]">
-            <div className="p-8 bg-gradient-to-l from-primary/10 via-background to-transparent border-b">
-              <div className="flex flex-col md:flex-row items-center gap-6 justify-end text-right">
-                <div className="space-y-2 order-2 md:order-1">
-                  <h2 className="text-4xl font-headline font-black text-primary">{selectedStudent?.name}</h2>
-                  <div className="flex flex-wrap gap-4 justify-end text-sm text-muted-foreground font-bold">
-                    <span className="flex items-center gap-1.5"><Mail className="w-4 h-4 text-primary" /> {selectedStudent?.email}</span>
-                    <span className="flex items-center gap-1.5"><GraduationCap className="w-4 h-4 text-primary" /> {selectedStudent?.academicYear}</span>
+          <DialogHeader className="sr-only"><DialogTitle>ملف الطالب: {selectedStudent?.name}</DialogTitle></DialogHeader>
+          {selectedStudent && (
+            <ScrollArea className="max-h-[90vh]">
+              <div className="p-8 bg-gradient-to-l from-primary/10 via-background to-transparent border-b">
+                <div className="flex flex-col md:flex-row items-center gap-6 justify-end text-right">
+                  <div className="space-y-2 order-2 md:order-1">
+                    <h2 className="text-4xl font-headline font-black text-primary">{selectedStudent.name}</h2>
+                    <div className="flex flex-wrap gap-4 justify-end text-sm text-muted-foreground font-bold">
+                      <span className="flex items-center gap-1.5"><Mail className="w-4 h-4 text-primary" /> {selectedStudent.email}</span>
+                      <span className="flex items-center gap-1.5"><GraduationCap className="w-4 h-4 text-primary" /> {selectedStudent.academicYear}</span>
+                    </div>
+                  </div>
+                  <div className="w-28 h-24 rounded-[2.5rem] bg-primary text-primary-foreground flex items-center justify-center font-black text-5xl shadow-2xl shadow-primary/20 order-1 md:order-2 border-4 border-white/5">
+                    {selectedStudent.name?.[0]}
                   </div>
                 </div>
-                <div className="w-28 h-24 rounded-[2.5rem] bg-primary text-primary-foreground flex items-center justify-center font-black text-5xl shadow-2xl shadow-primary/20 order-1 md:order-2 border-4 border-white/5">
-                  {selectedStudent?.name?.[0]}
-                </div>
               </div>
-            </div>
 
-            <div className="p-8 space-y-12">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <InfoBox icon={<Phone />} label="هاتف الطالب" value={selectedStudent?.studentPhoneNumber} />
-                <InfoBox icon={<Phone />} label="هاتف ولي الأمر" value={selectedStudent?.parentPhoneNumber} />
-                <InfoBox icon={<Calendar />} label="تاريخ التسجيل" value={selectedStudent?.registrationDate ? new Date(selectedStudent.registrationDate).toLocaleDateString('ar-EG') : '---'} />
-                <InfoBox icon={<Clock />} label="آخر ظهور" value={selectedStudent?.lastLoginDate ? new Date(selectedStudent.lastLoginDate).toLocaleString('ar-EG') : 'نشط الآن'} />
-              </div>
-              
-              {selectedStudent?.id && (
+              <div className="p-8 space-y-12">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <InfoBox icon={<Phone />} label="هاتف الطالب" value={selectedStudent.studentPhoneNumber} />
+                  <PhoneBox label="هاتف ولي الأمر" value={selectedStudent.parentPhoneNumber} />
+                  <InfoBox icon={<Calendar />} label="تاريخ التسجيل" value={selectedStudent.registrationDate ? new Date(selectedStudent.registrationDate).toLocaleDateString('ar-EG') : '---'} />
+                  <InfoBox icon={<Clock />} label="آخر ظهور" value={selectedStudent.lastLoginDate ? new Date(selectedStudent.lastLoginDate).toLocaleString('ar-EG') : 'نشط الآن'} />
+                </div>
+                
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   <StudentEnrollmentsProgress studentId={selectedStudent.id} />
                   <StudentAcademicAttempts studentId={selectedStudent.id} />
                 </div>
-              )}
-            </div>
-          </ScrollArea>
+              </div>
+            </ScrollArea>
+          )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function PhoneBox({ label, value }: any) {
+  return (
+    <div className="p-5 bg-secondary/20 rounded-[1.5rem] border border-white/5 text-right shadow-sm">
+      <div className="flex items-center gap-2 text-primary mb-2 text-[10px] font-black justify-end uppercase tracking-tighter">
+        <span>{label}</span> <Phone className="w-3 h-3" />
+      </div>
+      <p className="font-black text-sm truncate text-foreground" dir="ltr">{value || '---'}</p>
     </div>
   );
 }
@@ -185,11 +197,14 @@ function InfoBox({ icon, label, value }: any) {
 
 function StudentEnrollmentsProgress({ studentId }: { studentId: string }) {
   const firestore = useFirestore();
-  const enrollmentsRef = useMemoFirebase(() => {
-    if (!firestore || !studentId) return null;
-    return query(collection(firestore, 'students', studentId, 'enrollments'), orderBy('enrollmentDate', 'desc'));
-  }, [firestore, studentId]);
-  const { data: enrollments, isLoading } = useCollection(enrollmentsRef);
+  // استخدام الفلترة البرمجية لضمان عمل الصفحة فوراً
+  const enrollmentsGroupRef = useMemoFirebase(() => collectionGroup(firestore, 'enrollments'), [firestore]);
+  const { data: allEnrollments, isLoading } = useCollection(enrollmentsGroupRef);
+
+  const studentEnrollments = useMemo(() => {
+    return allEnrollments?.filter(en => en.studentId === studentId)
+      .sort((a, b) => new Date(b.enrollmentDate).getTime() - new Date(a.enrollmentDate).getTime()) || [];
+  }, [allEnrollments, studentId]);
 
   return (
     <div className="space-y-6">
@@ -198,8 +213,8 @@ function StudentEnrollmentsProgress({ studentId }: { studentId: string }) {
        </h3>
        <div className="space-y-4">
           {isLoading ? <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /> : 
-          !enrollments || enrollments.length === 0 ? <p className="text-center text-muted-foreground italic text-xs">لا يوجد اشتراكات مفعلة.</p> :
-          enrollments.map(en => (
+          studentEnrollments.length === 0 ? <p className="text-center text-muted-foreground italic text-xs py-10">لا يوجد اشتراكات نشطة للطالب حالياً.</p> :
+          studentEnrollments.map(en => (
             <div key={en.id} className="p-6 bg-card border border-primary/5 rounded-[2rem] text-right shadow-md relative overflow-hidden group">
                <div className={`absolute top-0 right-0 w-1.5 h-full ${en.status === 'active' ? 'bg-accent' : 'bg-primary'}`} />
                <div className="flex flex-row-reverse justify-between items-start mb-4">
@@ -213,7 +228,7 @@ function StudentEnrollmentsProgress({ studentId }: { studentId: string }) {
                     <div className="w-full h-2 bg-secondary rounded-full overflow-hidden mb-2">
                        <div className="h-full bg-primary transition-all duration-1000" style={{ width: `${en.progressPercentage || 0}%` }} />
                     </div>
-                    <p className="text-[10px] font-bold text-muted-foreground">تم إنجاز {en.progressPercentage || 0}% من المحتوى</p>
+                    <p className="text-[10px] font-bold text-muted-foreground">تم إنجاز {en.progressPercentage || 0}% من إجمالي المحتوى</p>
                   </div>
                   <div className="w-12 h-12 rounded-full border-2 border-primary/20 flex items-center justify-center font-black text-primary text-xs shrink-0 bg-primary/5">
                     {en.progressPercentage || 0}%
@@ -228,11 +243,13 @@ function StudentEnrollmentsProgress({ studentId }: { studentId: string }) {
 
 function StudentAcademicAttempts({ studentId }: { studentId: string }) {
   const firestore = useFirestore();
-  const attemptsRef = useMemoFirebase(() => {
-    if (!firestore || !studentId) return null;
-    return query(collection(firestore, 'students', studentId, 'quiz_attempts'), orderBy('submittedAt', 'desc'));
-  }, [firestore, studentId]);
-  const { data: attempts, isLoading } = useCollection(attemptsRef);
+  const attemptsGroupRef = useMemoFirebase(() => collectionGroup(firestore, 'quiz_attempts'), [firestore]);
+  const { data: allAttempts, isLoading } = useCollection(attemptsGroupRef);
+
+  const studentAttempts = useMemo(() => {
+    return allAttempts?.filter(at => at.studentId === studentId)
+      .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()) || [];
+  }, [allAttempts, studentId]);
 
   return (
     <div className="space-y-6">
@@ -241,15 +258,15 @@ function StudentAcademicAttempts({ studentId }: { studentId: string }) {
        </h3>
        <div className="space-y-4">
           {isLoading ? <Loader2 className="w-6 h-6 animate-spin mx-auto text-accent" /> :
-          !attempts || attempts.length === 0 ? <p className="text-center text-muted-foreground italic text-xs">لا يوجد محاولات سابقة.</p> :
-          attempts.map(a => (
+          studentAttempts.length === 0 ? <p className="text-center text-muted-foreground italic text-xs py-10">لا توجد محاولات امتحانات مسجلة.</p> :
+          studentAttempts.map(a => (
             <div key={a.id} className="p-6 bg-secondary/10 border border-white/5 rounded-[2rem] flex flex-row-reverse justify-between items-center text-right shadow-sm group hover:bg-secondary/20 transition-all">
                <div className="min-w-0">
                   <div className="flex flex-row-reverse items-center gap-3">
                     <p className="font-black text-2xl text-accent">{a.score}%</p>
                     <div className="text-right">
-                       <ExamNameInRecords courseId={a.courseId} contentId={a.courseContentId} />
-                       <p className="text-[10px] text-muted-foreground font-bold mt-1">النقاط: {a.pointsAchieved} / {a.totalPoints}</p>
+                       <ExamNameByDoc courseId={a.courseId} contentId={a.courseContentId} />
+                       <p className="text-[10px] text-muted-foreground font-bold mt-1">الدرجة: {a.pointsAchieved} من {a.totalPoints}</p>
                     </div>
                   </div>
                   <p className="text-[9px] text-muted-foreground mt-2 font-mono">{new Date(a.submittedAt).toLocaleString('ar-EG')}</p>
@@ -267,7 +284,7 @@ function StudentAcademicAttempts({ studentId }: { studentId: string }) {
   );
 }
 
-function ExamNameInRecords({ courseId, contentId }: { courseId: string, contentId: string }) {
+function ExamNameByDoc({ courseId, contentId }: { courseId: string, contentId: string }) {
   const firestore = useFirestore();
   const examRef = useMemoFirebase(() => {
     if (!firestore || !courseId || !contentId) return null;

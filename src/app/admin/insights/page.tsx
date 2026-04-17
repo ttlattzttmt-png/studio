@@ -15,10 +15,11 @@ import {
   Video,
   Clock,
   RefreshCw,
-  Search
+  Search,
+  User as UserIcon
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, query, where, collectionGroup, doc } from 'firebase/firestore';
+import { collection, collectionGroup, doc } from 'firebase/firestore';
 import { Input } from '@/components/ui/input';
 
 export default function CourseInsightsPage() {
@@ -32,28 +33,16 @@ export default function CourseInsightsPage() {
   const coursesRef = useMemoFirebase(() => collection(firestore, 'courses'), [firestore]);
   const { data: courses } = useCollection(coursesRef);
 
-  // جلب كافة الاشتراكات الحية لهذا الكورس
-  const enrollmentsRef = useMemoFirebase(() => {
-    if (!firestore || !selectedCourseId) return null;
-    return query(collectionGroup(firestore, 'enrollments'), where('courseId', '==', selectedCourseId));
-  }, [firestore, selectedCourseId]);
-  const { data: enrollments, isLoading: isEnLoading } = useCollection(enrollmentsRef);
+  // جلب كافة البيانات بدون فلترة في السيرفر لتجنب مشاكل الفهارس (Indexes)
+  const allEnrollmentsRef = useMemoFirebase(() => collectionGroup(firestore, 'enrollments'), [firestore]);
+  const allAttemptsRef = useMemoFirebase(() => collectionGroup(firestore, 'quiz_attempts'), [firestore]);
+  const allVideoLogsRef = useMemoFirebase(() => collectionGroup(firestore, 'video_progress'), [firestore]);
 
-  // جلب كافة محاولات الامتحانات لهذا الكورس
-  const quizAttemptsRef = useMemoFirebase(() => {
-    if (!firestore || !selectedCourseId) return null;
-    return query(collectionGroup(firestore, 'quiz_attempts'), where('courseId', '==', selectedCourseId));
-  }, [firestore, selectedCourseId]);
-  const { data: attempts } = useCollection(quizAttemptsRef);
+  const { data: rawEnrollments, isLoading: isEnLoading } = useCollection(allEnrollmentsRef);
+  const { data: rawAttempts } = useCollection(allAttemptsRef);
+  const { data: rawVideoLogs } = useCollection(allVideoLogsRef);
 
-  // جلب كافة سجلات المشاهدة لهذا الكورس
-  const videoProgressRef = useMemoFirebase(() => {
-    if (!firestore || !selectedCourseId) return null;
-    return query(collectionGroup(firestore, 'video_progress'), where('courseId', '==', selectedCourseId));
-  }, [firestore, selectedCourseId]);
-  const { data: videoLogs } = useCollection(videoProgressRef);
-
-  // جلب محتوى الكورس لحساب الإجمالي
+  // جلب محتوى الكورس المختار لحساب إجمالي الفيديوهات
   const courseContentRef = useMemoFirebase(() => {
     if (!firestore || !selectedCourseId) return null;
     return collection(firestore, 'courses', selectedCourseId, 'content');
@@ -62,21 +51,23 @@ export default function CourseInsightsPage() {
 
   const totalVideos = useMemo(() => contents?.filter(c => c.contentType === 'Video').length || 0, [contents]);
 
-  // تجميع الإحصائيات وربط البيانات بذكاء
-  const studentStats = useMemo(() => {
-    if (!enrollments) return [];
-    
-    const stats = enrollments.map(en => {
-      // البحث عن محاولات هذا الطالب
-      const studentAttempts = attempts?.filter(a => a.studentId === en.studentId) || [];
+  // تجميع ومعالجة الإحصائيات برمجياً (Client-side) لضمان الدقة والسرعة
+  const processedData = useMemo(() => {
+    if (!selectedCourseId || !rawEnrollments) return [];
+
+    const filteredEnrollments = rawEnrollments.filter(en => en.courseId === selectedCourseId);
+    const filteredAttempts = rawAttempts?.filter(at => at.courseId === selectedCourseId) || [];
+    const filteredVideoLogs = rawVideoLogs?.filter(vl => vl.courseId === selectedCourseId) || [];
+
+    const stats = filteredEnrollments.map(en => {
+      const studentAttempts = filteredAttempts.filter(at => at.studentId === en.studentId);
       const bestAttempt = studentAttempts.length > 0 
-        ? studentAttempts.reduce((prev, current) => (prev.score > current.score) ? prev : current)
+        ? studentAttempts.reduce((prev, curr) => (prev.score > curr.score) ? prev : curr)
         : null;
 
-      // البحث عن فيديوهات هذا الطالب
-      const watchedLogs = videoLogs?.filter(v => v.studentId === en.studentId && v.isCompleted) || [];
-      const totalSeconds = videoLogs?.filter(v => v.studentId === en.studentId)
-        .reduce((acc, curr) => acc + (curr.watchedDurationInSeconds || 0), 0) || 0;
+      const watchedLogs = filteredVideoLogs.filter(vl => vl.studentId === en.studentId && vl.isCompleted);
+      const totalSeconds = filteredVideoLogs.filter(vl => vl.studentId === en.studentId)
+        .reduce((acc, curr) => acc + (curr.watchedDurationInSeconds || 0), 0);
 
       return {
         ...en,
@@ -88,7 +79,7 @@ export default function CourseInsightsPage() {
       };
     });
 
-    // تصفية بالبحث (بمعرف الطالب حالياً وسنقوم بجلب الاسم في المكون)
+    // تصفية بالبحث (سيتم جلب الاسم في المكون الأسفل)
     const searched = stats.filter(s => 
       (s.studentId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (s.studentName || '').toLowerCase().includes(searchTerm.toLowerCase())
@@ -100,20 +91,20 @@ export default function CourseInsightsPage() {
       const scoreB = b.bestScore ?? -1;
       return sortOrder === 'desc' ? scoreB - scoreA : scoreA - scoreB;
     });
-  }, [enrollments, attempts, videoLogs, sortOrder, searchTerm]);
+  }, [selectedCourseId, rawEnrollments, rawAttempts, rawVideoLogs, sortOrder, searchTerm]);
 
   if (isUserLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="text-right">
-          <h1 className="text-4xl font-headline font-bold mb-2">إحصائيات المتابعة الحية</h1>
-          <p className="text-muted-foreground">راقب استهلاك المحتوى، دقائق المشاهدة، ونسب الإنجاز لكل طالب لحظياً.</p>
+          <h1 className="text-4xl font-headline font-bold mb-2">إحصائيات المتابعة والرقابة</h1>
+          <p className="text-muted-foreground">راقب استهلاك المحتوى، نتائج الامتحانات، ونسب الإنجاز لكل طالب لحظياً.</p>
         </div>
         <div className="w-full md:w-80">
           <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
-            <SelectTrigger className="h-14 bg-card border-primary/20 rounded-2xl shadow-lg"><SelectValue placeholder="اختر الكورس لتحليل البيانات" /></SelectTrigger>
+            <SelectTrigger className="h-14 bg-card border-primary/20 rounded-2xl shadow-lg"><SelectValue placeholder="اختر الكورس للتحليل" /></SelectTrigger>
             <SelectContent>
               {courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}
             </SelectContent>
@@ -124,20 +115,20 @@ export default function CourseInsightsPage() {
       {!selectedCourseId ? (
         <Card className="p-20 text-center border-dashed border-2 bg-secondary/5 rounded-[3rem]">
            <BarChart3 className="w-20 h-20 mx-auto mb-6 opacity-10 text-primary" />
-           <p className="text-xl font-bold text-muted-foreground">يرجى اختيار كورس من القائمة لعرض بيانات الطلاب والنتائج.</p>
+           <p className="text-xl font-bold text-muted-foreground">يرجى اختيار كورس من القائمة لعرض البيانات المسجلة.</p>
         </Card>
       ) : isEnLoading ? (
         <div className="flex flex-col items-center justify-center py-40 gap-4">
           <Loader2 className="w-12 h-12 animate-spin text-primary" />
-          <p className="font-bold text-muted-foreground italic">جاري سحب البيانات الحية من السيرفر...</p>
+          <p className="font-bold text-muted-foreground italic">جاري تحميل البيانات الحية...</p>
         </div>
       ) : (
         <div className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <StatsCard title="إجمالي المشتركين" value={enrollments?.length || 0} icon={<Users />} color="text-blue-500" />
-            <StatsCard title="متوسط الإنجاز" value={`${enrollments && enrollments.length > 0 ? Math.round(enrollments.reduce((acc, curr) => acc + (curr.progressPercentage || 0), 0) / enrollments.length) : 0}%`} icon={<PlayCircle />} color="text-primary" />
-            <StatsCard title="أدوا الامتحانات" value={new Set(attempts?.map(a => a.studentId)).size} icon={<Trophy />} color="text-accent" />
-            <StatsCard title="سجلات المشاهدة" value={videoLogs?.length || 0} icon={<Video />} color="text-purple-500" />
+            <StatsCard title="إجمالي المشتركين" value={processedData.length} icon={<Users />} color="text-blue-500" />
+            <StatsCard title="متوسط الإنجاز" value={`${processedData.length > 0 ? Math.round(processedData.reduce((acc, curr) => acc + (curr.progressPercentage || 0), 0) / processedData.length) : 0}%`} icon={<PlayCircle />} color="text-primary" />
+            <StatsCard title="أدوا امتحانات" value={processedData.filter(p => p.bestScore !== null).length} icon={<Trophy />} color="text-accent" />
+            <StatsCard title="وقت المشاهدة (د)" value={processedData.reduce((acc, curr) => acc + curr.totalMinutes, 0)} icon={<Clock />} color="text-purple-500" />
           </div>
 
           <Card className="bg-card border-primary/10 shadow-2xl rounded-[2.5rem] overflow-hidden">
@@ -145,7 +136,7 @@ export default function CourseInsightsPage() {
               <div className="relative w-full max-w-md">
                 <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input 
-                  placeholder="ابحث بمعرف الطالب..." 
+                  placeholder="ابحث باسم الطالب أو معرفه..." 
                   className="pr-10 bg-background border-primary/10 text-right h-11 rounded-xl"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -154,7 +145,7 @@ export default function CourseInsightsPage() {
               <div className="flex items-center gap-3">
                  <RefreshCw className="w-4 h-4 animate-spin-slow text-primary" />
                  <Button variant="outline" size="sm" className="gap-2 font-bold rounded-xl" onClick={() => setSortOrder(p => p === 'desc' ? 'asc' : 'desc')}>
-                   <ArrowUpDown className="w-4 h-4" /> ترتيب الأوائل (حسب الدرجة)
+                   <ArrowUpDown className="w-4 h-4" /> ترتيب الأوائل
                  </Button>
               </div>
             </CardHeader>
@@ -162,16 +153,16 @@ export default function CourseInsightsPage() {
               <table className="w-full text-right border-collapse">
                 <thead className="bg-secondary/10 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                   <tr>
-                    <th className="px-6 py-5">بيانات الطالب</th>
-                    <th className="px-6 py-5">الإنجاز الكلي</th>
-                    <th className="px-6 py-5">أفضل نتيجة</th>
+                    <th className="px-6 py-5">الطالب</th>
+                    <th className="px-6 py-5">إنجاز الكورس</th>
+                    <th className="px-6 py-5">أفضل درجة</th>
                     <th className="px-6 py-5">الفيديوهات</th>
                     <th className="px-6 py-5">وقت المشاهدة</th>
-                    <th className="px-6 py-5">تاريخ التفعيل</th>
+                    <th className="px-6 py-5">تاريخ النشاط</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-primary/5">
-                  {studentStats.map((stat) => (
+                  {processedData.map((stat) => (
                     <tr key={stat.id} className="hover:bg-primary/5 transition-colors group">
                       <td className="px-6 py-4">
                         <StudentDetails studentId={stat.studentId} />
@@ -209,12 +200,12 @@ export default function CourseInsightsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-[10px] text-muted-foreground">
-                        {stat.activationDate ? new Date(stat.activationDate).toLocaleDateString('ar-EG') : '---'}
+                        {stat.lastActivityDate ? new Date(stat.lastActivityDate).toLocaleDateString('ar-EG') : (stat.activationDate ? new Date(stat.activationDate).toLocaleDateString('ar-EG') : '---')}
                       </td>
                     </tr>
                   ))}
-                  {studentStats.length === 0 && (
-                    <tr><td colSpan={6} className="py-20 text-center text-muted-foreground italic">لا توجد بيانات تطابق البحث حالياً.</td></tr>
+                  {processedData.length === 0 && (
+                    <tr><td colSpan={6} className="py-20 text-center text-muted-foreground italic">لا توجد بيانات لهذا الكورس حالياً.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -255,7 +246,7 @@ function StudentDetails({ studentId }: { studentId: string }) {
         <p className="text-[9px] text-muted-foreground font-mono" dir="ltr">{student?.studentPhoneNumber || '---'}</p>
       </div>
       <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-black text-primary shrink-0 shadow-sm">
-        {student?.name?.[0] || 'S'}
+        {student?.name?.[0] || <UserIcon className="w-4 h-4" />}
       </div>
     </div>
   );
