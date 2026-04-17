@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -163,7 +164,7 @@ export default function CourseInsightsPage() {
                 </thead>
                 <tbody className="divide-y divide-primary/5">
                   {processedData.map((stat) => (
-                    <tr key={stat.id} className="hover:bg-primary/5 transition-colors group">
+                    <tr key={stat.studentId} className="hover:bg-primary/5 transition-colors group">
                       <td className="px-6 py-4">
                         <StudentDetails studentId={stat.studentId} />
                       </td>
