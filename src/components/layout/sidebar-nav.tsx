@@ -17,7 +17,8 @@ import {
   Search,
   Ticket,
   Trash2,
-  BarChart3
+  BarChart3,
+  ShieldAlert
 } from 'lucide-react';
 import { useAuth, initiateSignOut, useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -35,19 +36,15 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
   const { user } = useUser();
   const firestore = useFirestore();
   const [open, setOpen] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
   
-  // بيانات الطالب للعلامة المائية
   const studentRef = useMemoFirebase(() => (user && !isAdmin) ? doc(firestore, 'students', user.uid) : null, [firestore, user, isAdmin]);
   const { data: student } = useDoc(studentRef);
 
-  const [watermarkPos, setWatermarkPos] = useState({ top: '20%', left: '20%' });
-
-  // 🛡️ نظام الحماية الفولاذي: منع لقطات الشاشة والنسخ والطباعة
+  // 🛡️ نظام الحماية الفولاذي: منع لقطات الشاشة والتسجيل بالتحويل للون الأسود
   useEffect(() => {
-    // 1. منع الزر الأيمن
     const handleContext = (e: MouseEvent) => e.preventDefault();
     
-    // 2. منع اختصارات لوحة المفاتيح (PrintScreen, Ctrl+P, Ctrl+S, Inspect)
     const handleKey = (e: KeyboardEvent) => {
       const forbiddenKeys = ['PrintScreen', 'p', 's', 'i', 'j', 'u'];
       if (
@@ -57,25 +54,20 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
         e.key === 'F12'
       ) {
         e.preventDefault();
-        alert('🚨 نظام الحماية: لا يسمح بتصوير الشاشة أو محاولة سحب المحتوى. تم تسجيل المحاولة.');
+        setIsBlocked(true);
+        alert('🚨 نظام الحماية: لا يسمح بتصوير الشاشة أو محاولة سحب المحتوى. تم تسجيل المحاولة وإبلاغ الإدارة.');
       }
     };
 
-    // 3. كشف محاولة فقدان التركيز (تستخدم لتعطيل التسجيل)
     const handleBlur = () => {
-      document.body.classList.add('protection-blur');
-    };
-    const handleFocus = () => {
-      document.body.classList.remove('protection-blur');
+      // عند مغادرة الصفحة أو فتح أداة تسجيل، نحول الشاشة لسواد
+      setIsBlocked(true);
     };
 
-    // 4. تحديث موقع العلامة المائية عشوائياً كل 5 ثوانٍ
-    const watermarkInterval = setInterval(() => {
-      setWatermarkPos({
-        top: `${Math.floor(Math.random() * 80) + 10}%`,
-        left: `${Math.floor(Math.random() * 80) + 10}%`,
-      });
-    }, 5000);
+    const handleFocus = () => {
+      // إعادة الشاشة لطبيعتها عند العودة للتركيز
+      setIsBlocked(false);
+    };
 
     document.addEventListener('contextmenu', handleContext);
     document.addEventListener('keydown', handleKey);
@@ -87,7 +79,6 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
       document.removeEventListener('keydown', handleKey);
       window.removeEventListener('blur', handleBlur);
       window.removeEventListener('focus', handleFocus);
-      clearInterval(watermarkInterval);
     };
   }, []);
 
@@ -172,13 +163,16 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
 
   return (
     <>
-      {/* 🧩 العلامة المائية الديناميكية للطالب (أقوى وسيلة حماية) */}
-      {!isAdmin && student && (
-        <div 
-          className="fixed pointer-events-none z-[9999] text-white/10 text-[10px] md:text-xs font-bold whitespace-nowrap select-none transition-all duration-1000 ease-in-out"
-          style={{ top: watermarkPos.top, left: watermarkPos.left }}
-        >
-          {student.name} - {student.studentPhoneNumber}
+      {/* 🧩 شاشة الحماية السوداء (تظهر عند محاولة التصوير أو الخروج من النافذة) */}
+      {isBlocked && (
+        <div className="fixed inset-0 z-[100000] bg-black flex flex-col items-center justify-center text-center p-6 select-none animate-in fade-in duration-300">
+           <div className="w-24 h-24 rounded-3xl bg-primary/10 flex items-center justify-center mb-8 border border-primary/20">
+              <ShieldAlert className="w-16 h-16 text-primary animate-pulse" />
+           </div>
+           <h2 className="text-4xl font-black text-white mb-4">🚨 تنبيه أمني</h2>
+           <p className="text-2xl text-primary font-bold mb-8">عذراً، المحتوى محمي بالكامل. لا يسمح بتصوير الشاشة أو استخدام برامج التسجيل.</p>
+           <p className="text-muted-foreground max-w-lg leading-relaxed font-bold">يرجى العودة لتركيز المتصفح ومواصلة المتابعة. أي محاولة أخرى قد تؤدي لحظر حسابك تلقائياً.</p>
+           <Button onClick={() => setIsBlocked(false)} className="mt-12 bg-white text-black font-black px-10 h-14 rounded-2xl">فهمت، العودة للدرس</Button>
         </div>
       )}
 

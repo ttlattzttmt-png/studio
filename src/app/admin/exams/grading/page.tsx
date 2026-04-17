@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -27,7 +26,7 @@ export default function AdminGradingPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
 
-  // جلب كافة الطلاب لربط الأسماء بالبحث في مركز التصحيح
+  // جلب الطلاب لربط الأسماء بالبحث
   const studentsRef = useMemoFirebase(() => collection(firestore, 'students'), [firestore]);
   const { data: allStudents } = useCollection(studentsRef);
 
@@ -39,20 +38,21 @@ export default function AdminGradingPage() {
   
   const { data: rawAttempts, isLoading } = useCollection(attemptsRef);
 
-  // إنشاء خارطة أسماء الطلاب
+  // خارطة أسماء الطلاب للبحث بالاسم الحقيقي
   const studentMap = useMemo(() => {
     const map: Record<string, any> = {};
     allStudents?.forEach(s => { map[s.id] = s; });
     return map;
   }, [allStudents]);
 
-  // تصفية وترتيب المحاولات برمجياً لدعم البحث بالاسم الحقيقي
+  // البحث والفلترة البرمجية لضمان عمل البحث بالاسم الرباعي
   const filteredAttempts = useMemo(() => {
     if (!rawAttempts) return [];
     
     return rawAttempts
       .filter(a => {
-        const studentName = (studentMap[a.studentId]?.name || a.studentName || '').toLowerCase();
+        const studentInfo = studentMap[a.studentId] || {};
+        const studentName = (studentInfo.name || a.studentName || '').toLowerCase();
         const searchLower = searchTerm.toLowerCase();
         return studentName.includes(searchLower) || a.studentId.toLowerCase().includes(searchLower);
       })
@@ -122,14 +122,14 @@ export default function AdminGradingPage() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="text-right">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 text-right">
+        <div>
           <h1 className="text-4xl font-headline font-bold mb-2">مركز التصحيح والاعتماد</h1>
-          <p className="text-muted-foreground text-sm">راجع إجابات الطلاب واعتمد الدرجات النهائية لحظياً بالبحث عن اسم الطالب.</p>
+          <p className="text-muted-foreground text-sm font-bold">راجع إجابات الطلاب الحقيقية واعتمد الدرجات النهائية بالبحث بالاسم.</p>
         </div>
         <div className="bg-primary/10 text-primary px-4 py-2 rounded-xl border border-primary/20 flex items-center gap-2">
           <RefreshCw className="w-4 h-4 animate-spin-slow" />
-          <span className="text-xs font-bold">تزامن حيّ: {filteredAttempts.length} محاولة</span>
+          <span className="text-xs font-black">تزامن حيّ: {filteredAttempts.length} محاولة</span>
         </div>
       </div>
 
@@ -140,7 +140,7 @@ export default function AdminGradingPage() {
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input 
                 placeholder="ابحث باسم الطالب الحقيقي..." 
-                className="w-full bg-background border-primary/10 rounded-xl h-11 pr-10 text-right text-xs focus:border-primary outline-none transition-all" 
+                className="w-full bg-background border-primary/10 rounded-xl h-12 pr-10 text-right text-xs font-bold focus:border-primary outline-none transition-all" 
                 value={searchTerm} 
                 onChange={(e) => setSearchTerm(e.target.value)} 
               />
@@ -150,10 +150,10 @@ export default function AdminGradingPage() {
              {isLoading ? (
                <div className="flex flex-col items-center justify-center py-20 gap-2">
                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                 <p className="text-[10px] text-muted-foreground">جاري جلب المحاولات...</p>
+                 <p className="text-[10px] text-muted-foreground font-bold">جاري جلب المحاولات...</p>
                </div>
              ) : filteredAttempts.length === 0 ? (
-               <div className="text-center py-20 text-muted-foreground italic text-xs">لا توجد محاولات مطابقة للبحث.</div>
+               <div className="text-center py-20 text-muted-foreground italic text-xs font-bold">لا توجد محاولات مطابقة للبحث حالياً.</div>
              ) : (
                <div className="divide-y divide-primary/5 max-h-[70vh] overflow-y-auto">
                  {filteredAttempts.map((attempt) => (
@@ -164,24 +164,24 @@ export default function AdminGradingPage() {
                    >
                      <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
+                          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary border border-primary/5">
                             <UserIcon className="w-3 h-3" />
                           </div>
-                          <span className="text-xs font-bold text-foreground truncate max-w-[120px]">
+                          <span className="text-xs font-black text-foreground truncate max-w-[120px]">
                             {studentMap[attempt.studentId]?.name || attempt.studentName || 'جاري التحميل...'}
                           </span>
                         </div>
-                        <Badge className="text-[9px] h-5" variant={attempt.isGraded ? 'default' : 'secondary'}>
+                        <Badge className="text-[9px] h-5 font-black" variant={attempt.isGraded ? 'default' : 'secondary'}>
                           {attempt.isGraded ? 'مكتمل' : 'قيد المراجعة'}
                         </Badge>
                      </div>
                      <ExamName courseId={attempt.courseId} contentId={attempt.courseContentId} />
                      <div className="flex flex-row-reverse justify-between items-center mt-1">
-                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-bold">
                           <Clock className="w-3 h-3" />
                           <span>{attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleDateString('ar-EG') : '---'}</span>
                         </div>
-                        <div className="text-[10px] font-bold text-primary">
+                        <div className="text-[10px] font-black text-primary">
                           {attempt.pointsAchieved ?? 0} من {attempt.totalPoints ?? 0} ({attempt.score ?? 0}%)
                         </div>
                      </div>
@@ -198,7 +198,7 @@ export default function AdminGradingPage() {
           ) : (
             <Card className="h-[60vh] flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-[3rem] bg-secondary/5">
               <ClipboardList className="w-16 h-16 mb-4 opacity-10" />
-              <p className="text-sm font-bold">اختر محاولة طالب للبدء في مراجعة إجاباته.</p>
+              <p className="text-sm font-black">اختر محاولة طالب للبدء في مراجعة إجاباته الحقيقية.</p>
             </Card>
           )}
         </div>
@@ -227,18 +227,18 @@ function AttemptDetails({ attempt, onGrade, onRelease, onDelete }: any) {
       <CardHeader className="border-b bg-secondary/5 flex flex-col md:flex-row items-center justify-between p-6 gap-4">
         <div className="text-right w-full">
            <div className="flex items-center gap-3 justify-end mb-1">
-             <Badge className="bg-accent text-white border-none text-xs px-3">
+             <Badge className="bg-accent text-white border-none text-xs px-3 font-black">
                الدرجة: {attempt.pointsAchieved || 0} من {attempt.totalPoints || 0}
              </Badge>
              <CardTitle className="text-2xl font-black text-primary">المجموع: {attempt.score || 0}%</CardTitle>
            </div>
-           <p className="text-[10px] font-bold text-muted-foreground">حالة التصحيح: {attempt.isGraded ? 'معتمد نهائياً' : 'قيد المراجعة والاعتماد'}</p>
+           <p className="text-[10px] font-black text-muted-foreground">حالة التصحيح: {attempt.isGraded ? 'معتمد نهائياً' : 'قيد المراجعة والاعتماد'}</p>
         </div>
         <div className="flex gap-2 shrink-0">
            <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 rounded-xl" onClick={() => onDelete(attempt)}>
              <Trash2 className="w-5 h-5" />
            </Button>
-           <Button onClick={() => onRelease(attempt)} className="bg-accent hover:bg-accent/90 text-white font-bold h-12 px-8 gap-2 rounded-xl shadow-lg">
+           <Button onClick={() => onRelease(attempt)} className="bg-accent hover:bg-accent/90 text-white font-black h-12 px-8 gap-2 rounded-xl shadow-lg">
               <CheckCircle className="w-5 h-5" /> اعتماد الدرجة
            </Button>
         </div>
@@ -248,33 +248,33 @@ function AttemptDetails({ attempt, onGrade, onRelease, onDelete }: any) {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Loader2 className="w-12 h-12 animate-spin text-primary" />
-            <p className="text-sm italic text-muted-foreground">جاري تحميل إجابات الطالب من السيرفر...</p>
+            <p className="text-sm italic font-bold text-muted-foreground">جاري تحميل إجابات الطالب من السيرفر...</p>
           </div>
         ) : !answers || answers.length === 0 ? (
-          <div className="text-center py-20 text-muted-foreground italic">لا توجد تفاصيل إجابات مسجلة لهذه المحاولة.</div>
+          <div className="text-center py-20 text-muted-foreground italic font-bold">لا توجد تفاصيل إجابات مسجلة لهذه المحاولة.</div>
         ) : (
           answers?.map((ans, i) => (
             <div key={ans.id} className="p-6 bg-secondary/20 rounded-[2rem] border border-primary/5 text-right space-y-4">
                <div className="flex justify-between items-center mb-2">
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-[10px] font-bold">سؤال {i+1}</Badge>
-                    <Badge className="bg-primary/10 text-primary border-none text-[10px]">الدرجة الأصلية: {ans.maxPoints ?? 10} نقطة</Badge>
+                    <Badge variant="outline" className="text-[10px] font-black">سؤال {i+1}</Badge>
+                    <Badge className="bg-primary/10 text-primary border-none text-[10px] font-black">الدرجة الأصلية: {ans.maxPoints ?? 10} نقطة</Badge>
                   </div>
                   <div className="flex gap-1">
-                     <Button size="sm" variant={ans.isCorrect ? 'default' : 'outline'} onClick={() => handleGradeAnswer(ans, true, ans.maxPoints ?? 10)} className={ans.isCorrect ? 'bg-accent font-black' : ''}>صحيح (+{ans.maxPoints ?? 10})</Button>
-                     <Button size="sm" variant={ans.isCorrect === false ? 'destructive' : 'outline'} onClick={() => handleGradeAnswer(ans, false, 0)}>خطأ (0)</Button>
+                     <Button size="sm" variant={ans.isCorrect ? 'default' : 'outline'} onClick={() => handleGradeAnswer(ans, true, ans.maxPoints ?? 10)} className={ans.isCorrect ? 'bg-accent font-black' : 'font-black'}>صحيح (+{ans.maxPoints ?? 10})</Button>
+                     <Button size="sm" variant={ans.isCorrect === false ? 'destructive' : 'outline'} onClick={() => handleGradeAnswer(ans, false, 0)} className="font-black">خطأ (0)</Button>
                   </div>
                </div>
                <div className="space-y-3">
-                 <p className="text-xs text-muted-foreground font-bold flex items-center gap-1 justify-end">
+                 <p className="text-xs text-muted-foreground font-black flex items-center gap-1 justify-end">
                     <HelpCircle className="w-3 h-3" /> نوع السؤال: {ans.questionType === 'MCQ' ? 'اختيار من متعدد' : 'سؤال مقالي'}
                  </p>
                  {ans.questionType === 'MCQ' ? (
-                   <p className="p-4 bg-background rounded-xl border border-dashed border-primary/10 text-sm">
+                   <p className="p-4 bg-background rounded-xl border border-dashed border-primary/10 text-sm font-bold">
                       معرف الخيار الذي اختاره الطالب: <span className="font-mono text-primary">{ans.mcqSelectedOptionId || 'لم يتم الاختيار'}</span>
                    </p>
                  ) : (
-                   <div className="p-4 bg-background rounded-2xl text-sm whitespace-pre-wrap leading-relaxed border border-primary/5 min-h-[100px]">
+                   <div className="p-4 bg-background rounded-2xl text-sm font-bold whitespace-pre-wrap leading-relaxed border border-primary/5 min-h-[100px]">
                       {ans.essayAnswerText || <span className="text-muted-foreground italic">لا توجد إجابة نصية مقدمة.</span>}
                    </div>
                  )}

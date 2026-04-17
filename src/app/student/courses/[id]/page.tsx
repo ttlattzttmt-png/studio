@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useParams } from 'next/navigation';
@@ -6,7 +5,7 @@ import { Navbar } from '@/components/ui/navbar';
 import { Footer } from '@/components/ui/footer';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, orderBy, setDoc, serverTimestamp, getDocs, updateDoc, where } from 'firebase/firestore';
-import { Loader2, PlayCircle, CheckCircle, FileQuestion, Lock } from 'lucide-react';
+import { Loader2, CheckCircle, FileQuestion, Lock, ShieldAlert } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,7 +42,7 @@ export default function CourseViewer() {
 
   const isFree = course?.price === 0;
 
-  // 🔄 نظام الاشتراك التلقائي للكورسات المجانية لضمان ظهورها في لوحة التحكم
+  // 🔄 نظام الاشتراك التلقائي لضمان الظهور في لوحة التحكم فور فتح الكورس
   useEffect(() => {
     if (isFree && !enrollment && user && id && studentProfile && !isEnrollmentLoading && course && firestore) {
       const enRef = doc(firestore, 'students', user.uid, 'enrollments', id as string);
@@ -62,11 +61,12 @@ export default function CourseViewer() {
     }
   }, [isFree, enrollment, user, id, studentProfile, isEnrollmentLoading, firestore, course]);
 
-  // دالة متطورة لتحديث التقدم بشكل لحظي ومتزامن للادمن والطالب
+  // دالة تحديث التقدم والدقائق لحظياً
   const markAsWatched = async (contentId: string) => {
     if (!firestore || !user || !id || !studentProfile) return;
     try {
       const videoLogRef = doc(firestore, 'students', user.uid, 'video_progress', contentId);
+      // استخدام طول الفيديو الفعلي أو 10 دقائق افتراضية
       const videoDuration = activeContent?.durationInSeconds || 600;
 
       await setDoc(videoLogRef, {
@@ -79,6 +79,7 @@ export default function CourseViewer() {
         lastWatchedAt: serverTimestamp()
       });
 
+      // حساب النسبة الجديدة بناءً على كافة المحتويات المشاهدة في هذا الكورس
       const allWatchedRef = query(collection(firestore, 'students', user.uid, 'video_progress'), where('courseId', '==', id));
       const watchedSnap = await getDocs(allWatchedRef);
       const watchedCount = watchedSnap.size;
@@ -92,7 +93,7 @@ export default function CourseViewer() {
         lastActivityDate: new Date().toISOString()
       });
 
-      toast({ title: "أحسنت!", description: `تم تحديث مستوى إنجازك إلى ${newPercent}%` });
+      toast({ title: "أحسنت يا بشمهندس!", description: `تم تحديث مستوى إنجازك في الكورس إلى ${newPercent}%` });
     } catch (e) { 
       console.error(e);
       toast({ variant: "destructive", title: "خطأ في المزامنة" });
@@ -109,34 +110,48 @@ export default function CourseViewer() {
 
   const hasAccess = (enrollment && enrollment.status === 'active') || isFree;
 
-  if (!hasAccess) return <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6"><Lock className="w-20 h-20 text-destructive opacity-30" /><h2 className="text-2xl font-bold">هذا الكورس يتطلب تفعيل</h2><Link href="/courses"><Button variant="outline" className="rounded-xl">العودة للمكتبة</Button></Link></div>;
+  if (!hasAccess) return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6">
+      <Lock className="w-20 h-20 text-destructive opacity-30" />
+      <h2 className="text-3xl font-black">هذا الكورس يتطلب تفعيل بالكود</h2>
+      <p className="text-muted-foreground max-w-sm">تواصل مع السكرتارية للحصول على كود التفعيل الخاص بك.</p>
+      <Link href="/courses"><Button variant="outline" className="h-12 px-8 rounded-xl font-bold">العودة للمكتبة</Button></Link>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen flex flex-col bg-background select-none">
+    <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
       <main className="flex-grow pt-24 pb-20 container mx-auto px-4">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
             {activeContent?.contentType === 'Video' ? (
               <div className="space-y-4 animate-in fade-in duration-500">
-                <div className="aspect-video bg-black rounded-[2rem] overflow-hidden border-4 border-primary/5 shadow-2xl relative">
-                   <iframe src={`https://www.youtube.com/embed/${getYouTubeId(activeContent.youtubeLink)}?rel=0&modestbranding=1&autoplay=1`} className="w-full h-full" allowFullScreen />
-                   <div className="absolute inset-0 pointer-events-none border-[15px] border-transparent" />
+                <div className="aspect-video bg-black rounded-[2.5rem] overflow-hidden border-4 border-primary/5 shadow-2xl relative group">
+                   <iframe 
+                    src={`https://www.youtube.com/embed/${getYouTubeId(activeContent.youtubeLink)}?rel=0&modestbranding=1&autoplay=1`} 
+                    className="w-full h-full" 
+                    allowFullScreen 
+                   />
+                   {/* طبقة حماية إضافية للصور */}
+                   <div className="absolute inset-0 pointer-events-none border-[20px] border-transparent" />
                 </div>
-                <Card className="bg-card p-8 rounded-[2rem] border-primary/10 shadow-xl">
-                  <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-right">
+                <Card className="bg-card p-8 rounded-[2.5rem] border-primary/10 shadow-xl">
+                  <div className="flex flex-col md:flex-row justify-between items-center gap-6 text-right">
                     <div className="w-full">
-                      <div className="flex items-center gap-2 justify-end mb-2">
-                        <Badge variant="outline" className="text-primary font-bold border-primary/20">شرح فيديو</Badge>
-                        <h1 className="text-2xl font-black">{activeContent.title}</h1>
+                      <div className="flex items-center gap-3 justify-end mb-2">
+                        <Badge variant="outline" className="text-primary font-black border-primary/20 px-3">شرح فيديو 🎥</Badge>
+                        <h1 className="text-3xl font-black">{activeContent.title}</h1>
                       </div>
-                      <p className="text-muted-foreground text-sm font-bold">المحتوى محمي بحقوق الملكية الفكرية لمنصة البشمهندس.</p>
+                      <p className="text-muted-foreground text-sm font-bold flex items-center gap-2 justify-end">
+                         محتوى تعليمي محمي بحقوق الملكية لمنصة البشمهندس <ShieldAlert className="w-4 h-4 text-primary" />
+                      </p>
                     </div>
                     <Button 
                       onClick={() => markAsWatched(activeContent.id)} 
                       disabled={watchedVideos?.some(v => v.courseContentId === activeContent.id)} 
                       className={cn(
-                        "h-14 px-8 font-black rounded-2xl shadow-xl shrink-0 gap-2 transition-all",
+                        "h-14 px-10 font-black rounded-2xl shadow-xl shrink-0 gap-2 transition-all active:scale-95",
                         watchedVideos?.some(v => v.courseContentId === activeContent.id) ? "bg-accent text-white" : "bg-primary text-primary-foreground"
                       )}
                     >
@@ -150,32 +165,50 @@ export default function CourseViewer() {
                 </Card>
               </div>
             ) : activeContent ? (
-              <Card className="bg-primary/5 border-2 border-dashed border-primary/20 p-20 text-center space-y-8 rounded-[3rem] shadow-inner">
+              <Card className="bg-primary/5 border-2 border-dashed border-primary/20 p-20 text-center space-y-8 rounded-[3.5rem] shadow-inner">
                 <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary shadow-xl"><FileQuestion className="w-12 h-12" /></div>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <h2 className="text-4xl font-headline font-black">{activeContent.title}</h2>
-                  <p className="text-muted-foreground font-bold">اختبار تقييمي لقياس مستوى استيعابك للدرس.</p>
+                  <p className="text-muted-foreground font-black text-lg">اختبار تقييمي لقياس مستوى استيعابك وتفوقك في الدرس.</p>
                 </div>
-                <Link href={`/student/exams/${activeContent.id}`}><Button size="lg" className="h-16 px-12 bg-primary font-black rounded-2xl text-xl shadow-2xl hover:scale-105 transition-transform">ابدأ الامتحان الآن</Button></Link>
+                <Link href={`/student/exams/${activeContent.id}`}>
+                  <Button size="lg" className="h-16 px-14 bg-primary font-black rounded-2xl text-xl shadow-2xl hover:scale-105 transition-transform active:scale-95">
+                    ابدأ الامتحان الآن ✍️
+                  </Button>
+                </Link>
               </Card>
             ) : null}
           </div>
           <div className="lg:col-span-1">
-            <Card className="bg-card border-primary/10 overflow-hidden shadow-2xl rounded-[2.5rem] sticky top-24">
+            <Card className="bg-card border-primary/10 overflow-hidden shadow-2xl rounded-[3rem] sticky top-24">
               <CardHeader className="border-b bg-secondary/5 py-6 px-8 flex flex-row-reverse items-center justify-between">
-                <CardTitle className="text-xl font-black flex items-center gap-2 justify-end">محتوى الكورس</CardTitle>
-                <Badge className="bg-primary/10 text-primary border-none">{enrollment?.progressPercentage || 0}%</Badge>
+                <CardTitle className="text-xl font-black">محتوى الكورس</CardTitle>
+                <Badge className="bg-primary/10 text-primary border-none font-black">{enrollment?.progressPercentage || 0}% تم</Badge>
               </CardHeader>
               <CardContent className="p-0 max-h-[60vh] overflow-y-auto">
                 {visibleContents.map((item, idx) => {
                   const watched = watchedVideos?.some(v => v.courseContentId === item.id);
                   const isActive = activeContent?.id === item.id;
                   return (
-                    <button key={item.id} onClick={() => setActiveContent(item)} className={cn("w-full p-5 text-right flex items-center gap-4 transition-all border-b last:border-0", isActive ? "bg-primary/10 border-r-4 border-primary" : "hover:bg-secondary/10")}>
-                      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-black shadow-sm", watched ? "bg-accent text-white" : isActive ? "bg-primary text-primary-foreground" : "bg-secondary")}>{watched ? <CheckCircle className="w-5 h-5" /> : idx + 1}</div>
+                    <button 
+                      key={item.id} 
+                      onClick={() => setActiveContent(item)} 
+                      className={cn(
+                        "w-full p-6 text-right flex items-center gap-4 transition-all border-b last:border-0", 
+                        isActive ? "bg-primary/10 border-r-4 border-primary" : "hover:bg-secondary/10"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-black shadow-sm", 
+                        watched ? "bg-accent text-white" : isActive ? "bg-primary text-primary-foreground" : "bg-secondary"
+                      )}>
+                        {watched ? <CheckCircle className="w-5 h-5" /> : idx + 1}
+                      </div>
                       <div className="flex-grow min-w-0">
                         <p className={cn("font-black text-sm truncate mb-0.5", isActive ? "text-primary" : "")}>{item.title}</p>
-                        <span className="text-[9px] text-muted-foreground uppercase font-black tracking-widest">{item.contentType === 'Video' ? 'شرح فيديو' : 'امتحان الكتروني'}</span>
+                        <span className="text-[9px] text-muted-foreground uppercase font-black tracking-widest">
+                          {item.contentType === 'Video' ? 'شرح فيديو ممتع' : 'امتحان الكتروني هام'}
+                        </span>
                       </div>
                     </button>
                   );

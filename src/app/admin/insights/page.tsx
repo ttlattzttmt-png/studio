@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -13,11 +12,9 @@ import {
   Trophy, 
   Loader2, 
   ArrowUpDown,
-  Video,
   Clock,
   RefreshCw,
-  Search,
-  User as UserIcon
+  Search
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, collectionGroup } from 'firebase/firestore';
@@ -30,15 +27,14 @@ export default function CourseInsightsPage() {
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // جلب الكورسات للاختيار
+  // جلب الكورسات والطلاب
   const coursesRef = useMemoFirebase(() => collection(firestore, 'courses'), [firestore]);
-  const { data: courses } = useCollection(coursesRef);
-
-  // جلب كافة الطلاب لربط الأسماء بالبحث
   const studentsRef = useMemoFirebase(() => collection(firestore, 'students'), [firestore]);
+  
+  const { data: courses } = useCollection(coursesRef);
   const { data: allStudents } = useCollection(studentsRef);
 
-  // جلب كافة البيانات بدون فلترة في السيرفر لضمان التزامن والبحث بالاسم
+  // جلب كافة البيانات بنظام المجموعات لضمان التزامن
   const allEnrollmentsRef = useMemoFirebase(() => collectionGroup(firestore, 'enrollments'), [firestore]);
   const allAttemptsRef = useMemoFirebase(() => collectionGroup(firestore, 'quiz_attempts'), [firestore]);
   const allVideoLogsRef = useMemoFirebase(() => collectionGroup(firestore, 'video_progress'), [firestore]);
@@ -47,7 +43,7 @@ export default function CourseInsightsPage() {
   const { data: rawAttempts } = useCollection(allAttemptsRef);
   const { data: rawVideoLogs } = useCollection(allVideoLogsRef);
 
-  // جلب محتوى الكورس المختار لحساب إجمالي الفيديوهات
+  // جلب محتوى الكورس المختار
   const courseContentRef = useMemoFirebase(() => {
     if (!firestore || !selectedCourseId) return null;
     return collection(firestore, 'courses', selectedCourseId, 'content');
@@ -56,14 +52,14 @@ export default function CourseInsightsPage() {
 
   const totalVideos = useMemo(() => contents?.filter(c => c.contentType === 'Video').length || 0, [contents]);
 
-  // إنشاء خارطة أسماء الطلاب للبحث السريع
+  // إنشاء خارطة أسماء الطلاب (Student Mapping) - ضروري للبحث بالاسم
   const studentMap = useMemo(() => {
     const map: Record<string, any> = {};
     allStudents?.forEach(s => { map[s.id] = s; });
     return map;
   }, [allStudents]);
 
-  // تجميع ومعالجة الإحصائيات برمجياً (Client-side) لضمان الدقة والبحث بالاسم
+  // معالجة الإحصائيات برمجياً لضمان الدقة والبحث بالاسم الحقيقي
   const processedData = useMemo(() => {
     if (!selectedCourseId || !rawEnrollments) return [];
 
@@ -72,7 +68,7 @@ export default function CourseInsightsPage() {
     const filteredVideoLogs = rawVideoLogs?.filter(vl => vl.courseId === selectedCourseId) || [];
 
     const stats = filteredEnrollments.map(en => {
-      const studentData = studentMap[en.studentId] || {};
+      const studentInfo = studentMap[en.studentId] || {};
       const studentAttempts = filteredAttempts.filter(at => at.studentId === en.studentId);
       const bestAttempt = studentAttempts.length > 0 
         ? studentAttempts.reduce((prev, curr) => (prev.score > curr.score) ? prev : curr)
@@ -84,8 +80,8 @@ export default function CourseInsightsPage() {
 
       return {
         ...en,
-        studentName: studentData.name || en.studentName || 'طالب مجهول',
-        studentPhone: studentData.studentPhoneNumber || '---',
+        studentName: studentInfo.name || en.studentName || 'طالب مجهول',
+        studentPhone: studentInfo.studentPhoneNumber || '---',
         bestScore: bestAttempt?.score ?? null,
         pointsAchieved: bestAttempt?.pointsAchieved ?? 0,
         totalPoints: bestAttempt?.totalPoints ?? 0,
@@ -94,13 +90,12 @@ export default function CourseInsightsPage() {
       };
     });
 
-    // تصفية بالبحث (الآن يبحث في الاسم الحقيقي للطالب)
+    // البحث بالاسم الحقيقي
     const searched = stats.filter(s => 
       s.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.studentId.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // ترتيب الأوائل بناءً على الدرجة
     return searched.sort((a, b) => {
       const scoreA = a.bestScore ?? -1;
       const scoreB = b.bestScore ?? -1;
@@ -112,10 +107,10 @@ export default function CourseInsightsPage() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="text-right">
-          <h1 className="text-4xl font-headline font-bold mb-2">إحصائيات المتابعة والرقابة</h1>
-          <p className="text-muted-foreground">راقب استهلاك المحتوى، دقائق المشاهدة، ونتائج الامتحانات لكل طالب لحظياً.</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 text-right">
+        <div>
+          <h1 className="text-4xl font-headline font-bold mb-2">إحصائيات المتابعة الحية</h1>
+          <p className="text-muted-foreground font-bold">راقب تقدم الطلاب، دقائق المشاهدة، والدرجات لحظياً.</p>
         </div>
         <div className="w-full md:w-80">
           <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
@@ -130,13 +125,8 @@ export default function CourseInsightsPage() {
       {!selectedCourseId ? (
         <Card className="p-20 text-center border-dashed border-2 bg-secondary/5 rounded-[3rem]">
            <BarChart3 className="w-20 h-20 mx-auto mb-6 opacity-10 text-primary" />
-           <p className="text-xl font-bold text-muted-foreground">يرجى اختيار كورس من القائمة لعرض البيانات المسجلة.</p>
+           <p className="text-xl font-black text-muted-foreground italic">اختر كورس من القائمة لعرض الرقابة الحية.</p>
         </Card>
-      ) : isEnLoading ? (
-        <div className="flex flex-col items-center justify-center py-40 gap-4">
-          <Loader2 className="w-12 h-12 animate-spin text-primary" />
-          <p className="font-bold text-muted-foreground italic">جاري تحميل البيانات الحية...</p>
-        </div>
       ) : (
         <div className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -152,21 +142,21 @@ export default function CourseInsightsPage() {
                 <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input 
                   placeholder="ابحث باسم الطالب الحقيقي..." 
-                  className="pr-10 bg-background border-primary/10 text-right h-11 rounded-xl"
+                  className="pr-10 bg-background border-primary/10 text-right h-12 rounded-xl font-bold"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
               <div className="flex items-center gap-3">
                  <RefreshCw className="w-4 h-4 animate-spin-slow text-primary" />
-                 <Button variant="outline" size="sm" className="gap-2 font-bold rounded-xl" onClick={() => setSortOrder(p => p === 'desc' ? 'asc' : 'desc')}>
+                 <Button variant="outline" className="gap-2 font-black rounded-xl border-primary/20" onClick={() => setSortOrder(p => p === 'desc' ? 'asc' : 'desc')}>
                    <ArrowUpDown className="w-4 h-4" /> ترتيب الأوائل
                  </Button>
               </div>
             </CardHeader>
             <CardContent className="p-0 overflow-x-auto">
               <table className="w-full text-right border-collapse">
-                <thead className="bg-secondary/10 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                <thead className="bg-secondary/10 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
                   <tr>
                     <th className="px-6 py-5">الطالب</th>
                     <th className="px-6 py-5">إنجاز الكورس</th>
@@ -182,10 +172,10 @@ export default function CourseInsightsPage() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3 justify-end">
                           <div className="text-right">
-                            <p className="font-bold text-sm text-foreground">{stat.studentName}</p>
+                            <p className="font-black text-sm text-foreground">{stat.studentName}</p>
                             <p className="text-[9px] text-muted-foreground font-mono" dir="ltr">{stat.studentPhone}</p>
                           </div>
-                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-black text-primary">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-black text-primary border border-primary/10 shadow-sm">
                             {stat.studentName[0]}
                           </div>
                         </div>
@@ -194,27 +184,25 @@ export default function CourseInsightsPage() {
                         <div className="flex items-center gap-3 justify-end">
                            <span className="text-xs font-black text-primary">{stat.progressPercentage || 0}%</span>
                            <div className="w-20 h-1.5 bg-secondary rounded-full overflow-hidden">
-                              <div className="h-full bg-primary" style={{ width: `${stat.progressPercentage || 0}%` }} />
+                              <div className="h-full bg-primary transition-all duration-1000" style={{ width: `${stat.progressPercentage || 0}%` }} />
                            </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         {stat.bestScore !== null ? (
                           <div className="flex flex-col items-end">
-                            <Badge className="bg-accent text-white font-black border-none text-[10px]">{stat.bestScore}%</Badge>
+                            <Badge className="bg-accent text-white font-black border-none text-[10px] shadow-sm">{stat.bestScore}%</Badge>
                             <span className="text-[9px] text-muted-foreground mt-1 font-bold">{stat.pointsAchieved} من {stat.totalPoints}</span>
                           </div>
                         ) : (
-                          <Badge variant="secondary" className="opacity-40 text-[9px]">لم يمتحن</Badge>
+                          <Badge variant="secondary" className="opacity-40 text-[9px] font-bold">لم يمتحن</Badge>
                         )}
                       </td>
-                      <td className="px-6 py-4">
-                         <div className="text-right">
-                           <p className={`text-xs font-black ${stat.watchedCount >= totalVideos && totalVideos > 0 ? "text-accent" : "text-foreground"}`}>
-                              {stat.watchedCount} من {totalVideos}
-                           </p>
-                           <p className="text-[9px] text-muted-foreground">فيديو مكتمل</p>
-                         </div>
+                      <td className="px-6 py-4 text-right">
+                         <p className={`text-xs font-black ${stat.watchedCount >= totalVideos && totalVideos > 0 ? "text-accent" : "text-foreground"}`}>
+                            {stat.watchedCount} من {totalVideos}
+                         </p>
+                         <p className="text-[9px] text-muted-foreground font-bold">فيديو مكتمل</p>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-1 justify-end font-mono text-xs text-primary font-bold">
@@ -222,13 +210,13 @@ export default function CourseInsightsPage() {
                            <Clock className="w-3 h-3 opacity-50" />
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-[10px] text-muted-foreground">
-                        {stat.lastActivityDate ? new Date(stat.lastActivityDate).toLocaleDateString('ar-EG') : (stat.activationDate ? new Date(stat.activationDate).toLocaleDateString('ar-EG') : '---')}
+                      <td className="px-6 py-4 text-[10px] text-muted-foreground font-bold">
+                        {stat.lastActivityDate ? new Date(stat.lastActivityDate).toLocaleDateString('ar-EG') : '---'}
                       </td>
                     </tr>
                   ))}
                   {processedData.length === 0 && (
-                    <tr><td colSpan={6} className="py-20 text-center text-muted-foreground italic">لا توجد بيانات مطابقة للبحث أو الكورس.</td></tr>
+                    <tr><td colSpan={6} className="py-20 text-center text-muted-foreground italic font-bold">لا توجد بيانات مطابقة للبحث أو الكورس حالياً.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -242,11 +230,11 @@ export default function CourseInsightsPage() {
 
 function StatsCard({ title, value, icon, color }: any) {
   return (
-    <Card className="bg-card border-primary/5 shadow-md rounded-2xl overflow-hidden relative">
+    <Card className="bg-card border-primary/5 shadow-lg rounded-2xl overflow-hidden relative">
       <div className={`absolute top-0 right-0 w-1 h-full bg-current ${color}`} />
       <CardContent className="p-6 flex flex-row-reverse items-center justify-between">
         <div className="text-right">
-          <p className="text-[10px] font-bold text-muted-foreground mb-1">{title}</p>
+          <p className="text-[10px] font-black text-muted-foreground mb-1 uppercase tracking-tighter">{title}</p>
           <p className={`text-2xl font-black ${color}`}>{value}</p>
         </div>
         <div className={`w-12 h-12 rounded-xl bg-secondary flex items-center justify-center ${color} shadow-inner`}>
