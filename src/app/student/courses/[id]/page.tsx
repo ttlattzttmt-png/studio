@@ -61,7 +61,7 @@ export default function CourseViewer() {
     }
   }, [isFree, enrollment, user, id, studentProfile, isEnrollmentLoading, firestore, course]);
 
-  // دالة تحديث التقدم والدقائق لحظياً
+  // دالة تحديث التقدم والدقائق لحظياً لضمان ظهورها عند الادمن
   const markAsWatched = async (contentId: string) => {
     if (!firestore || !user || !id || !studentProfile) return;
     try {
@@ -77,7 +77,7 @@ export default function CourseViewer() {
         isCompleted: true,
         watchedDurationInSeconds: videoDuration,
         lastWatchedAt: serverTimestamp()
-      });
+      }, { merge: true });
 
       // حساب النسبة الجديدة بناءً على كافة المحتويات المشاهدة في هذا الكورس
       const allWatchedRef = query(collection(firestore, 'students', user.uid, 'video_progress'), where('courseId', '==', id));
@@ -93,7 +93,7 @@ export default function CourseViewer() {
         lastActivityDate: new Date().toISOString()
       });
 
-      toast({ title: "أحسنت يا بشمهندس!", description: `تم تحديث مستوى إنجازك في الكورس إلى ${newPercent}%` });
+      toast({ title: "أحسنت يا بشمهندس!", description: `تم تحديث مستوى إنجازك إلى ${newPercent}%` });
     } catch (e) { 
       console.error(e);
       toast({ variant: "destructive", title: "خطأ في المزامنة" });
@@ -120,7 +120,7 @@ export default function CourseViewer() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-background text-right">
       <Navbar />
       <main className="flex-grow pt-24 pb-20 container mx-auto px-4">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -133,18 +133,17 @@ export default function CourseViewer() {
                     className="w-full h-full" 
                     allowFullScreen 
                    />
-                   {/* طبقة حماية إضافية للصور */}
                    <div className="absolute inset-0 pointer-events-none border-[20px] border-transparent" />
                 </div>
                 <Card className="bg-card p-8 rounded-[2.5rem] border-primary/10 shadow-xl">
-                  <div className="flex flex-col md:flex-row justify-between items-center gap-6 text-right">
-                    <div className="w-full">
+                  <div className="flex flex-col md:flex-row-reverse justify-between items-center gap-6">
+                    <div className="w-full text-right">
                       <div className="flex items-center gap-3 justify-end mb-2">
                         <Badge variant="outline" className="text-primary font-black border-primary/20 px-3">شرح فيديو 🎥</Badge>
                         <h1 className="text-3xl font-black">{activeContent.title}</h1>
                       </div>
                       <p className="text-muted-foreground text-sm font-bold flex items-center gap-2 justify-end">
-                         محتوى تعليمي محمي بحقوق الملكية لمنصة البشمهندس <ShieldAlert className="w-4 h-4 text-primary" />
+                         محتوى تعليمي محمي - يمنع التصوير <ShieldAlert className="w-4 h-4 text-primary" />
                       </p>
                     </div>
                     <Button 
@@ -194,7 +193,7 @@ export default function CourseViewer() {
                       key={item.id} 
                       onClick={() => setActiveContent(item)} 
                       className={cn(
-                        "w-full p-6 text-right flex items-center gap-4 transition-all border-b last:border-0", 
+                        "w-full p-6 text-right flex flex-row-reverse items-center gap-4 transition-all border-b last:border-0", 
                         isActive ? "bg-primary/10 border-r-4 border-primary" : "hover:bg-secondary/10"
                       )}
                     >

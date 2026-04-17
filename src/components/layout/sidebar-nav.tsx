@@ -41,7 +41,7 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
   const studentRef = useMemoFirebase(() => (user && !isAdmin) ? doc(firestore, 'students', user.uid) : null, [firestore, user, isAdmin]);
   const { data: student } = useDoc(studentRef);
 
-  // 🛡️ نظام الحماية الفولاذي: منع لقطات الشاشة والتسجيل بالتحويل للون الأسود
+  // 🛡️ نظام الحماية الفولاذي: تحويل الشاشة لسواد عند محاولة التصوير أو فقدان التركيز
   useEffect(() => {
     const handleContext = (e: MouseEvent) => e.preventDefault();
     
@@ -55,30 +55,35 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
       ) {
         e.preventDefault();
         setIsBlocked(true);
-        alert('🚨 نظام الحماية: لا يسمح بتصوير الشاشة أو محاولة سحب المحتوى. تم تسجيل المحاولة وإبلاغ الإدارة.');
       }
     };
 
-    const handleBlur = () => {
-      // عند مغادرة الصفحة أو فتح أداة تسجيل، نحول الشاشة لسواد
+    const handleAction = () => {
+      // عند محاولة لقطة شاشة على الموبايل، المتصفح يطلق حدث blur أو visibilitychange
       setIsBlocked(true);
     };
 
-    const handleFocus = () => {
-      // إعادة الشاشة لطبيعتها عند العودة للتركيز
-      setIsBlocked(false);
+    const handleRestore = () => {
+      // تأخير بسيط لضمان أن لقطة الشاشة (التي تمت في وضع السواد) قد اكتملت
+      setTimeout(() => setIsBlocked(false), 1000);
     };
 
     document.addEventListener('contextmenu', handleContext);
     document.addEventListener('keydown', handleKey);
-    window.addEventListener('blur', handleBlur);
-    window.addEventListener('focus', handleFocus);
+    
+    // مراقبة أحداث النظام التي تسبق لقطة الشاشة
+    window.addEventListener('blur', handleAction);
+    window.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') handleAction();
+    });
+    
+    window.addEventListener('focus', handleRestore);
 
     return () => {
       document.removeEventListener('contextmenu', handleContext);
       document.removeEventListener('keydown', handleKey);
-      window.removeEventListener('blur', handleBlur);
-      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('blur', handleAction);
+      window.removeEventListener('focus', handleRestore);
     };
   }, []);
 
@@ -163,16 +168,16 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
 
   return (
     <>
-      {/* 🧩 شاشة الحماية السوداء (تظهر عند محاولة التصوير أو الخروج من النافذة) */}
+      {/* 🧩 شاشة الحماية السوداء القاتمة (تظهر فوراً عند محاولة التصوير) */}
       {isBlocked && (
-        <div className="fixed inset-0 z-[100000] bg-black flex flex-col items-center justify-center text-center p-6 select-none animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[100000] bg-black flex flex-col items-center justify-center text-center p-6 select-none animate-in fade-in duration-100">
            <div className="w-24 h-24 rounded-3xl bg-primary/10 flex items-center justify-center mb-8 border border-primary/20">
               <ShieldAlert className="w-16 h-16 text-primary animate-pulse" />
            </div>
-           <h2 className="text-4xl font-black text-white mb-4">🚨 تنبيه أمني</h2>
-           <p className="text-2xl text-primary font-bold mb-8">عذراً، المحتوى محمي بالكامل. لا يسمح بتصوير الشاشة أو استخدام برامج التسجيل.</p>
-           <p className="text-muted-foreground max-w-lg leading-relaxed font-bold">يرجى العودة لتركيز المتصفح ومواصلة المتابعة. أي محاولة أخرى قد تؤدي لحظر حسابك تلقائياً.</p>
-           <Button onClick={() => setIsBlocked(false)} className="mt-12 bg-white text-black font-black px-10 h-14 rounded-2xl">فهمت، العودة للدرس</Button>
+           <h2 className="text-4xl font-black text-white mb-4">🚨 محتوى محمي</h2>
+           <p className="text-2xl text-primary font-bold mb-8">عذراً، يمنع تصوير الشاشة أو التسجيل نهائياً.</p>
+           <p className="text-muted-foreground max-w-lg leading-relaxed font-bold">تم حجب المحتوى مؤقتاً لحماية حقوق الملكية. عد للمتصفح لمواصلة المتابعة.</p>
+           <Button onClick={() => setIsBlocked(false)} className="mt-12 bg-white text-black font-black px-10 h-14 rounded-2xl">العودة للدرس</Button>
         </div>
       )}
 

@@ -27,14 +27,14 @@ export default function CourseInsightsPage() {
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // جلب الكورسات والطلاب
+  // جلب الكورسات والطلاب لبناء خارطة الأسماء
   const coursesRef = useMemoFirebase(() => collection(firestore, 'courses'), [firestore]);
   const studentsRef = useMemoFirebase(() => collection(firestore, 'students'), [firestore]);
   
   const { data: courses } = useCollection(coursesRef);
   const { data: allStudents } = useCollection(studentsRef);
 
-  // جلب كافة البيانات بنظام المجموعات لضمان التزامن
+  // جلب كافة البيانات بنظام المجموعات (تزامن لحظي)
   const allEnrollmentsRef = useMemoFirebase(() => collectionGroup(firestore, 'enrollments'), [firestore]);
   const allAttemptsRef = useMemoFirebase(() => collectionGroup(firestore, 'quiz_attempts'), [firestore]);
   const allVideoLogsRef = useMemoFirebase(() => collectionGroup(firestore, 'video_progress'), [firestore]);
@@ -43,7 +43,7 @@ export default function CourseInsightsPage() {
   const { data: rawAttempts } = useCollection(allAttemptsRef);
   const { data: rawVideoLogs } = useCollection(allVideoLogsRef);
 
-  // جلب محتوى الكورس المختار
+  // جلب محتوى الكورس المختار لحساب عدد الفيديوهات
   const courseContentRef = useMemoFirebase(() => {
     if (!firestore || !selectedCourseId) return null;
     return collection(firestore, 'courses', selectedCourseId, 'content');
@@ -52,31 +52,34 @@ export default function CourseInsightsPage() {
 
   const totalVideos = useMemo(() => contents?.filter(c => c.contentType === 'Video').length || 0, [contents]);
 
-  // إنشاء خارطة أسماء الطلاب (Student Mapping) - ضروري للبحث بالاسم
+  // إنشاء خارطة أسماء الطلاب (Student Mapping) - ضروري للبحث بالاسم الحقيقي
   const studentMap = useMemo(() => {
     const map: Record<string, any> = {};
     allStudents?.forEach(s => { map[s.id] = s; });
     return map;
   }, [allStudents]);
 
-  // معالجة الإحصائيات برمجياً لضمان الدقة والبحث بالاسم الحقيقي
+  // معالجة الإحصائيات برمجياً (تزامن 100% وبحث دقيق)
   const processedData = useMemo(() => {
     if (!selectedCourseId || !rawEnrollments) return [];
 
+    // 1. فلترة الاشتراكات للكورس المختار
     const filteredEnrollments = rawEnrollments.filter(en => en.courseId === selectedCourseId);
-    const filteredAttempts = rawAttempts?.filter(at => at.courseId === selectedCourseId) || [];
-    const filteredVideoLogs = rawVideoLogs?.filter(vl => vl.courseId === selectedCourseId) || [];
-
+    
+    // 2. تجميع البيانات لكل طالب
     const stats = filteredEnrollments.map(en => {
       const studentInfo = studentMap[en.studentId] || {};
-      const studentAttempts = filteredAttempts.filter(at => at.studentId === en.studentId);
+      
+      // جلب أفضل درجة في امتحانات هذا الكورس
+      const studentAttempts = rawAttempts?.filter(at => at.studentId === en.studentId && at.courseId === selectedCourseId) || [];
       const bestAttempt = studentAttempts.length > 0 
         ? studentAttempts.reduce((prev, curr) => (prev.score > curr.score) ? prev : curr)
         : null;
 
-      const watchedLogs = filteredVideoLogs.filter(vl => vl.studentId === en.studentId && vl.isCompleted);
-      const totalSeconds = filteredVideoLogs.filter(vl => vl.studentId === en.studentId)
-        .reduce((acc, curr) => acc + (curr.watchedDurationInSeconds || 0), 0);
+      // جلب سجلات المشاهدة ودقائق الإنجاز
+      const studentVideoLogs = rawVideoLogs?.filter(vl => vl.studentId === en.studentId && vl.courseId === selectedCourseId) || [];
+      const completedVideosCount = studentVideoLogs.filter(vl => vl.isCompleted).length;
+      const totalSecondsWatched = studentVideoLogs.reduce((acc, curr) => acc + (curr.watchedDurationInSeconds || 0), 0);
 
       return {
         ...en,
@@ -85,17 +88,18 @@ export default function CourseInsightsPage() {
         bestScore: bestAttempt?.score ?? null,
         pointsAchieved: bestAttempt?.pointsAchieved ?? 0,
         totalPoints: bestAttempt?.totalPoints ?? 0,
-        watchedCount: watchedLogs.length,
-        totalMinutes: Math.round(totalSeconds / 60)
+        watchedCount: completedVideosCount,
+        totalMinutes: Math.round(totalSecondsWatched / 60)
       };
     });
 
-    // البحث بالاسم الحقيقي
+    // 3. تطبيق البحث بالاسم الحقيقي أو الهاتف
     const searched = stats.filter(s => 
       s.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.studentId.toLowerCase().includes(searchTerm.toLowerCase())
+      s.studentPhone.includes(searchTerm)
     );
 
+    // 4. تطبيق الترتيب
     return searched.sort((a, b) => {
       const scoreA = a.bestScore ?? -1;
       const scoreB = b.bestScore ?? -1;
@@ -106,11 +110,11 @@ export default function CourseInsightsPage() {
   if (isUserLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 text-right">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20 text-right">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-headline font-bold mb-2">إحصائيات المتابعة الحية</h1>
-          <p className="text-muted-foreground font-bold">راقب تقدم الطلاب، دقائق المشاهدة، والدرجات لحظياً.</p>
+          <p className="text-muted-foreground font-bold">راقب تقدم الطلاب، دقائق المشاهدة، والدرجات لحظياً بالاسم.</p>
         </div>
         <div className="w-full md:w-80">
           <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
@@ -163,7 +167,7 @@ export default function CourseInsightsPage() {
                     <th className="px-6 py-5">أفضل درجة</th>
                     <th className="px-6 py-5">الفيديوهات</th>
                     <th className="px-6 py-5">وقت المشاهدة</th>
-                    <th className="px-6 py-5">تاريخ النشاط</th>
+                    <th className="px-6 py-5">الحالة</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-primary/5">
@@ -210,8 +214,10 @@ export default function CourseInsightsPage() {
                            <Clock className="w-3 h-3 opacity-50" />
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-[10px] text-muted-foreground font-bold">
-                        {stat.lastActivityDate ? new Date(stat.lastActivityDate).toLocaleDateString('ar-EG') : '---'}
+                      <td className="px-6 py-4 text-[10px] font-bold">
+                        <Badge variant={stat.status === 'active' ? 'default' : 'secondary'} className="text-[8px]">
+                           {stat.status === 'active' ? 'مفعل' : 'معلق'}
+                        </Badge>
                       </td>
                     </tr>
                   ))}

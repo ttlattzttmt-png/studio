@@ -26,7 +26,7 @@ export default function AdminGradingPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
 
-  // جلب الطلاب لربط الأسماء بالبحث
+  // جلب الطلاب لربط الأسماء بالبحث الحقيقي
   const studentsRef = useMemoFirebase(() => collection(firestore, 'students'), [firestore]);
   const { data: allStudents } = useCollection(studentsRef);
 
@@ -38,14 +38,14 @@ export default function AdminGradingPage() {
   
   const { data: rawAttempts, isLoading } = useCollection(attemptsRef);
 
-  // خارطة أسماء الطلاب للبحث بالاسم الحقيقي
+  // خارطة أسماء الطلاب للبحث بالاسم الحقيقي الرباعي
   const studentMap = useMemo(() => {
     const map: Record<string, any> = {};
     allStudents?.forEach(s => { map[s.id] = s; });
     return map;
   }, [allStudents]);
 
-  // البحث والفلترة البرمجية لضمان عمل البحث بالاسم الرباعي
+  // البحث والفلترة البرمجية لضمان عمل البحث بالاسم الحقيقي
   const filteredAttempts = useMemo(() => {
     if (!rawAttempts) return [];
     
@@ -65,7 +65,7 @@ export default function AdminGradingPage() {
 
   const handleDeleteAttempt = async (attempt: any) => {
     if (!firestore) return;
-    if (!confirm("🚨 تحذير: هل أنت متأكد من حذف هذه المحاولة نهائياً من السيرفر؟")) return;
+    if (!confirm("🚨 تحذير: هل أنت متأكد من حذف هذه المحاولة نهائياً؟")) return;
     try {
       await deleteDoc(doc(firestore, 'students', attempt.studentId, 'quiz_attempts', attempt.id));
       toast({ title: "تم الحذف بنجاح" });
@@ -121,8 +121,8 @@ export default function AdminGradingPage() {
   if (isUserLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 animate-spin text-primary" /></div>;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 text-right">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20 text-right">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-headline font-bold mb-2">مركز التصحيح والاعتماد</h1>
           <p className="text-muted-foreground text-sm font-bold">راجع إجابات الطلاب الحقيقية واعتمد الدرجات النهائية بالبحث بالاسم.</p>
@@ -248,34 +248,34 @@ function AttemptDetails({ attempt, onGrade, onRelease, onDelete }: any) {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Loader2 className="w-12 h-12 animate-spin text-primary" />
-            <p className="text-sm italic font-bold text-muted-foreground">جاري تحميل إجابات الطالب من السيرفر...</p>
+            <p className="text-sm italic font-bold text-muted-foreground">جاري تحميل إجابات الطالب...</p>
           </div>
         ) : !answers || answers.length === 0 ? (
-          <div className="text-center py-20 text-muted-foreground italic font-bold">لا توجد تفاصيل إجابات مسجلة لهذه المحاولة.</div>
+          <div className="text-center py-20 text-muted-foreground italic font-bold">لا توجد تفاصيل إجابات مسجلة.</div>
         ) : (
           answers?.map((ans, i) => (
             <div key={ans.id} className="p-6 bg-secondary/20 rounded-[2rem] border border-primary/5 text-right space-y-4">
                <div className="flex justify-between items-center mb-2">
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="text-[10px] font-black">سؤال {i+1}</Badge>
-                    <Badge className="bg-primary/10 text-primary border-none text-[10px] font-black">الدرجة الأصلية: {ans.maxPoints ?? 10} نقطة</Badge>
+                    <Badge className="bg-primary/10 text-primary border-none text-[10px] font-black">الدرجة: {ans.maxPoints ?? 10} نقطة</Badge>
                   </div>
                   <div className="flex gap-1">
-                     <Button size="sm" variant={ans.isCorrect ? 'default' : 'outline'} onClick={() => handleGradeAnswer(ans, true, ans.maxPoints ?? 10)} className={ans.isCorrect ? 'bg-accent font-black' : 'font-black'}>صحيح (+{ans.maxPoints ?? 10})</Button>
-                     <Button size="sm" variant={ans.isCorrect === false ? 'destructive' : 'outline'} onClick={() => handleGradeAnswer(ans, false, 0)} className="font-black">خطأ (0)</Button>
+                     <Button size="sm" variant={ans.isCorrect ? 'default' : 'outline'} onClick={() => handleGradeAnswer(ans, true, ans.maxPoints ?? 10)} className={ans.isCorrect ? 'bg-accent font-black' : 'font-black'}>صحيح</Button>
+                     <Button size="sm" variant={ans.isCorrect === false ? 'destructive' : 'outline'} onClick={() => handleGradeAnswer(ans, false, 0)} className="font-black">خطأ</Button>
                   </div>
                </div>
                <div className="space-y-3">
                  <p className="text-xs text-muted-foreground font-black flex items-center gap-1 justify-end">
-                    <HelpCircle className="w-3 h-3" /> نوع السؤال: {ans.questionType === 'MCQ' ? 'اختيار من متعدد' : 'سؤال مقالي'}
+                    <HelpCircle className="w-3 h-3" /> {ans.questionType === 'MCQ' ? 'اختيار من متعدد' : 'سؤال مقالي'}
                  </p>
                  {ans.questionType === 'MCQ' ? (
                    <p className="p-4 bg-background rounded-xl border border-dashed border-primary/10 text-sm font-bold">
-                      معرف الخيار الذي اختاره الطالب: <span className="font-mono text-primary">{ans.mcqSelectedOptionId || 'لم يتم الاختيار'}</span>
+                      الخيار المختار: <span className="font-mono text-primary">{ans.mcqSelectedOptionId || 'لم يتم الاختيار'}</span>
                    </p>
                  ) : (
                    <div className="p-4 bg-background rounded-2xl text-sm font-bold whitespace-pre-wrap leading-relaxed border border-primary/5 min-h-[100px]">
-                      {ans.essayAnswerText || <span className="text-muted-foreground italic">لا توجد إجابة نصية مقدمة.</span>}
+                      {ans.essayAnswerText || <span className="text-muted-foreground italic">لا توجد إجابة مقدمة.</span>}
                    </div>
                  )}
                </div>
