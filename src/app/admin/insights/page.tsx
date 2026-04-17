@@ -14,7 +14,7 @@ import {
   ArrowUpDown,
   Video,
   Clock,
-  CheckCircle2
+  RefreshCw
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, query, where, collectionGroup, doc } from 'firebase/firestore';
@@ -25,32 +25,32 @@ export default function CourseInsightsPage() {
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
-  // 1. جلب كافة الكورسات المتاحة للاختيار
+  // جلب الكورسات للاختيار
   const coursesRef = useMemoFirebase(() => collection(firestore, 'courses'), [firestore]);
   const { data: courses } = useCollection(coursesRef);
 
-  // 2. جلب كافة الاشتراكات لهذا الكورس (تزامن لحظي)
+  // جلب الاشتراكات لهذا الكورس بتزامن حي
   const enrollmentsRef = useMemoFirebase(() => {
     if (!firestore || !selectedCourseId) return null;
     return query(collectionGroup(firestore, 'enrollments'), where('courseId', '==', selectedCourseId));
   }, [firestore, selectedCourseId]);
   const { data: enrollments, isLoading: isEnLoading } = useCollection(enrollmentsRef);
 
-  // 3. جلب كافة محاولات الامتحانات لهذا الكورس (تزامن لحظي)
+  // جلب المحاولات بتزامن حي
   const quizAttemptsRef = useMemoFirebase(() => {
     if (!firestore || !selectedCourseId) return null;
     return query(collectionGroup(firestore, 'quiz_attempts'), where('courseId', '==', selectedCourseId));
   }, [firestore, selectedCourseId]);
   const { data: attempts } = useCollection(quizAttemptsRef);
 
-  // 4. جلب سجلات مشاهدة الفيديوهات لهذا الكورس (تزامن لحظي)
+  // جلب سجلات الفيديوهات بتزامن حي
   const videoProgressRef = useMemoFirebase(() => {
     if (!firestore || !selectedCourseId) return null;
     return query(collectionGroup(firestore, 'video_progress'), where('courseId', '==', selectedCourseId));
   }, [firestore, selectedCourseId]);
   const { data: videoLogs } = useCollection(videoProgressRef);
 
-  // 5. جلب محتوى الكورس لمعرفة إجمالي الفيديوهات والامتحانات
+  // جلب محتوى الكورس
   const courseContentRef = useMemoFirebase(() => {
     if (!firestore || !selectedCourseId) return null;
     return collection(firestore, 'courses', selectedCourseId, 'content');
@@ -59,18 +59,16 @@ export default function CourseInsightsPage() {
 
   const totalVideos = useMemo(() => contents?.filter(c => c.contentType === 'Video').length || 0, [contents]);
 
-  // 6. تجميع البيانات لكل طالب وترتيبها
+  // تجميع الإحصائيات لكل طالب
   const studentStats = useMemo(() => {
     if (!enrollments) return [];
     
     const stats = enrollments.map(en => {
-      // البحث عن أحدث وأعلى درجة للطالب في هذا الكورس
       const studentAttempts = attempts?.filter(a => a.studentId === en.studentId) || [];
       const bestAttempt = studentAttempts.length > 0 
         ? studentAttempts.reduce((prev, current) => (prev.score > current.score) ? prev : current)
         : null;
 
-      // حساب عدد الفيديوهات المكتملة
       const watchedLogs = videoLogs?.filter(v => v.studentId === en.studentId && v.isCompleted) || [];
       const totalSeconds = videoLogs?.filter(v => v.studentId === en.studentId)
         .reduce((acc, curr) => acc + (curr.watchedDurationInSeconds || 0), 0) || 0;
@@ -99,7 +97,7 @@ export default function CourseInsightsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="text-right">
           <h1 className="text-4xl font-headline font-bold mb-2">إحصائيات المتابعة والرقابة</h1>
-          <p className="text-muted-foreground">راقب استهلاك المحتوى، دقائق المشاهدة، والنتائج التفصيلية للأوائل.</p>
+          <p className="text-muted-foreground">راقب استهلاك المحتوى، دقائق المشاهدة، والنتائج التفصيلية لحظياً.</p>
         </div>
         <div className="w-full md:w-80">
           <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
@@ -114,29 +112,31 @@ export default function CourseInsightsPage() {
       {!selectedCourseId ? (
         <Card className="p-20 text-center border-dashed border-2 bg-secondary/5 rounded-[3rem]">
            <BarChart3 className="w-20 h-20 mx-auto mb-6 opacity-10 text-primary" />
-           <p className="text-xl font-bold text-muted-foreground">اختر كورس من القائمة لعرض بياناته التاريخية والحالية.</p>
+           <p className="text-xl font-bold text-muted-foreground">اختر كورس من القائمة لعرض بيانات الطلاب المشتركين فيه.</p>
         </Card>
       ) : isEnLoading ? (
         <div className="flex flex-col items-center justify-center py-40 gap-4">
           <Loader2 className="w-12 h-12 animate-spin text-primary" />
-          <p className="font-bold text-muted-foreground italic">جاري سحب البيانات الحية...</p>
+          <p className="font-bold text-muted-foreground italic">جاري سحب البيانات الحية من السيرفر...</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-8">
-          {/* Dashboard Stats */}
+        <div className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <StatsCard title="إجمالي المشتركين" value={enrollments?.length || 0} icon={<Users />} color="text-blue-500" />
+            <StatsCard title="المشتركون" value={enrollments?.length || 0} icon={<Users />} color="text-blue-500" />
             <StatsCard title="متوسط الإنجاز" value={`${Math.round(enrollments?.reduce((acc, curr) => acc + (curr.progressPercentage || 0), 0) / (enrollments?.length || 1))}%`} icon={<PlayCircle />} color="text-primary" />
-            <StatsCard title="طلاب امتحنوا" value={new Set(attempts?.map(a => a.studentId)).size} icon={<Trophy />} color="text-accent" />
-            <StatsCard title="إجمالي المشاهدات" value={videoLogs?.length || 0} icon={<Video />} color="text-purple-500" />
+            <StatsCard title="أدوا الامتحانات" value={new Set(attempts?.map(a => a.studentId)).size} icon={<Trophy />} color="text-accent" />
+            <StatsCard title="سجلات المشاهدة" value={videoLogs?.length || 0} icon={<Video />} color="text-purple-500" />
           </div>
 
           <Card className="bg-card border-primary/10 shadow-2xl rounded-[2.5rem] overflow-hidden">
             <CardHeader className="border-b bg-secondary/5 p-6 flex flex-row-reverse items-center justify-between">
               <CardTitle className="text-xl font-bold">جدول المتابعة التفصيلي</CardTitle>
-              <Button variant="outline" size="sm" className="gap-2 font-bold" onClick={() => setSortOrder(p => p === 'desc' ? 'asc' : 'desc')}>
-                <ArrowUpDown className="w-4 h-4" /> ترتيب الأوائل
-              </Button>
+              <div className="flex items-center gap-2">
+                 <RefreshCw className="w-4 h-4 animate-spin-slow text-primary" />
+                 <Button variant="outline" size="sm" className="gap-2 font-bold" onClick={() => setSortOrder(p => p === 'desc' ? 'asc' : 'desc')}>
+                   <ArrowUpDown className="w-4 h-4" /> ترتيب الأوائل
+                 </Button>
+              </div>
             </CardHeader>
             <CardContent className="p-0 overflow-x-auto">
               <table className="w-full text-right border-collapse">
