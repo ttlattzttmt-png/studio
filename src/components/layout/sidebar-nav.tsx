@@ -19,7 +19,8 @@ import {
   Trash2,
   BarChart3
 } from 'lucide-react';
-import { useAuth, initiateSignOut, useUser } from '@/firebase';
+import { useAuth, initiateSignOut, useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
@@ -32,7 +33,14 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
   const router = useRouter();
   const auth = useAuth();
   const { user } = useUser();
+  const firestore = useFirestore();
   const [open, setOpen] = useState(false);
+  
+  // بيانات الطالب للعلامة المائية
+  const studentRef = useMemoFirebase(() => (user && !isAdmin) ? doc(firestore, 'students', user.uid) : null, [firestore, user, isAdmin]);
+  const { data: student } = useDoc(studentRef);
+
+  const [watermarkPos, setWatermarkPos] = useState({ top: '20%', left: '20%' });
 
   // 🛡️ نظام الحماية الفولاذي: منع لقطات الشاشة والنسخ والطباعة
   useEffect(() => {
@@ -41,26 +49,33 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
     
     // 2. منع اختصارات لوحة المفاتيح (PrintScreen, Ctrl+P, Ctrl+S, Inspect)
     const handleKey = (e: KeyboardEvent) => {
+      const forbiddenKeys = ['PrintScreen', 'p', 's', 'i', 'j', 'u'];
       if (
         e.key === 'PrintScreen' || 
-        (e.ctrlKey && e.key === 'p') || 
-        (e.ctrlKey && e.key === 's') ||
-        (e.ctrlKey && e.shiftKey && e.key === 'I') ||
-        (e.ctrlKey && e.shiftKey && e.key === 'J') ||
+        (e.ctrlKey && forbiddenKeys.includes(e.key.toLowerCase())) ||
+        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) ||
         e.key === 'F12'
       ) {
         e.preventDefault();
-        alert('🚨 نظام الحماية: لا يسمح بتصوير الشاشة أو محاولة سحب المحتوى.');
+        alert('🚨 نظام الحماية: لا يسمح بتصوير الشاشة أو محاولة سحب المحتوى. تم تسجيل المحاولة.');
       }
     };
 
-    // 3. كشف محاولة فقدان التركيز (تستخدم لتعطيل التسجيل في بعض المتصفحات)
+    // 3. كشف محاولة فقدان التركيز (تستخدم لتعطيل التسجيل)
     const handleBlur = () => {
       document.body.classList.add('protection-blur');
     };
     const handleFocus = () => {
       document.body.classList.remove('protection-blur');
     };
+
+    // 4. تحديث موقع العلامة المائية عشوائياً كل 5 ثوانٍ
+    const watermarkInterval = setInterval(() => {
+      setWatermarkPos({
+        top: `${Math.floor(Math.random() * 80) + 10}%`,
+        left: `${Math.floor(Math.random() * 80) + 10}%`,
+      });
+    }, 5000);
 
     document.addEventListener('contextmenu', handleContext);
     document.addEventListener('keydown', handleKey);
@@ -72,6 +87,7 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
       document.removeEventListener('keydown', handleKey);
       window.removeEventListener('blur', handleBlur);
       window.removeEventListener('focus', handleFocus);
+      clearInterval(watermarkInterval);
     };
   }, []);
 
@@ -139,8 +155,8 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
             <Users className="w-5 h-5 text-primary" />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-bold truncate text-foreground">{user?.displayName || (isAdmin ? 'المشرف العام' : 'طالب المنصة')}</p>
-            <p className="text-[10px] text-muted-foreground truncate">{isAdmin ? 'صلاحيات كاملة' : 'حساب طالب'}</p>
+            <p className="text-xs font-bold truncate text-foreground">{user?.displayName || student?.name || (isAdmin ? 'المشرف العام' : 'طالب المنصة')}</p>
+            <p className="text-[10px] text-muted-foreground truncate">{isAdmin ? 'صلاحيات كاملة' : (student?.academicYear || 'حساب طالب')}</p>
           </div>
         </div>
         <button 
@@ -156,6 +172,16 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
 
   return (
     <>
+      {/* 🧩 العلامة المائية الديناميكية للطالب (أقوى وسيلة حماية) */}
+      {!isAdmin && student && (
+        <div 
+          className="fixed pointer-events-none z-[9999] text-white/10 text-[10px] md:text-xs font-bold whitespace-nowrap select-none transition-all duration-1000 ease-in-out"
+          style={{ top: watermarkPos.top, left: watermarkPos.left }}
+        >
+          {student.name} - {student.studentPhoneNumber}
+        </div>
+      )}
+
       <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b z-50 px-4 flex items-center justify-between">
         <Link href={user ? (isAdmin ? '/admin' : '/student') : '/'} className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold">ب</div>

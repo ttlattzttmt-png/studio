@@ -40,6 +40,7 @@
     -moz-user-select: none !important;
     -ms-user-select: none !important;
     -webkit-touch-callout: none !important;
+    overflow-x: hidden;
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline;
@@ -49,6 +50,9 @@
 /* منع الطباعة وتحويل الصفحة لـ PDF من قبل المستخدمين */
 @media print {
   body {
+    display: none !important;
+  }
+  * {
     display: none !important;
   }
 }
@@ -74,9 +78,23 @@
   @apply bg-muted-foreground;
 }
 
-/* طبقة حماية تظهر عند محاولة تسجيل الشاشة في بعض المتصفحات */
+/* 🛡️ طبقة حماية تظهر عند محاولة تسجيل الشاشة أو فقدان التركيز */
 .protection-blur {
-  backdrop-filter: blur(20px);
-  background: rgba(0,0,0,0.9);
-  z-index: 99999;
+  filter: blur(50px) !important;
+  transition: filter 0.3s ease;
+  pointer-events: none !important;
+}
+
+.protection-blur::after {
+  content: "🚨 محاولة تصوير شاشة مكتشفة - المحتوى محمي";
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #FFD700;
+  font-size: 24px;
+  font-weight: bold;
+  z-index: 999999;
+  text-align: center;
+  filter: none !important;
 }
