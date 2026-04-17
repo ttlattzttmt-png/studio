@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -16,7 +16,8 @@ import {
   Menu,
   Search,
   Ticket,
-  Trash2
+  Trash2,
+  BarChart3
 } from 'lucide-react';
 import { useAuth, initiateSignOut, useUser } from '@/firebase';
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,23 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
   const { user } = useUser();
   const [open, setOpen] = useState(false);
 
+  // حماية عالمية من لقطات الشاشة
+  useEffect(() => {
+    const handleContext = (e: MouseEvent) => e.preventDefault();
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'PrintScreen' || (e.ctrlKey && e.key === 'p')) {
+        e.preventDefault();
+        alert('🚨 عذراً، تصوير الشاشة أو الطباعة غير مسموح بها لحماية المحتوى.');
+      }
+    };
+    document.addEventListener('contextmenu', handleContext);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('contextmenu', handleContext);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, []);
+
   const studentLinks = [
     { label: 'لوحة التحكم العامة', icon: <LayoutDashboard className="w-5 h-5" />, href: '/student' },
     { label: 'كورساتي المفعلة', icon: <Video className="w-5 h-5" />, href: '/student/dashboard' },
@@ -44,12 +62,12 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
     { label: 'لوحة التحكم', icon: <PieChart className="w-5 h-5" />, href: '/admin' },
     { label: 'إدارة الكورسات', icon: <Video className="w-5 h-5" />, href: '/admin/courses' },
     { label: 'أكواد التفعيل', icon: <Ticket className="w-5 h-5" />, href: '/admin/codes' },
-    { label: 'حذف الكورسات', icon: <Trash2 className="w-5 h-5" />, href: '/admin/courses/delete' },
+    { label: 'إحصائيات الطلاب', icon: <BarChart3 className="w-5 h-5" />, href: '/admin/insights' },
     { label: 'الطلاب والرقابة', icon: <Users className="w-5 h-5" />, href: '/admin/students' },
     { label: 'بناء الاختبارات', icon: <ClipboardList className="w-5 h-5" />, href: '/admin/exams' },
     { label: 'مركز التصحيح', icon: <BrainCircuit className="w-5 h-5" />, href: '/admin/exams/grading' },
+    { label: 'حذف الكورسات', icon: <Trash2 className="w-5 h-5" />, href: '/admin/courses/delete' },
     { label: 'الإشعارات', icon: <Megaphone className="w-5 h-5" />, href: '/admin/notifications' },
-    { label: 'الذكاء الاصطناعي', icon: <BrainCircuit className="w-5 h-5" />, href: '/admin/ai-tools' },
   ];
 
   const links = isAdmin ? adminLinks : studentLinks;
@@ -62,7 +80,7 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
 
   const NavContent = () => (
     <div className="flex flex-col h-full bg-card">
-      <Link href={isAdmin ? '/admin' : '/student'} className="p-6 flex items-center gap-3 border-b hover:bg-secondary/20 transition-colors">
+      <Link href={user ? (isAdmin ? '/admin' : '/student') : '/'} className="p-6 flex items-center gap-3 border-b hover:bg-secondary/20 transition-colors">
         <div className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold text-xl shadow-lg shadow-primary/20">ب</div>
         <span className="text-xl font-headline font-bold">البشمهندس</span>
       </Link>
@@ -115,7 +133,7 @@ export function SidebarNav({ isAdmin = false }: SidebarNavProps) {
   return (
     <>
       <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b z-50 px-4 flex items-center justify-between">
-        <Link href={isAdmin ? '/admin' : '/student'} className="flex items-center gap-2">
+        <Link href={user ? (isAdmin ? '/admin' : '/student') : '/'} className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold">ب</div>
           <span className="text-lg font-headline font-bold">البشمهندس</span>
         </Link>
