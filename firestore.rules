@@ -54,12 +54,16 @@ service cloud.firestore {
       }
     }
 
-    // دعم استعلام المجموعات
+    // دعم استعلام المجموعات للادمن (ضروري لصفحة الإحصائيات)
     match /{path=**}/enrollments/{id} {
       allow read, list: if isOwnerAdmin();
     }
     
     match /{path=**}/quiz_attempts/{id} {
+      allow read, list: if isOwnerAdmin();
+    }
+
+    match /{path=**}/video_progress/{id} {
       allow read, list: if isOwnerAdmin();
     }
   }
