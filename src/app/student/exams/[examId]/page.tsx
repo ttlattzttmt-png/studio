@@ -92,7 +92,15 @@ export default function TakeExamPage() {
             totalScoreAchieved += scoreAchieved;
           }
         }
-        submissionAnswers.push({ questionId: q.id, questionType: q.questionType, mcqSelectedOptionId: studentAns.mcqOptionId || null, essayAnswerText: studentAns.essayText || '', isCorrect: q.questionType === 'MCQ' ? isCorrect : false, scoreAchieved: q.questionType === 'MCQ' ? scoreAchieved : 0, maxPoints: q.points });
+        submissionAnswers.push({ 
+          questionId: q.id, 
+          questionType: q.questionType, 
+          mcqSelectedOptionId: studentAns.mcqOptionId || null, 
+          essayAnswerText: studentAns.essayText || '', 
+          isCorrect: q.questionType === 'MCQ' ? isCorrect : false, 
+          scoreAchieved: q.questionType === 'MCQ' ? scoreAchieved : 0, 
+          maxPoints: q.points 
+        });
       }
 
       const finalPercentage = totalMaxPoints > 0 ? Math.round((totalScoreAchieved / totalMaxPoints) * 100) : 0;

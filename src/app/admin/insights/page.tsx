@@ -135,7 +135,7 @@ export default function CourseInsightsPage() {
         <div className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <StatsCard title="إجمالي المشتركين" value={enrollments?.length || 0} icon={<Users />} color="text-blue-500" />
-            <StatsCard title="متوسط الإنجاز" value={`${Math.round(enrollments?.reduce((acc, curr) => acc + (curr.progressPercentage || 0), 0) / (enrollments?.length || 1))}%`} icon={<PlayCircle />} color="text-primary" />
+            <StatsCard title="متوسط الإنجاز" value={`${enrollments && enrollments.length > 0 ? Math.round(enrollments.reduce((acc, curr) => acc + (curr.progressPercentage || 0), 0) / enrollments.length) : 0}%`} icon={<PlayCircle />} color="text-primary" />
             <StatsCard title="أدوا الامتحانات" value={new Set(attempts?.map(a => a.studentId)).size} icon={<Trophy />} color="text-accent" />
             <StatsCard title="سجلات المشاهدة" value={videoLogs?.length || 0} icon={<Video />} color="text-purple-500" />
           </div>
