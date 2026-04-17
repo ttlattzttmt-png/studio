@@ -19,8 +19,8 @@ import {
   Search,
   User as UserIcon
 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, collectionGroup, doc } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { collection, collectionGroup } from 'firebase/firestore';
 import { Input } from '@/components/ui/input';
 
 export default function CourseInsightsPage() {
@@ -34,7 +34,11 @@ export default function CourseInsightsPage() {
   const coursesRef = useMemoFirebase(() => collection(firestore, 'courses'), [firestore]);
   const { data: courses } = useCollection(coursesRef);
 
-  // جلب كافة البيانات بدون فلترة في السيرفر لتجنب مشاكل الفهارس (Indexes)
+  // جلب كافة الطلاب لربط الأسماء بالبحث
+  const studentsRef = useMemoFirebase(() => collection(firestore, 'students'), [firestore]);
+  const { data: allStudents } = useCollection(studentsRef);
+
+  // جلب كافة البيانات بدون فلترة في السيرفر لضمان التزامن والبحث بالاسم
   const allEnrollmentsRef = useMemoFirebase(() => collectionGroup(firestore, 'enrollments'), [firestore]);
   const allAttemptsRef = useMemoFirebase(() => collectionGroup(firestore, 'quiz_attempts'), [firestore]);
   const allVideoLogsRef = useMemoFirebase(() => collectionGroup(firestore, 'video_progress'), [firestore]);
@@ -52,7 +56,14 @@ export default function CourseInsightsPage() {
 
   const totalVideos = useMemo(() => contents?.filter(c => c.contentType === 'Video').length || 0, [contents]);
 
-  // تجميع ومعالجة الإحصائيات برمجياً (Client-side) لضمان الدقة والسرعة
+  // إنشاء خارطة أسماء الطلاب للبحث السريع
+  const studentMap = useMemo(() => {
+    const map: Record<string, any> = {};
+    allStudents?.forEach(s => { map[s.id] = s; });
+    return map;
+  }, [allStudents]);
+
+  // تجميع ومعالجة الإحصائيات برمجياً (Client-side) لضمان الدقة والبحث بالاسم
   const processedData = useMemo(() => {
     if (!selectedCourseId || !rawEnrollments) return [];
 
@@ -61,6 +72,7 @@ export default function CourseInsightsPage() {
     const filteredVideoLogs = rawVideoLogs?.filter(vl => vl.courseId === selectedCourseId) || [];
 
     const stats = filteredEnrollments.map(en => {
+      const studentData = studentMap[en.studentId] || {};
       const studentAttempts = filteredAttempts.filter(at => at.studentId === en.studentId);
       const bestAttempt = studentAttempts.length > 0 
         ? studentAttempts.reduce((prev, curr) => (prev.score > curr.score) ? prev : curr)
@@ -72,6 +84,8 @@ export default function CourseInsightsPage() {
 
       return {
         ...en,
+        studentName: studentData.name || en.studentName || 'طالب مجهول',
+        studentPhone: studentData.studentPhoneNumber || '---',
         bestScore: bestAttempt?.score ?? null,
         pointsAchieved: bestAttempt?.pointsAchieved ?? 0,
         totalPoints: bestAttempt?.totalPoints ?? 0,
@@ -80,19 +94,19 @@ export default function CourseInsightsPage() {
       };
     });
 
-    // تصفية بالبحث (سيتم جلب الاسم في المكون الأسفل)
+    // تصفية بالبحث (الآن يبحث في الاسم الحقيقي للطالب)
     const searched = stats.filter(s => 
-      (s.studentId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (s.studentName || '').toLowerCase().includes(searchTerm.toLowerCase())
+      s.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.studentId.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // ترتيب الأوائل
+    // ترتيب الأوائل بناءً على الدرجة
     return searched.sort((a, b) => {
       const scoreA = a.bestScore ?? -1;
       const scoreB = b.bestScore ?? -1;
       return sortOrder === 'desc' ? scoreB - scoreA : scoreA - scoreB;
     });
-  }, [selectedCourseId, rawEnrollments, rawAttempts, rawVideoLogs, sortOrder, searchTerm]);
+  }, [selectedCourseId, rawEnrollments, rawAttempts, rawVideoLogs, studentMap, sortOrder, searchTerm]);
 
   if (isUserLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
 
@@ -101,7 +115,7 @@ export default function CourseInsightsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="text-right">
           <h1 className="text-4xl font-headline font-bold mb-2">إحصائيات المتابعة والرقابة</h1>
-          <p className="text-muted-foreground">راقب استهلاك المحتوى، نتائج الامتحانات، ونسب الإنجاز لكل طالب لحظياً.</p>
+          <p className="text-muted-foreground">راقب استهلاك المحتوى، دقائق المشاهدة، ونتائج الامتحانات لكل طالب لحظياً.</p>
         </div>
         <div className="w-full md:w-80">
           <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
@@ -129,7 +143,7 @@ export default function CourseInsightsPage() {
             <StatsCard title="إجمالي المشتركين" value={processedData.length} icon={<Users />} color="text-blue-500" />
             <StatsCard title="متوسط الإنجاز" value={`${processedData.length > 0 ? Math.round(processedData.reduce((acc, curr) => acc + (curr.progressPercentage || 0), 0) / processedData.length) : 0}%`} icon={<PlayCircle />} color="text-primary" />
             <StatsCard title="أدوا امتحانات" value={processedData.filter(p => p.bestScore !== null).length} icon={<Trophy />} color="text-accent" />
-            <StatsCard title="وقت المشاهدة (د)" value={processedData.reduce((acc, curr) => acc + curr.totalMinutes, 0)} icon={<Clock />} color="text-purple-500" />
+            <StatsCard title="إجمالي الدقائق" value={processedData.reduce((acc, curr) => acc + curr.totalMinutes, 0)} icon={<Clock />} color="text-purple-500" />
           </div>
 
           <Card className="bg-card border-primary/10 shadow-2xl rounded-[2.5rem] overflow-hidden">
@@ -137,7 +151,7 @@ export default function CourseInsightsPage() {
               <div className="relative w-full max-w-md">
                 <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input 
-                  placeholder="ابحث باسم الطالب أو معرفه..." 
+                  placeholder="ابحث باسم الطالب الحقيقي..." 
                   className="pr-10 bg-background border-primary/10 text-right h-11 rounded-xl"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -166,7 +180,15 @@ export default function CourseInsightsPage() {
                   {processedData.map((stat) => (
                     <tr key={stat.studentId} className="hover:bg-primary/5 transition-colors group">
                       <td className="px-6 py-4">
-                        <StudentDetails studentId={stat.studentId} />
+                        <div className="flex items-center gap-3 justify-end">
+                          <div className="text-right">
+                            <p className="font-bold text-sm text-foreground">{stat.studentName}</p>
+                            <p className="text-[9px] text-muted-foreground font-mono" dir="ltr">{stat.studentPhone}</p>
+                          </div>
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-black text-primary">
+                            {stat.studentName[0]}
+                          </div>
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3 justify-end">
@@ -206,7 +228,7 @@ export default function CourseInsightsPage() {
                     </tr>
                   ))}
                   {processedData.length === 0 && (
-                    <tr><td colSpan={6} className="py-20 text-center text-muted-foreground italic">لا توجد بيانات لهذا الكورس حالياً.</td></tr>
+                    <tr><td colSpan={6} className="py-20 text-center text-muted-foreground italic">لا توجد بيانات مطابقة للبحث أو الكورس.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -232,23 +254,5 @@ function StatsCard({ title, value, icon, color }: any) {
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function StudentDetails({ studentId }: { studentId: string }) {
-  const firestore = useFirestore();
-  const studentRef = useMemoFirebase(() => studentId ? doc(firestore, 'students', studentId) : null, [firestore, studentId]);
-  const { data: student } = useDoc(studentRef);
-  
-  return (
-    <div className="flex items-center gap-3 justify-end">
-      <div className="text-right min-w-0">
-        <p className="truncate max-w-[180px] font-bold text-sm text-foreground">{student?.name || 'جاري التحميل...'}</p>
-        <p className="text-[9px] text-muted-foreground font-mono" dir="ltr">{student?.studentPhoneNumber || '---'}</p>
-      </div>
-      <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-black text-primary shrink-0 shadow-sm">
-        {student?.name?.[0] || <UserIcon className="w-4 h-4" />}
-      </div>
-    </div>
   );
 }

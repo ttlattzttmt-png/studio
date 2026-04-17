@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useParams } from 'next/navigation';
@@ -40,23 +41,27 @@ export default function CourseViewer() {
     return contents?.filter(c => c.isVisible !== false) || [];
   }, [contents]);
 
-  // دالة متطورة لتحديث التقدم بشكل لحظي ومتزامن
+  // دالة متطورة لتحديث التقدم بشكل لحظي ومتزامن للادمن والطالب
   const markAsWatched = async (contentId: string) => {
     if (!firestore || !user || !id || !studentProfile) return;
     try {
-      // 1. تسجيل مشاهدة الفيديو في سجل الطالب مع حفظ اسم الطالب للرقابة
+      // 1. تسجيل مشاهدة الفيديو مع حفظ المدة لغرض الإحصائيات (Insights)
       const videoLogRef = doc(firestore, 'students', user.uid, 'video_progress', contentId);
+      
+      // نفترض طول افتراضي للفيديو 10 دقائق إذا لم يكن مسجلاً
+      const videoDuration = activeContent?.durationInSeconds || 600;
+
       await setDoc(videoLogRef, {
         studentId: user.uid,
         studentName: studentProfile.name || 'طالب المنصة',
         courseId: id,
         courseContentId: contentId,
         isCompleted: true,
-        watchedDurationInSeconds: activeContent?.durationInSeconds || 600,
+        watchedDurationInSeconds: videoDuration,
         lastWatchedAt: serverTimestamp()
       });
 
-      // 2. إعادة حساب نسبة الإنجاز فوراً من السيرفر لضمان الدقة
+      // 2. إعادة حساب نسبة الإنجاز من السيرفر فوراً لضمان الدقة في الجانبين
       const allWatchedRef = query(collection(firestore, 'students', user.uid, 'video_progress'), where('courseId', '==', id));
       const watchedSnap = await getDocs(allWatchedRef);
       const watchedCount = watchedSnap.size;
@@ -64,7 +69,7 @@ export default function CourseViewer() {
       const totalItems = visibleContents.length || 1;
       const newPercent = Math.min(100, Math.round((watchedCount / totalItems) * 100));
 
-      // 3. تحديث سجل الاشتراك بالنسبة الجديدة ليراها الادمن
+      // 3. تحديث سجل الاشتراك بالنسبة الجديدة والاسم للرقابة
       await updateDoc(doc(firestore, 'students', user.uid, 'enrollments', id as string), {
         progressPercentage: newPercent,
         studentName: studentProfile.name,

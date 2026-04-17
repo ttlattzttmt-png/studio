@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -26,7 +27,11 @@ export default function AdminGradingPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
 
-  // جلب كافة المحاولات بتزامن لحظي وبدون فلترة سيرفر لضمان عمل الصفحة
+  // جلب كافة الطلاب لربط الأسماء بالبحث في مركز التصحيح
+  const studentsRef = useMemoFirebase(() => collection(firestore, 'students'), [firestore]);
+  const { data: allStudents } = useCollection(studentsRef);
+
+  // جلب كافة المحاولات بتزامن لحظي
   const attemptsRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return collectionGroup(firestore, 'quiz_attempts');
@@ -34,24 +39,29 @@ export default function AdminGradingPage() {
   
   const { data: rawAttempts, isLoading } = useCollection(attemptsRef);
 
-  // تصفية وترتيب المحاولات برمجياً لدعم البحث الفوري والأسماء
+  // إنشاء خارطة أسماء الطلاب
+  const studentMap = useMemo(() => {
+    const map: Record<string, any> = {};
+    allStudents?.forEach(s => { map[s.id] = s; });
+    return map;
+  }, [allStudents]);
+
+  // تصفية وترتيب المحاولات برمجياً لدعم البحث بالاسم الحقيقي
   const filteredAttempts = useMemo(() => {
     if (!rawAttempts) return [];
     
     return rawAttempts
       .filter(a => {
+        const studentName = (studentMap[a.studentId]?.name || a.studentName || '').toLowerCase();
         const searchLower = searchTerm.toLowerCase();
-        return (
-          (a.studentId || '').toLowerCase().includes(searchLower) ||
-          (a.studentName || '').toLowerCase().includes(searchLower)
-        );
+        return studentName.includes(searchLower) || a.studentId.toLowerCase().includes(searchLower);
       })
       .sort((a, b) => {
         const dateA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
         const dateB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
         return dateB - dateA;
       });
-  }, [rawAttempts, searchTerm]);
+  }, [rawAttempts, searchTerm, studentMap]);
 
   const handleDeleteAttempt = async (attempt: any) => {
     if (!firestore) return;
@@ -115,7 +125,7 @@ export default function AdminGradingPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="text-right">
           <h1 className="text-4xl font-headline font-bold mb-2">مركز التصحيح والاعتماد</h1>
-          <p className="text-muted-foreground text-sm">راجع إجابات الطلاب واعتمد الدرجات النهائية لحظياً.</p>
+          <p className="text-muted-foreground text-sm">راجع إجابات الطلاب واعتمد الدرجات النهائية لحظياً بالبحث عن اسم الطالب.</p>
         </div>
         <div className="bg-primary/10 text-primary px-4 py-2 rounded-xl border border-primary/20 flex items-center gap-2">
           <RefreshCw className="w-4 h-4 animate-spin-slow" />
@@ -129,7 +139,7 @@ export default function AdminGradingPage() {
             <div className="relative">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input 
-                placeholder="ابحث باسم الطالب..." 
+                placeholder="ابحث باسم الطالب الحقيقي..." 
                 className="w-full bg-background border-primary/10 rounded-xl h-11 pr-10 text-right text-xs focus:border-primary outline-none transition-all" 
                 value={searchTerm} 
                 onChange={(e) => setSearchTerm(e.target.value)} 
@@ -143,7 +153,7 @@ export default function AdminGradingPage() {
                  <p className="text-[10px] text-muted-foreground">جاري جلب المحاولات...</p>
                </div>
              ) : filteredAttempts.length === 0 ? (
-               <div className="text-center py-20 text-muted-foreground italic text-xs">لا توجد محاولات حية.</div>
+               <div className="text-center py-20 text-muted-foreground italic text-xs">لا توجد محاولات مطابقة للبحث.</div>
              ) : (
                <div className="divide-y divide-primary/5 max-h-[70vh] overflow-y-auto">
                  {filteredAttempts.map((attempt) => (
@@ -153,7 +163,14 @@ export default function AdminGradingPage() {
                      className={`w-full p-5 text-right hover:bg-primary/5 transition-all flex flex-col gap-2 relative group ${selectedAttempt?.id === attempt.id ? 'bg-primary/10 border-r-4 border-primary' : ''}`}
                    >
                      <div className="flex justify-between items-center">
-                        <StudentNameWithDoc studentId={attempt.studentId} />
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
+                            <UserIcon className="w-3 h-3" />
+                          </div>
+                          <span className="text-xs font-bold text-foreground truncate max-w-[120px]">
+                            {studentMap[attempt.studentId]?.name || attempt.studentName || 'جاري التحميل...'}
+                          </span>
+                        </div>
                         <Badge className="text-[9px] h-5" variant={attempt.isGraded ? 'default' : 'secondary'}>
                           {attempt.isGraded ? 'مكتمل' : 'قيد المراجعة'}
                         </Badge>
@@ -186,23 +203,6 @@ export default function AdminGradingPage() {
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function StudentNameWithDoc({ studentId }: { studentId: string }) {
-  const firestore = useFirestore();
-  const studentRef = useMemoFirebase(() => studentId ? doc(firestore, 'students', studentId) : null, [firestore, studentId]);
-  const { data: student } = useDoc(studentRef);
-  
-  return (
-    <div className="flex items-center gap-2">
-      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
-        <UserIcon className="w-3 h-3" />
-      </div>
-      <span className="text-xs font-bold text-foreground truncate max-w-[120px]">
-        {student?.name || 'جاري التحميل...'}
-      </span>
     </div>
   );
 }
