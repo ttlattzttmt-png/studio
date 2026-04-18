@@ -30,24 +30,26 @@
 @layer base {
   * {
     @apply border-border;
+    -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply bg-background text-foreground font-body;
     direction: rtl;
-    /* حماية قصوى من النسخ والاختيار */
     user-select: none !important;
     -webkit-user-select: none !important;
     -moz-user-select: none !important;
     -ms-user-select: none !important;
     -webkit-touch-callout: none !important;
     overflow-x: hidden;
+    /* تحسين تجربة التطبيق ومنع السحب للأسفل لتحديث الصفحة */
+    overscroll-behavior-y: contain;
+    touch-action: pan-x pan-y;
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline;
   }
 }
 
-/* منع الطباعة وتحويل الصفحة لـ PDF من قبل المستخدمين */
 @media print {
   body {
     display: none !important;
@@ -78,7 +80,6 @@
   @apply bg-muted-foreground;
 }
 
-/* 🛡️ طبقة حماية تظهر عند محاولة تسجيل الشاشة أو فقدان التركيز */
 .protection-blur {
   filter: blur(50px) !important;
   transition: filter 0.3s ease;

@@ -1,0 +1,40 @@
+{
+  "placeholderImages": [
+    {
+      "id": "hero-bg",
+      "description": "Educational Math background",
+      "imageUrl": "https://picsum.photos/seed/math-edu/1920/1080",
+      "imageHint": "mathematics blackboard"
+    },
+    {
+      "id": "course-1",
+      "description": "Physics Course",
+      "imageUrl": "https://picsum.photos/seed/phy/800/600",
+      "imageHint": "physics formula"
+    },
+    {
+      "id": "course-2",
+      "description": "Math Course",
+      "imageUrl": "https://picsum.photos/seed/math/800/600",
+      "imageHint": "mathematics geometry"
+    },
+    {
+      "id": "course-3",
+      "description": "Mechanics Course",
+      "imageUrl": "https://picsum.photos/seed/mech/800/600",
+      "imageHint": "gears machinery"
+    },
+    {
+      "id": "pwa-icon-192",
+      "description": "PWA App Icon 192",
+      "imageUrl": "https://picsum.photos/seed/pwa1/192/192",
+      "imageHint": "app icon"
+    },
+    {
+      "id": "pwa-icon-512",
+      "description": "PWA App Icon 512",
+      "imageUrl": "https://picsum.photos/seed/pwa2/512/512",
+      "imageHint": "app icon"
+    }
+  ]
+}
