@@ -1,13 +1,13 @@
+
 {
   "name": "منصة البشمهندس التعليمية",
   "short_name": "البشمهندس",
   "description": "المنصة التعليمية الأولى لطلاب الهندسة والمرحلة الثانوية",
-  "start_url": "/",
+  "start_url": "/student",
   "display": "standalone",
-  "background_color": "#1A1A1A",
+  "background_color": "#1a1a1a",
   "theme_color": "#FFD700",
   "orientation": "portrait",
-  "scope": "/",
   "icons": [
     {
       "src": "https://picsum.photos/seed/pwa1/192/192",

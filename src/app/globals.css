@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -80,22 +81,7 @@
   @apply bg-muted-foreground;
 }
 
-.protection-blur {
-  filter: blur(50px) !important;
-  transition: filter 0.3s ease;
-  pointer-events: none !important;
-}
-
-.protection-blur::after {
-  content: "🚨 محاولة تصوير شاشة مكتشفة - المحتوى محمي";
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #FFD700;
-  font-size: 24px;
-  font-weight: bold;
-  z-index: 999999;
-  text-align: center;
-  filter: none !important;
+.protection-blackout {
+  background: black !important;
+  transition: background 0.1s ease;
 }
