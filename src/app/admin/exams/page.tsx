@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -88,6 +89,20 @@ export default function AdminExams() {
       toast({ title: "تم النشر", description: "تم إنشاء الاختبار بنجاح." });
       setIsAdding(false);
     } catch (e) { console.error(e); setIsAdding(false); }
+  };
+
+  const handleDeleteExam = async (exam: any) => {
+    if (!firestore) return;
+    const confirmed = window.confirm(`🚨 تحذير نهائي: هل أنت متأكد من حذف اختبار "${exam.title}" نهائياً من السيرفر؟ سيؤدي ذلك لمسح كافة درجات الطلاب المرتبطة به.`);
+    if (!confirmed) return;
+
+    try {
+      await deleteDoc(doc(firestore, 'courses', exam.courseId, 'content', exam.id));
+      toast({ title: "تم الحذف بنجاح", description: "اختفى الاختبار من السيرفر الآن." });
+    } catch (e: any) {
+      console.error(e);
+      toast({ variant: "destructive", title: "فشل الحذف", description: "تأكد من صلاحياتك كمشرف." });
+    }
   };
 
   const toggleVisibility = async (exam: any) => {
@@ -248,9 +263,14 @@ export default function AdminExams() {
                         <Badge variant={exam.isVisible ? "default" : "destructive"} className="text-[10px] font-bold">
                           {exam.isVisible ? "ظاهر للطلاب" : "مخفي الآن"}
                         </Badge>
-                        <Badge variant="outline" className="text-[10px] font-bold border-primary/20">
-                          {exam.allowInstantResultsDisplay ? "نتائج فورية" : "نتائج مؤجلة"}
-                        </Badge>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-6 w-6 text-destructive hover:bg-destructive/10 rounded-md" 
+                          onClick={() => handleDeleteExam(exam)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
                       </div>
                       <h3 className="font-black text-lg line-clamp-1">{exam.title}</h3>
                     </div>
