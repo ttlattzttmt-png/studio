@@ -15,7 +15,10 @@ import {
   AlertTriangle,
   ChevronRight,
   ChevronLeft,
-  ShieldAlert
+  ShieldAlert,
+  CheckCircle2,
+  ArrowRight,
+  Star
 } from 'lucide-react';
 import { useUser, useFirebase, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, addDoc, doc, getDocs, query, orderBy, where } from 'firebase/firestore';
@@ -56,24 +59,18 @@ export default function TakeExamPage() {
       }
     };
 
-    // التحسس لأي حركة مريبة (تصغير المتصفح، سحب شريط الإشعارات، لقطة شاشة)
     const triggerProtection = () => {
       setIsBlocked(true);
-      // تسجيل المحاولة في الكونسول للرقابة المستقبلية
-      console.warn("Unauthorized screen action detected!");
     };
 
     const restoreView = () => {
       if (!finishedResult) {
-        // تأخير بسيط لضمان انتهاء عملية التقاط الشاشة قبل العودة
         setTimeout(() => setIsBlocked(false), 2000);
       }
     };
 
     document.addEventListener('contextmenu', handleContext);
     document.addEventListener('keydown', handleKey);
-    
-    // أهم أحداث منع التصوير على الموبايل
     window.addEventListener('blur', triggerProtection);
     window.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') triggerProtection();
@@ -88,7 +85,6 @@ export default function TakeExamPage() {
     };
   }, [finishedResult]);
 
-  // جلب بيانات الطالب لحفظ الاسم الحقيقي
   const studentProfileRef = useMemoFirebase(() => user ? doc(firestore!, 'students', user.uid) : null, [firestore, user]);
   const { data: studentProfile } = useDoc(studentProfileRef);
 
@@ -175,7 +171,12 @@ export default function TakeExamPage() {
         await addDoc(collection(firestore, 'students', user.uid, 'quiz_attempts', attemptRef.id, 'answers'), ansData);
       }
 
-      setFinishedResult({ score: finalPercentage, points: totalScoreAchieved, total: totalMaxPoints });
+      setFinishedResult({ 
+        score: finalPercentage, 
+        points: totalScoreAchieved, 
+        total: totalMaxPoints,
+        isSuccess: finalPercentage >= (exam?.passMarkPercentage || 50)
+      });
       setIsBlocked(false);
       toast({ title: "تم تسليم الامتحان" });
     } catch (e) { console.error(e); } finally { setIsSubmitting(false); }
@@ -197,7 +198,64 @@ export default function TakeExamPage() {
 
   if (alreadyAttempted) return <div className="min-h-screen flex items-center justify-center p-6 text-center"><Card className="max-w-md p-10 rounded-[3rem] border-primary/20 shadow-2xl"><AlertTriangle className="w-16 h-16 text-primary mx-auto mb-6" /><h2 className="text-2xl font-bold">لا يمكنك إعادة الامتحان</h2><p className="text-muted-foreground mt-4">يسمح بمحاولة واحدة فقط لضمان الأمان والجدية.</p><Link href="/student/exams"><Button className="w-full mt-6 bg-primary font-bold">عرض درجاتي</Button></Link></Card></div>;
 
-  if (finishedResult) return <div className="min-h-screen flex items-center justify-center p-8"><Card className="max-w-lg p-12 text-center rounded-[3rem] border-accent/20 shadow-2xl relative"><div className="absolute top-0 right-0 w-full h-2 bg-accent" /><Trophy className="w-20 h-20 text-accent animate-bounce mx-auto mb-6" /><h2 className="text-3xl font-black mb-6">أحسنت يا بشمهندس!</h2><div className="grid grid-cols-2 gap-4"><div className="p-6 bg-accent/5 rounded-3xl"><p className="text-5xl font-black text-accent">{finishedResult.score}%</p><p className="text-[10px] font-bold text-muted-foreground uppercase">النسبة</p></div><div className="p-6 bg-primary/5 rounded-3xl"><p className="text-5xl font-black text-primary">{finishedResult.points}/{finishedResult.total}</p><p className="text-[10px] font-bold text-muted-foreground uppercase">الدرجة</p></div></div><Link href="/student/dashboard" className="block mt-8"><Button className="w-full h-14 bg-secondary font-bold rounded-2xl">العودة للوحة التحكم</Button></Link></Card></div>;
+  if (finishedResult) return (
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 md:p-8 animate-in fade-in zoom-in duration-700">
+      <div className="w-full max-w-2xl bg-card border border-primary/10 rounded-[2.5rem] overflow-hidden shadow-2xl relative text-right">
+        <div className={`absolute top-0 right-0 w-full h-3 ${finishedResult.isSuccess ? 'bg-accent' : 'bg-destructive'}`} />
+        
+        <CardContent className="p-8 md:p-12">
+           <div className="flex flex-col items-center text-center mb-10 space-y-6">
+              <div className={`w-24 h-24 rounded-full flex items-center justify-center shadow-2xl ${finishedResult.isSuccess ? 'bg-accent/10 text-accent' : 'bg-destructive/10 text-destructive'}`}>
+                {finishedResult.isSuccess ? <Trophy className="w-12 h-12 animate-bounce" /> : <AlertTriangle className="w-12 h-12" />}
+              </div>
+              <div className="space-y-2">
+                <h1 className="text-3xl md:text-5xl font-black text-foreground">
+                  {finishedResult.isSuccess ? "أحسنت يا بطل!" : "محاولة جيدة"}
+                </h1>
+                <p className="text-muted-foreground font-bold text-lg md:text-xl">
+                  لقد أتممت اختبار: <span className="text-primary">{exam?.title}</span>
+                </p>
+              </div>
+           </div>
+
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+              <div className="p-6 md:p-8 bg-secondary/30 rounded-[2rem] border border-white/5 flex flex-col items-center justify-center relative overflow-hidden group">
+                 <div className="absolute -top-4 -right-4 w-12 h-12 bg-primary/10 rounded-full blur-xl" />
+                 <p className="text-5xl md:text-6xl font-black text-primary mb-2">{finishedResult.score}%</p>
+                 <p className="text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest">النسبة المئوية النهائية</p>
+              </div>
+              <div className="p-6 md:p-8 bg-secondary/30 rounded-[2rem] border border-white/5 flex flex-col items-center justify-center relative overflow-hidden group">
+                 <div className="absolute -bottom-4 -left-4 w-12 h-12 bg-accent/10 rounded-full blur-xl" />
+                 <p className="text-5xl md:text-6xl font-black text-accent mb-2">{finishedResult.points}/{finishedResult.total}</p>
+                 <p className="text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest">إجمالي النقاط المحققة</p>
+              </div>
+           </div>
+
+           <div className="bg-primary/5 p-6 rounded-2xl border border-primary/10 flex items-center gap-4 mb-10">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0"><Star className="w-6 h-6" /></div>
+              <div className="text-right">
+                <p className="font-bold text-sm">تم حفظ نتيجتك بنجاح</p>
+                <p className="text-xs text-muted-foreground">يمكنك دائماً مراجعة درجاتك من لوحة الطالب في أي وقت.</p>
+              </div>
+           </div>
+
+           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Link href="/student/dashboard" className="w-full">
+                <Button className="w-full h-14 md:h-16 bg-primary text-primary-foreground font-black rounded-2xl text-lg shadow-xl shadow-primary/20 hover:scale-105 transition-transform active:scale-95 gap-2">
+                  <ChevronRight className="w-5 h-5" /> لوحة التحكم
+                </Button>
+              </Link>
+              <Link href="/student/exams" className="w-full">
+                <Button variant="outline" className="w-full h-14 md:h-16 border-primary/20 text-primary font-black rounded-2xl text-lg hover:bg-primary/5 transition-all gap-2">
+                  <CheckCircle2 className="w-5 h-5" /> سجل الدرجات
+                </Button>
+              </Link>
+           </div>
+        </CardContent>
+        <p className="text-center pb-6 text-[10px] text-muted-foreground font-mono">ID: {examId?.toString().slice(0,8)}</p>
+      </div>
+    </div>
+  );
 
   if (isUserLoading || isQsLoading || !exam) return <div className="flex justify-center py-40"><Loader2 className="w-12 animate-spin text-primary" /></div>;
 
