@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -7,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Megaphone, Send, Loader2, Users, BookOpen, Clock, Trash2 } from 'lucide-react';
+import { Megaphone, Send, Loader2, Users, BookOpen, Clock, Trash2, MessageCircle } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, addDoc, serverTimestamp, orderBy, query, deleteDoc, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { sendWhatsAppMessage, formatNotificationMessage } from '@/lib/whatsapp-utils';
 
 export default function AdminNotifications() {
   const [title, setTitle] = useState('');
@@ -59,6 +59,16 @@ export default function AdminNotifications() {
     } finally {
       setIsSending(false);
     }
+  };
+
+  const handleWhatsAppBroadcast = () => {
+    if (!title || !message) {
+      toast({ variant: "destructive", title: "بيانات ناقصة", description: "أكمل نص الرسالة أولاً." });
+      return;
+    }
+    const waMsg = formatNotificationMessage(title, message);
+    // نفتح واتساب برسالة عامة، والمسؤول يختار لمن يرسلها
+    sendWhatsAppMessage('', waMsg);
   };
 
   const handleDelete = async (id: string) => {
@@ -148,13 +158,22 @@ export default function AdminNotifications() {
               )}
             </div>
 
-            <Button 
-              onClick={handleSend}
-              disabled={isSending || !title || !message || (targetType === 'course' && (!targetCourseId || targetCourseId === '_none'))}
-              className="w-full h-14 bg-primary text-primary-foreground font-bold rounded-xl text-lg shadow-lg"
-            >
-              {isSending ? <Loader2 className="w-5 h-5 ml-2 animate-spin" /> : "إرسال الإشعار الآن"}
-            </Button>
+            <div className="flex flex-col gap-3">
+              <Button 
+                onClick={handleSend}
+                disabled={isSending || !title || !message || (targetType === 'course' && (!targetCourseId || targetCourseId === '_none'))}
+                className="w-full h-14 bg-primary text-primary-foreground font-bold rounded-xl text-lg shadow-lg"
+              >
+                {isSending ? <Loader2 className="w-5 h-5 ml-2 animate-spin" /> : "إرسال للمنصة"}
+              </Button>
+              <Button 
+                onClick={handleWhatsAppBroadcast}
+                variant="outline"
+                className="w-full h-14 border-accent/20 text-accent font-bold rounded-xl text-lg gap-2"
+              >
+                <MessageCircle className="w-6 h-6" /> إرسال عبر واتساب
+              </Button>
+            </div>
           </CardContent>
         </Card>
 

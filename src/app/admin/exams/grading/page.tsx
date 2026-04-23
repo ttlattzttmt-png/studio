@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -19,11 +18,13 @@ import {
   XCircle,
   Save,
   MessageSquare,
-  FileText
+  FileText,
+  MessageCircle
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collectionGroup, updateDoc, doc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { sendWhatsAppMessage, formatExamResultMessage } from '@/lib/whatsapp-utils';
 
 export default function AdminGradingPage() {
   const firestore = useFirestore();
@@ -131,7 +132,7 @@ export default function AdminGradingPage() {
             </div>
           </CardHeader>
           <CardContent className="p-0 overflow-y-auto max-h-[70vh]">
-             {isLoading ? <Loader2 className="w-8 h-8 animate-spin mx-auto my-10 text-primary" /> : (
+             {isLoading ? <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /> : (
                <div className="divide-y divide-primary/5">
                  {filteredAttempts.map((attempt) => (
                    <button 
@@ -154,7 +155,13 @@ export default function AdminGradingPage() {
 
         <div className="lg:col-span-2">
           {selectedAttempt ? (
-            <AttemptDetails key={selectedAttempt.id} attempt={selectedAttempt} onRelease={handleReleaseGrades} onDelete={handleDeleteAttempt} />
+            <AttemptDetails 
+              key={selectedAttempt.id} 
+              attempt={selectedAttempt} 
+              studentInfo={studentMap[selectedAttempt.studentId]}
+              onRelease={handleReleaseGrades} 
+              onDelete={handleDeleteAttempt} 
+            />
           ) : (
             <Card className="h-[50vh] flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-[2.5rem] bg-secondary/5">
               <ClipboardList className="w-16 h-16 mb-4 opacity-10" />
@@ -174,7 +181,7 @@ function ExamNameByDoc({ courseId, contentId }: { courseId: string, contentId: s
   return <p className="text-[10px] text-primary font-bold truncate">{exam?.title || 'جاري تحميل الامتحان...'}</p>;
 }
 
-function AttemptDetails({ attempt, onRelease, onDelete }: any) {
+function AttemptDetails({ attempt, studentInfo, onRelease, onDelete }: any) {
   const firestore = useFirestore();
   const { toast } = useToast();
   
@@ -184,6 +191,9 @@ function AttemptDetails({ attempt, onRelease, onDelete }: any) {
   }, [firestore, attempt]);
   const { data: answers, isLoading } = useCollection(answersRef);
 
+  const examRef = useMemoFirebase(() => (firestore && attempt.courseId && attempt.courseContentId) ? doc(firestore, 'courses', attempt.courseId, 'content', attempt.courseContentId) : null, [firestore, attempt]);
+  const { data: examData } = useDoc(examRef);
+
   const handleUpdateAnswer = async (answerId: string, updates: any) => {
     if (!firestore || !attempt) return;
     try {
@@ -191,6 +201,29 @@ function AttemptDetails({ attempt, onRelease, onDelete }: any) {
       await updateDoc(answerRef, updates);
       toast({ title: "تم تحديث الإجابة" });
     } catch (e) { console.error(e); }
+  };
+
+  const handleSendWhatsApp = (target: 'student' | 'parent') => {
+    if (!studentInfo || !examData) {
+      toast({ variant: "destructive", title: "بيانات ناقصة", description: "جاري تحميل بيانات الطالب أو الامتحان." });
+      return;
+    }
+    
+    const phone = target === 'student' ? studentInfo.studentPhoneNumber : studentInfo.parentPhoneNumber;
+    if (!phone) {
+      toast({ variant: "destructive", title: "رقم مفقود", description: `لا يوجد رقم مسجل لـ ${target === 'student' ? 'الطالب' : 'ولي الأمر'}.` });
+      return;
+    }
+
+    const message = formatExamResultMessage(
+      studentInfo.name,
+      examData.title,
+      attempt.score,
+      attempt.pointsAchieved,
+      attempt.totalPoints
+    );
+
+    sendWhatsAppMessage(phone, message);
   };
 
   return (
@@ -203,12 +236,32 @@ function AttemptDetails({ attempt, onRelease, onDelete }: any) {
              <FileText className="w-4 h-4" />
            </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2 justify-end">
            <Button variant="outline" size="icon" className="text-destructive border-destructive/20 hover:bg-destructive/10 h-12 w-12 rounded-xl" onClick={() => onDelete(attempt)}>
              <Trash2 className="w-5 h-5" />
            </Button>
+           
+           <div className="flex gap-1">
+             <Button 
+                onClick={() => handleSendWhatsApp('student')} 
+                variant="outline" 
+                className="h-12 px-4 rounded-xl border-accent/20 text-accent font-bold gap-2"
+                title="إرسال للطالب واتساب"
+              >
+                <MessageCircle className="w-4 h-4" /> للطالب
+              </Button>
+              <Button 
+                onClick={() => handleSendWhatsApp('parent')} 
+                variant="outline" 
+                className="h-12 px-4 rounded-xl border-accent/20 text-accent font-bold gap-2"
+                title="إرسال لولي الأمر واتساب"
+              >
+                <MessageCircle className="w-4 h-4" /> لولي الأمر
+              </Button>
+           </div>
+
            <Button onClick={() => onRelease(attempt)} className="bg-accent hover:bg-accent/90 text-white font-black h-12 px-8 rounded-xl shadow-lg shadow-accent/20 gap-2">
-             <Save className="w-5 h-5" /> اعتماد الدرجة النهائية
+             <Save className="w-5 h-5" /> اعتماد الدرجة
            </Button>
         </div>
       </CardHeader>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -26,11 +25,13 @@ import {
   Trash2,
   BookOpen,
   CheckCircle2,
-  User as UserIcon
+  User as UserIcon,
+  MessageCircle
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, doc, query, orderBy, deleteDoc, collectionGroup } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { sendWhatsAppMessage } from '@/lib/whatsapp-utils';
 
 export default function AdminStudents() {
   const firestore = useFirestore();
@@ -104,7 +105,19 @@ export default function AdminStudents() {
                 <TableRow key={s.id} className="hover:bg-primary/5 transition-colors">
                   <TableCell className="font-bold">{s.name}</TableCell>
                   <TableCell className="text-right"><Badge variant="outline">{s.academicYear}</Badge></TableCell>
-                  <TableCell className="text-right font-mono" dir="ltr">{s.studentPhoneNumber}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center gap-2 justify-end">
+                      <span className="font-mono text-xs">{s.studentPhoneNumber}</span>
+                      <Button 
+                        onClick={() => sendWhatsAppMessage(s.studentPhoneNumber, `مرحباً يا بشمهندس ${s.name.split(' ')[0]}..`)} 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-7 w-7 text-accent"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
                   <TableCell className="text-left">
                     <div className="flex items-center gap-2">
                        <Button variant="secondary" size="sm" onClick={() => setSelectedStudent(s)} className="rounded-xl font-bold h-9">عرض</Button>
@@ -131,13 +144,19 @@ export default function AdminStudents() {
               </div>
               <div className="p-8">
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-                   <div className="p-4 bg-secondary/20 rounded-2xl border border-white/5">
+                   <div className="p-4 bg-secondary/20 rounded-2xl border border-white/5 space-y-2">
                       <p className="text-[10px] font-bold text-primary mb-1">هاتف الطالب</p>
-                      <p className="font-black text-sm" dir="ltr">{selectedStudent.studentPhoneNumber}</p>
+                      <div className="flex items-center justify-between flex-row-reverse">
+                        <p className="font-black text-sm" dir="ltr">{selectedStudent.studentPhoneNumber}</p>
+                        <Button onClick={() => sendWhatsAppMessage(selectedStudent.studentPhoneNumber, "")} variant="ghost" size="icon" className="h-6 w-6 text-accent"><MessageCircle className="w-4 h-4" /></Button>
+                      </div>
                    </div>
-                   <div className="p-4 bg-secondary/20 rounded-2xl border border-white/5">
+                   <div className="p-4 bg-secondary/20 rounded-2xl border border-white/5 space-y-2">
                       <p className="text-[10px] font-bold text-primary mb-1">هاتف ولي الأمر</p>
-                      <p className="font-black text-sm" dir="ltr">{selectedStudent.parentPhoneNumber}</p>
+                      <div className="flex items-center justify-between flex-row-reverse">
+                        <p className="font-black text-sm" dir="ltr">{selectedStudent.parentPhoneNumber}</p>
+                        <Button onClick={() => sendWhatsAppMessage(selectedStudent.parentPhoneNumber, "")} variant="ghost" size="icon" className="h-6 w-6 text-accent"><MessageCircle className="w-4 h-4" /></Button>
+                      </div>
                    </div>
                    <div className="p-4 bg-secondary/20 rounded-2xl border border-white/5">
                       <p className="text-[10px] font-bold text-primary mb-1">تاريخ التسجيل</p>
