@@ -1,19 +1,30 @@
 
 /**
- * @fileOverview أدوات مساعدة للربط مع واتساب - نسخة البشمهندس المتطورة
+ * @fileOverview أدوات مساعدة للربط مع واتساب - نسخة البشمهندس المتطورة (دعم الأرقام المصرية +20)
  */
 
 export const sendWhatsAppMessage = (phoneNumber: string, message: string) => {
-  // إذا لم يتم تمرير رقم، سيتم فتح الواتساب برسالة عامة ليختار المستخدم المستلم
+  // تنظيف الرقم من أي رموز غير رقمية
   const cleanNumber = phoneNumber ? phoneNumber.replace(/\D/g, '') : '';
   
   let finalNumber = cleanNumber;
-  if (cleanNumber && cleanNumber.startsWith('01')) {
-    finalNumber = `2${cleanNumber}`;
+  
+  // منطق تثبيت كود الدولة المصري
+  if (cleanNumber) {
+    if (cleanNumber.startsWith('01')) {
+      // تحويل 010... إلى 2010...
+      finalNumber = `2${cleanNumber}`;
+    } else if (cleanNumber.startsWith('1')) {
+      // تحويل 10... إلى 2010...
+      finalNumber = `20${cleanNumber}`;
+    } else if (!cleanNumber.startsWith('20') && cleanNumber.length === 10) {
+       // إذا كان الرقم 10 أرقام ولا يبدأ بـ 20، نفترض أنه ينقصه الكود
+       finalNumber = `20${cleanNumber}`;
+    }
   }
 
   // استخدام API الـ Desktop/Mobile الموحد
-  const url = cleanNumber 
+  const url = finalNumber 
     ? `https://wa.me/${finalNumber}?text=${encodeURIComponent(message)}`
     : `https://wa.me/?text=${encodeURIComponent(message)}`;
     

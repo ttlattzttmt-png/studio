@@ -11,7 +11,6 @@ import {
   CheckCircle, 
   FileQuestion, 
   Lock, 
-  Play, 
   Layout,
   Clock,
   Star,
@@ -105,7 +104,6 @@ export default function CourseViewer() {
       toast({ title: "أحسنت يا بشمهندس!", description: `تم تحديث مستوى إنجازك إلى ${newPercent}%` });
     } catch (e) { 
       console.error(e);
-      toast({ variant: "destructive", title: "خطأ في المزامنة" });
     }
   };
 
@@ -121,17 +119,10 @@ export default function CourseViewer() {
 
   if (!hasAccess) return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6 bg-background">
-      <div className="w-32 h-32 bg-primary/5 rounded-full flex items-center justify-center animate-pulse border border-primary/10">
-        <Lock className="w-16 h-16 text-primary/40" />
-      </div>
-      <div className="space-y-2">
-        <h2 className="text-3xl font-black">الكورس مقفل حالياً</h2>
-        <p className="text-muted-foreground max-w-sm font-bold">هذا الكورس يتطلب كود تفعيل. يرجى مراجعة السكرتارية أو تفعيل الكود الخاص بك.</p>
-      </div>
-      <div className="flex flex-col sm:flex-row gap-4 w-full max-w-xs">
-        <Link href="/student/redeem" className="flex-1"><Button className="w-full bg-primary font-black rounded-xl h-14 shadow-lg">تفعيل الكود الآن</Button></Link>
-        <Link href="/courses" className="flex-1"><Button variant="outline" className="w-full h-14 rounded-xl font-bold border-primary/20 text-primary">العودة للمكتبة</Button></Link>
-      </div>
+      <Lock className="w-16 h-16 text-primary/40 animate-pulse" />
+      <h2 className="text-3xl font-black">الكورس مقفل</h2>
+      <p className="text-muted-foreground max-w-sm font-bold">هذا الكورس يتطلب كود تفعيل مصري لفتحه.</p>
+      <Link href="/student/redeem"><Button className="bg-primary font-black rounded-xl h-14 px-10 shadow-lg">تفعيل كود الآن</Button></Link>
     </div>
   );
 
@@ -152,10 +143,9 @@ export default function CourseViewer() {
                       allow="autoplay; encrypted-media"
                       allowFullScreen 
                     />
-                    {/* طبقة هوية المنصة الشفافة التي لا تحجب التحكم */}
                     <div className="absolute top-6 left-6 pointer-events-none bg-primary/20 backdrop-blur-sm px-4 py-1.5 rounded-full flex items-center gap-2 border border-primary/30 shadow-lg">
                        <MonitorPlay className="w-4 h-4 text-primary" />
-                       <span className="text-[10px] font-black text-white uppercase tracking-widest">Al-Bashmohandes Player</span>
+                       <span className="text-[10px] font-black text-white uppercase tracking-widest">Cinema Pro Player</span>
                     </div>
                   </div>
                 </div>
@@ -178,7 +168,7 @@ export default function CourseViewer() {
                         "w-full md:w-auto h-14 px-8 font-black rounded-2xl shadow-xl shrink-0 gap-2 transition-all active:scale-95",
                         watchedVideos?.some(v => v.courseContentId === activeContent.id) 
                           ? "bg-accent/20 text-accent cursor-default" 
-                          : "bg-primary text-primary-foreground hover:brightness-110 shadow-primary/20"
+                          : "bg-primary text-primary-foreground shadow-primary/20"
                       )}
                     >
                       {watchedVideos?.some(v => v.courseContentId === activeContent.id) ? (
@@ -193,8 +183,6 @@ export default function CourseViewer() {
             ) : activeContent ? (
               <div className="animate-in slide-in-from-bottom-8 duration-700">
                 <Card className="bg-gradient-to-br from-primary/5 via-card to-background border-2 border-dashed border-primary/20 p-8 md:p-12 text-center space-y-8 rounded-[3rem] shadow-2xl relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl" />
-                  
                   <div className="w-24 h-24 bg-primary/10 rounded-[2rem] flex items-center justify-center mx-auto text-primary shadow-xl rotate-6 group-hover:rotate-0 transition-transform">
                     <FileQuestion className="w-12 h-12" />
                   </div>

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,25 +13,18 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   MessageCircle, 
-  Settings, 
   Send, 
   Smartphone, 
   CheckCircle2, 
-  RefreshCw, 
   Users, 
   Zap, 
-  Layout, 
-  ShieldCheck,
-  ClipboardCheck,
   Loader2,
   Trash2,
-  ArrowLeftRight,
   Search,
-  BookOpen,
-  UserCheck
+  BookOpen
 } from 'lucide-react';
 import { useFirestore, useDoc, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { doc, setDoc, collection, deleteDoc, collectionGroup, query, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, collection, deleteDoc, collectionGroup } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { sendWhatsAppMessage } from '@/lib/whatsapp-utils';
 
@@ -152,7 +145,7 @@ export default function WhatsAppDashboard() {
           <h1 className="text-4xl md:text-5xl font-headline font-black mb-2 flex items-center gap-3 justify-end">
             مركز تحكم واتساب <MessageCircle className="w-10 h-10 text-accent" />
           </h1>
-          <p className="text-muted-foreground font-bold text-lg">أدر تواصلك مع الطلاب وأولياء الأمور بذكاء واحترافية.</p>
+          <p className="text-muted-foreground font-bold text-lg">نظام تواصل مصري (كود الدولة +20 مثبت تلقائياً).</p>
         </div>
       </div>
 
@@ -168,7 +161,6 @@ export default function WhatsAppDashboard() {
 
         <TabsContent value="broadcast" className="space-y-8">
            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* قائمة اختيار الطلاب */}
               <Card className="lg:col-span-1 bg-card border-primary/10 rounded-[2rem] overflow-hidden flex flex-col h-[700px]">
                  <CardHeader className="bg-secondary/10 border-b p-6">
                     <div className="space-y-4">
@@ -229,17 +221,16 @@ export default function WhatsAppDashboard() {
                  </div>
               </Card>
 
-              {/* منطقة كتابة الرسالة */}
               <Card className="lg:col-span-2 bg-card border-primary/10 rounded-[2rem] overflow-hidden shadow-2xl flex flex-col h-[700px]">
                  <CardHeader className="bg-secondary/10 p-8 border-b">
                     <CardTitle className="text-3xl font-black">إرسال الرسالة الجماعية</CardTitle>
-                    <CardDescription className="font-bold">سيتم إرسال هذا النص لكافة الطلاب المحددين في القائمة الجانبية.</CardDescription>
+                    <CardDescription className="font-bold">سيتم إرسال هذا النص لكافة الطلاب المحددين، كود مصر (+20) سيُضاف تلقائياً.</CardDescription>
                  </CardHeader>
                  <CardContent className="p-8 flex-grow flex flex-col gap-8">
                     <div className="flex-grow flex flex-col gap-4">
                        <label className="text-sm font-black flex items-center gap-2 justify-end">نص الرسالة <MessageCircle className="w-5 h-5 text-primary" /></label>
                        <Textarea 
-                         placeholder="اكتب رسالتك هنا.. يمكنك استخدام قوالب جاهزة من قسم القوالب."
+                         placeholder="اكتب رسالتك هنا.. سيتم فتح محادثة كل طالب تباعاً."
                          className="flex-grow bg-secondary/10 rounded-[2rem] border-primary/10 p-8 font-bold text-xl leading-relaxed text-right"
                          value={broadcastMessage}
                          onChange={(e) => setBroadcastMessage(e.target.value)}
@@ -249,7 +240,7 @@ export default function WhatsAppDashboard() {
                     <div className="space-y-4">
                        <div className="flex items-center gap-3 bg-accent/5 p-4 rounded-2xl border border-accent/10">
                           <Zap className="w-5 h-5 text-accent animate-pulse" />
-                          <p className="text-xs font-bold text-accent">ملاحظة: سيتم فتح واتساب لكل مستلم تباعاً لضمان عدم حظر رقمك.</p>
+                          <p className="text-xs font-bold text-accent">ملاحظة: النظام يحمي رقمك من الحظر عبر فتح المحادثات يدوياً وبسرعة.</p>
                        </div>
                        <Button 
                          className="w-full h-20 bg-accent hover:bg-accent/90 text-white font-black text-2xl rounded-[2rem] shadow-2xl shadow-accent/20 gap-4 transition-transform active:scale-95"
@@ -267,8 +258,8 @@ export default function WhatsAppDashboard() {
         <TabsContent value="sender">
            <Card className="max-w-2xl mx-auto bg-card border-primary/10 rounded-[2.5rem] overflow-hidden shadow-2xl">
               <CardHeader className="bg-secondary/10 p-8 border-b text-center">
-                <CardTitle className="text-2xl font-black">إعدادات رقم الإرسال</CardTitle>
-                <CardDescription className="font-bold">هذا الرقم يستخدم كمرجع وهوية للمنصة في المراسلات.</CardDescription>
+                <CardTitle className="text-2xl font-black">إعدادات رقم الإرسال المصري</CardTitle>
+                <CardDescription className="font-bold">أدخل الرقم كما هو (مثلاً 0100...)، النظام سيتولى الباقي.</CardDescription>
               </CardHeader>
               <CardContent className="p-8 space-y-8">
                 {config?.senderNumber ? (
@@ -277,7 +268,7 @@ export default function WhatsAppDashboard() {
                        <p className="text-xs font-bold text-muted-foreground mb-2 uppercase">الرقم المتصل حالياً</p>
                        <p className="text-4xl font-black text-accent tracking-widest" dir="ltr">{config.senderNumber}</p>
                        <div className="flex items-center justify-center gap-2 mt-4 text-accent font-black text-sm">
-                          <CheckCircle2 className="w-5 h-5" /> الربط نشط ويعمل كمرجع
+                          <CheckCircle2 className="w-5 h-5" /> الربط نشط ويعمل كمرجع مصري
                        </div>
                     </div>
                     <Button onClick={handleRemoveConfig} variant="outline" className="w-full h-14 rounded-2xl border-destructive/20 text-destructive font-black gap-2 hover:bg-destructive/5">
@@ -287,16 +278,16 @@ export default function WhatsAppDashboard() {
                 ) : (
                   <div className="space-y-6">
                     <div className="space-y-3">
-                       <label className="text-sm font-bold flex items-center gap-2 justify-end">أدخل رقم الواتساب (بمفتاح الدولة) <Smartphone className="w-4 h-4 text-primary" /></label>
+                       <label className="text-sm font-bold flex items-center gap-2 justify-end">أدخل رقم الواتساب المصري <Smartphone className="w-4 h-4 text-primary" /></label>
                        <Input 
-                         placeholder="مثال: 201008006562" 
+                         placeholder="مثال: 01008006562" 
                          className="h-16 text-center text-2xl font-black tracking-widest rounded-2xl bg-secondary/20 border-primary/20"
                          value={newSenderNumber}
                          onChange={(e) => setNewSenderNumber(e.target.value)}
                        />
                     </div>
                     <Button onClick={handleSaveConfig} disabled={isSaving || !newSenderNumber} className="w-full h-16 bg-primary text-primary-foreground font-black text-lg rounded-2xl shadow-xl shadow-primary/20">
-                      {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : "ربط الرقم الآن 🔗"}
+                      {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : "ربط الرقم المصري الآن 🇪🇬"}
                     </Button>
                   </div>
                 )}

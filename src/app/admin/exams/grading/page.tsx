@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -14,7 +15,6 @@ import {
   Trash2,
   Clock,
   RefreshCw,
-  User as UserIcon,
   XCircle,
   Save,
   MessageSquare,
@@ -33,6 +33,7 @@ export default function AdminGradingPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
 
+  // جلب الطلاب لبناء خارطة البحث بالاسم الرباعي
   const studentsRef = useMemoFirebase(() => (firestore ? collection(firestore, 'students') : null), [firestore]);
   const { data: allStudents } = useCollection(studentsRef);
 
@@ -110,11 +111,11 @@ export default function AdminGradingPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-headline font-bold mb-2">مركز التصحيح والاعتماد</h1>
-          <p className="text-muted-foreground font-bold">راجع إجابات الطلاب، عدل الدرجات، واعتمد النتيجة النهائية.</p>
+          <p className="text-muted-foreground font-bold">راجع إجابات الطلاب بالاسم الرباعي، وراسل أولياء الأمور.</p>
         </div>
         <div className="bg-primary/10 text-primary px-4 py-2 rounded-xl border border-primary/20 flex items-center gap-2">
           <RefreshCw className="w-4 h-4 animate-spin-slow" />
-          <span className="text-xs font-black">تزامن مباشر: {filteredAttempts.length} محاولة</span>
+          <span className="text-xs font-black">تزامن حي: {filteredAttempts.length} محاولة</span>
         </div>
       </div>
 
