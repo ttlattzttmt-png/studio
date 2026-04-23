@@ -103,11 +103,12 @@ export default function AdminExams() {
     toast({ title: "تم الحذف" });
   };
 
+  // إرسال نتائج مخصصة لكل طالب في هذا الامتحان بالتحديد
   const handleSendBatchResults = async (exam: any) => {
     if (!firestore) return;
     setIsBatchSending(exam.id);
     try {
-      // 1. جلب كافة المحاولات لهذا الاختبار
+      // 1. جلب كافة المحاولات المصححة لهذا الاختبار حصراً
       const attemptsRef = collectionGroup(firestore, 'quiz_attempts');
       const q = query(attemptsRef, where('courseContentId', '==', exam.id), where('isGraded', '==', true));
       const snap = await getDocs(q);
@@ -118,25 +119,37 @@ export default function AdminExams() {
         return;
       }
 
-      // 2. جلب أرقام هواتف الطلاب
+      // 2. جلب أرقام هواتف الطلاب لبناء رسائل شخصية
       const studentsRef = collection(firestore, 'students');
       const studentsSnap = await getDocs(studentsRef);
       const studentMap: any = {};
       studentsSnap.forEach(d => { studentMap[d.id] = d.data(); });
 
-      // 3. فتح أول محادثة وتجهيز القائمة للمسؤول
-      const firstAttempt = snap.docs[0].data();
+      // 3. فتح أول محادثة شخصية وتجهيز الباقي للمسؤول
+      const results = snap.docs.map(d => d.data());
+      const firstAttempt = results[0];
       const firstStudent = studentMap[firstAttempt.studentId];
       
       if (firstStudent) {
-        const msg = formatExamResultMessage(firstStudent.name, exam.title, firstAttempt.score, firstAttempt.pointsAchieved, firstAttempt.totalPoints);
+        const msg = formatExamResultMessage(
+          firstStudent.name, 
+          exam.title, 
+          firstAttempt.score, 
+          firstAttempt.pointsAchieved, 
+          firstAttempt.totalPoints
+        );
         sendWhatsAppMessage(firstStudent.studentPhoneNumber, msg);
         toast({ 
-          title: `تم تجهيز ${snap.size} نتيجة`, 
-          description: "تم فتح أول محادثة، يرجى الانتقال لمركز الواتساب لإرسال البقية جماعياً إذا أردت." 
+          title: `تم تجهيز ${results.length} نتيجة شخصية`, 
+          description: "تم فتح محادثة أول طالب، يرجى الانتقال لمركز الواتساب لمتابعة البقية إذا أردت إرسالهم يدوياً." 
         });
       }
-    } catch (e) { console.error(e); } finally { setIsBatchSending(null); }
+    } catch (e) { 
+      console.error(e); 
+      toast({ variant: "destructive", title: "خطأ في الجلب", description: "تأكد من استقرار الإنترنت وصلاحيات السيرفر." });
+    } finally { 
+      setIsBatchSending(null); 
+    }
   };
 
   if (isUserLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 animate-spin text-primary" /></div>;
@@ -146,7 +159,7 @@ export default function AdminExams() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-headline font-bold mb-2">إدارة الاختبارات المتقدمة</h1>
-          <p className="text-muted-foreground">تحكم في ظهور الاختبارات، عرض النتائج، ومراسلة الطلاب بالدرجات.</p>
+          <p className="text-muted-foreground">تحكم في ظهور الاختبارات، عرض النتائج، ومراسلة الطلاب بالدرجات المخصصة.</p>
         </div>
         <Dialog>
           <DialogTrigger asChild>
@@ -174,11 +187,11 @@ export default function AdminExams() {
               </div>
               <div className="space-y-2">
                 <Label>عنوان الاختبار</Label>
-                <Input placeholder="عنوان الاختبار" className="text-right" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} />
+                <Input placeholder="مثال: امتحان الشهر - فيزياء" className="text-right" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} />
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={handleAddExam} disabled={isAdding} className="w-full h-12 bg-primary font-bold">نشر الاختبار</Button>
+              <Button onClick={handleAddExam} disabled={isAdding} className="w-full h-12 bg-primary font-bold">نشر الاختبار للمنصة</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -198,7 +211,7 @@ export default function AdminExams() {
           {!activeCourseId ? (
             <div className="text-center py-24 text-muted-foreground italic flex flex-col items-center gap-4">
               <Settings2 className="w-16 h-16 opacity-10" />
-              <p className="text-xl">يرجى اختيار كورس لعرض الاختبارات.</p>
+              <p className="text-xl font-bold">يرجى اختيار كورس من القائمة لعرض الاختبارات المرتبطة به.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -215,7 +228,7 @@ export default function AdminExams() {
                     </div>
 
                     <div className="flex flex-col gap-3">
-                       <Button className="w-full bg-primary font-bold h-12 rounded-xl shadow-lg" onClick={() => setSelectedExamForQuestions(exam)}>إدارة الأسئلة</Button>
+                       <Button className="w-full bg-primary font-bold h-12 rounded-xl shadow-lg" onClick={() => setSelectedExamForQuestions(exam)}>تعديل الأسئلة</Button>
                        
                        <Button 
                          variant="outline" 
@@ -224,7 +237,7 @@ export default function AdminExams() {
                          onClick={() => handleSendBatchResults(exam)}
                        >
                          {isBatchSending === exam.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
-                         إرسال النتائج للكل (واتساب)
+                         إرسال النتائج الشخصية (واتساب)
                        </Button>
 
                        <Button variant="outline" className="w-full gap-2 h-11 rounded-xl font-bold border-dashed" onClick={() => updateDoc(doc(firestore!, 'courses', exam.courseId, 'content', exam.id), { isVisible: !exam.isVisible })}>
@@ -249,7 +262,7 @@ export default function AdminExams() {
              {selectedExamForQuestions && <QuestionManager exam={selectedExamForQuestions} />}
           </div>
           <DialogFooter className="p-4 border-t bg-secondary/5">
-            <Button onClick={() => setSelectedExamForQuestions(null)} className="w-full font-bold h-12 rounded-xl">إغلاق</Button>
+            <Button onClick={() => setSelectedExamForQuestions(null)} className="w-full font-bold h-12 rounded-xl">إغلاق النافذة</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -292,24 +305,24 @@ function QuestionManager({ exam }: { exam: any }) {
         <h4 className="font-black text-lg text-primary text-right">إضافة سؤال جديد</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-right">
           <div className="space-y-1"><Label>نص السؤال</Label><Input className="text-right" value={newQ.text} onChange={(e) => setNewQ({...newQ, text: e.target.value})} /></div>
-          <div className="space-y-1"><Label>رابط الصورة</Label><Input className="text-right" value={newQ.imageUrl} onChange={(e) => setNewQ({...newQ, imageUrl: e.target.value})} /></div>
+          <div className="space-y-1"><Label>رابط صورة السؤال</Label><Input className="text-right" value={newQ.imageUrl} onChange={(e) => setNewQ({...newQ, imageUrl: e.target.value})} /></div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Select value={newQ.type} onValueChange={(v) => setNewQ({...newQ, type: v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="MCQ">MCQ</SelectItem><SelectItem value="Essay">Essay</SelectItem></SelectContent></Select>
+          <Select value={newQ.type} onValueChange={(v) => setNewQ({...newQ, type: v})}><SelectTrigger className="text-right"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="MCQ">MCQ (اختياري)</SelectItem><SelectItem value="Essay">Essay (مقالي)</SelectItem></SelectContent></Select>
           <Input type="number" value={newQ.points} onChange={(e) => setNewQ({...newQ, points: e.target.value})} placeholder="النقاط" className="text-center" />
-          <Button onClick={handleAddQuestion} disabled={isAdding || !newQ.text} className="bg-primary font-black rounded-xl h-10">{isAdding ? "جاري..." : "إضافة"}</Button>
+          <Button onClick={handleAddQuestion} disabled={isAdding || !newQ.text} className="bg-primary font-black rounded-xl h-10">{isAdding ? "جاري الحفظ..." : "إضافة السؤال"}</Button>
         </div>
       </Card>
 
       <div className="space-y-4">
         {questions?.map((q, idx) => (
-          <Card key={q.id} className="p-6 text-right relative bg-background shadow-sm rounded-2xl group">
+          <Card key={q.id} className="p-6 text-right relative bg-background shadow-sm rounded-2xl group border-primary/5">
             <div className="flex justify-between items-center mb-4">
                <Badge className="bg-primary/10 text-primary border-none">{q.points} نقطة</Badge>
                <Button variant="ghost" size="icon" className="text-destructive h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => deleteDoc(doc(firestore!, 'courses', exam.courseId, 'content', exam.id, 'questions', q.id))}><Trash2 className="w-4 h-4" /></Button>
             </div>
-            <p className="font-bold text-lg">{idx + 1}. {q.questionText}</p>
-            {q.questionImageUrl && <img src={q.questionImageUrl} alt="" className="max-h-32 rounded-xl mt-4 mx-auto" />}
+            <p className="font-bold text-lg leading-relaxed">{idx + 1}. {q.questionText}</p>
+            {q.questionImageUrl && <img src={q.questionImageUrl} alt="" className="max-h-32 rounded-xl mt-4 mx-auto shadow-md border" />}
             {q.questionType === 'MCQ' && <MCQOptionsManager exam={exam} question={q} />}
           </Card>
         ))}
@@ -328,24 +341,24 @@ function MCQOptionsManager({ exam, question }: any) {
     <div className="mt-4 pt-4 border-t border-dashed border-primary/10">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
         {options?.map(opt => (
-          <div key={opt.id} className={`flex flex-row-reverse items-center justify-between p-3 rounded-xl border-2 transition-all ${opt.isCorrect ? 'border-accent bg-accent/5' : 'border-secondary'}`}>
+          <div key={opt.id} className={`flex flex-row-reverse items-center justify-between p-3 rounded-xl border-2 transition-all ${opt.isCorrect ? 'border-accent bg-accent/5' : 'border-secondary bg-background'}`}>
              <div className="flex items-center gap-2 flex-row-reverse">
                 <button onClick={() => {
                   options.forEach(o => updateDoc(doc(firestore!, 'courses', exam.courseId, 'content', exam.id, 'questions', question.id, 'options', o.id), { isCorrect: o.id === opt.id }));
-                }} className={`w-5 h-5 rounded-full border-2 ${opt.isCorrect ? 'bg-accent border-accent' : 'border-muted'}`} />
+                }} className={`w-5 h-5 rounded-full border-2 transition-colors ${opt.isCorrect ? 'bg-accent border-accent' : 'border-muted-foreground/30 hover:border-accent'}`} />
                 <span className="text-xs font-bold">{opt.optionText}</span>
              </div>
-             <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => deleteDoc(doc(firestore!, 'courses', exam.courseId, 'content', exam.id, 'questions', question.id, 'options', opt.id))}><Trash2 className="w-3 h-3" /></Button>
+             <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={() => deleteDoc(doc(firestore!, 'courses', exam.courseId, 'content', exam.id, 'questions', question.id, 'options', opt.id))}><Trash2 className="w-3 h-3" /></Button>
           </div>
         ))}
       </div>
       <div className="flex gap-2">
-        <Input className="text-right h-10 bg-secondary/10" placeholder="خيار جديد..." value={newOpt} onChange={(e) => setNewOpt(e.target.value)} />
+        <Input className="text-right h-10 bg-secondary/10" placeholder="اكتب خياراً جديداً..." value={newOpt} onChange={(e) => setNewOpt(e.target.value)} />
         <Button onClick={async () => {
           if(!newOpt) return;
           await addDoc(collection(firestore!, 'courses', exam.courseId, 'content', exam.id, 'questions', question.id, 'options'), { optionText: newOpt, isCorrect: false });
           setNewOpt('');
-        }} className="bg-primary h-10 rounded-lg font-bold">إضافة</Button>
+        }} className="bg-primary h-10 rounded-lg font-bold">أضف الخيار</Button>
       </div>
     </div>
   );
