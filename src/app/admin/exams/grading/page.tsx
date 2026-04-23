@@ -5,6 +5,8 @@ import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   Loader2, 
   Search,
@@ -14,7 +16,11 @@ import {
   Clock,
   RefreshCw,
   User as UserIcon,
-  HelpCircle
+  HelpCircle,
+  XCircle,
+  Save,
+  MessageSquare,
+  FileText
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collectionGroup, updateDoc, doc, collection, getDocs, deleteDoc } from 'firebase/firestore';
@@ -70,15 +76,6 @@ export default function AdminGradingPage() {
     } catch (e) { console.error(e); }
   };
 
-  const handleGradeAnswer = async (answer: any, isCorrect: boolean, score: number) => {
-    if (!firestore || !selectedAttempt) return;
-    try {
-      const answerRef = doc(firestore, 'students', selectedAttempt.studentId, 'quiz_attempts', selectedAttempt.id, 'answers', answer.id);
-      await updateDoc(answerRef, { isCorrect, scoreAchieved: score });
-      toast({ title: "تم التحديث" });
-    } catch (e) { console.error(e); }
-  };
-
   const handleReleaseGrades = async (attempt: any) => {
     if (!firestore) return;
     try {
@@ -89,8 +86,8 @@ export default function AdminGradingPage() {
       let totalMaxPoints = 0;
       answersSnap.forEach(doc => {
         const data = doc.data();
-        totalScoreAchieved += (data.scoreAchieved || 0);
-        totalMaxPoints += (data.maxPoints || 0);
+        totalScoreAchieved += (Number(data.scoreAchieved) || 0);
+        totalMaxPoints += (Number(data.maxPoints) || 0);
       });
       const finalPercentage = totalMaxPoints > 0 ? Math.round((totalScoreAchieved / totalMaxPoints) * 100) : 0;
 
@@ -101,8 +98,8 @@ export default function AdminGradingPage() {
         totalPoints: totalMaxPoints
       });
 
-      toast({ title: "تم الاعتماد", description: `الدرجة: ${finalPercentage}%` });
-      setSelectedAttempt({ ...attempt, isGraded: true, score: finalPercentage });
+      toast({ title: "تم الاعتماد", description: `الدرجة النهائية: ${finalPercentage}%` });
+      setSelectedAttempt({ ...attempt, isGraded: true, score: finalPercentage, pointsAchieved: totalScoreAchieved, totalPoints: totalMaxPoints });
     } catch (e) { console.error(e); }
   };
 
@@ -113,22 +110,22 @@ export default function AdminGradingPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-headline font-bold mb-2">مركز التصحيح والاعتماد</h1>
-          <p className="text-muted-foreground font-bold">البحث متاح بالاسم الرباعي الحقيقي للطالب.</p>
+          <p className="text-muted-foreground font-bold">راجع إجابات الطلاب، عدل الدرجات، واعتمد النتيجة النهائية.</p>
         </div>
         <div className="bg-primary/10 text-primary px-4 py-2 rounded-xl border border-primary/20 flex items-center gap-2">
           <RefreshCw className="w-4 h-4 animate-spin-slow" />
-          <span className="text-xs font-black">حيّ: {filteredAttempts.length} محاولة</span>
+          <span className="text-xs font-black">تزامن مباشر: {filteredAttempts.length} محاولة</span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-1 bg-card border-primary/10 shadow-xl overflow-hidden rounded-3xl">
+        <Card className="lg:col-span-1 bg-card border-primary/10 shadow-xl overflow-hidden rounded-3xl h-fit">
           <CardHeader className="border-b bg-secondary/5 p-4">
             <div className="relative">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input 
                 placeholder="ابحث بالاسم الرباعي..." 
-                className="w-full bg-background border-primary/10 rounded-xl h-12 pr-10 text-right text-xs font-bold" 
+                className="w-full bg-background border-primary/10 rounded-xl h-12 pr-10 text-right text-xs font-bold focus:border-primary outline-none" 
                 value={searchTerm} 
                 onChange={(e) => setSearchTerm(e.target.value)} 
               />
@@ -145,11 +142,12 @@ export default function AdminGradingPage() {
                    >
                      <div className="flex justify-between items-center">
                         <span className="text-xs font-black text-foreground">{studentMap[attempt.studentId]?.name || attempt.studentName || 'جاري التحميل...'}</span>
-                        <Badge className="text-[9px]" variant={attempt.isGraded ? 'default' : 'secondary'}>{attempt.isGraded ? 'مكتمل' : 'مراجعة'}</Badge>
+                        <Badge className="text-[9px]" variant={attempt.isGraded ? 'default' : 'secondary'}>{attempt.isGraded ? 'مكتمل' : 'بانتظار المراجعة'}</Badge>
                      </div>
                      <ExamNameByDoc courseId={attempt.courseId} contentId={attempt.courseContentId} />
                    </button>
                  ))}
+                 {filteredAttempts.length === 0 && <p className="p-10 text-center text-xs text-muted-foreground italic">لا توجد محاولات مطابقة.</p>}
                </div>
              )}
           </CardContent>
@@ -157,11 +155,11 @@ export default function AdminGradingPage() {
 
         <div className="lg:col-span-2">
           {selectedAttempt ? (
-            <AttemptDetails attempt={selectedAttempt} onGrade={handleGradeAnswer} onRelease={handleReleaseGrades} onDelete={handleDeleteAttempt} />
+            <AttemptDetails key={selectedAttempt.id} attempt={selectedAttempt} onRelease={handleReleaseGrades} onDelete={handleDeleteAttempt} />
           ) : (
-            <Card className="h-[50vh] flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-3xl">
-              <ClipboardList className="w-12 h-12 mb-4 opacity-10" />
-              <p className="text-sm font-bold">اختر محاولة لمراجعتها.</p>
+            <Card className="h-[50vh] flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-[2.5rem] bg-secondary/5">
+              <ClipboardList className="w-16 h-16 mb-4 opacity-10" />
+              <p className="text-lg font-black opacity-20">اختر محاولة طالب من القائمة الجانبية للبدء.</p>
             </Card>
           )}
         </div>
@@ -177,45 +175,118 @@ function ExamNameByDoc({ courseId, contentId }: { courseId: string, contentId: s
   return <p className="text-[10px] text-primary font-bold truncate">{exam?.title || 'جاري تحميل الامتحان...'}</p>;
 }
 
-function AttemptDetails({ attempt, onGrade, onRelease, onDelete }: any) {
+function AttemptDetails({ attempt, onRelease, onDelete }: any) {
   const firestore = useFirestore();
+  const { toast } = useToast();
+  
   const answersRef = useMemoFirebase(() => {
     if (!firestore || !attempt?.studentId || !attempt?.id) return null;
     return collection(firestore, 'students', attempt.studentId, 'quiz_attempts', attempt.id, 'answers');
   }, [firestore, attempt]);
   const { data: answers, isLoading } = useCollection(answersRef);
 
+  const handleUpdateAnswer = async (answerId: string, updates: any) => {
+    if (!firestore || !attempt) return;
+    try {
+      const answerRef = doc(firestore, 'students', attempt.studentId, 'quiz_attempts', attempt.id, 'answers', answerId);
+      await updateDoc(answerRef, updates);
+      toast({ title: "تم تحديث الإجابة" });
+    } catch (e) { console.error(e); }
+  };
+
   return (
-    <Card className="bg-card border-primary/20 shadow-2xl rounded-3xl overflow-hidden flex flex-col">
-      <CardHeader className="border-b bg-secondary/5 flex flex-row items-center justify-between p-6">
-        <div className="text-right">
-           <CardTitle className="text-xl font-black text-primary">{attempt.score}%</CardTitle>
-           <p className="text-[10px] font-bold text-muted-foreground">النقاط: {attempt.pointsAchieved || 0} من {attempt.totalPoints || 0}</p>
+    <Card className="bg-card border-primary/20 shadow-2xl rounded-[2.5rem] overflow-hidden flex flex-col h-fit">
+      <CardHeader className="border-b bg-secondary/10 flex flex-col md:flex-row md:items-center justify-between p-8 gap-4">
+        <div className="text-right space-y-1">
+           <CardTitle className="text-3xl font-black text-primary">{attempt.score}%</CardTitle>
+           <p className="text-xs font-bold text-muted-foreground flex items-center gap-2 justify-end">
+             إجمالي النقاط: {attempt.pointsAchieved || 0} من {attempt.totalPoints || 0}
+             <FileText className="w-4 h-4" />
+           </p>
         </div>
-        <div className="flex gap-2">
-           <Button variant="ghost" size="icon" className="text-destructive" onClick={() => onDelete(attempt)}><Trash2 className="w-4 h-4" /></Button>
-           <Button onClick={() => onRelease(attempt)} className="bg-accent font-black h-10 px-6 rounded-xl">اعتماد الدرجة</Button>
+        <div className="flex gap-3">
+           <Button variant="outline" size="icon" className="text-destructive border-destructive/20 hover:bg-destructive/10 h-12 w-12 rounded-xl" onClick={() => onDelete(attempt)}>
+             <Trash2 className="w-5 h-5" />
+           </Button>
+           <Button onClick={() => onRelease(attempt)} className="bg-accent hover:bg-accent/90 text-white font-black h-12 px-8 rounded-xl shadow-lg shadow-accent/20 gap-2">
+             <Save className="w-5 h-5" /> اعتماد الدرجة النهائية
+           </Button>
         </div>
       </CardHeader>
       
-      <CardContent className="p-6 space-y-4">
-        {isLoading ? <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /> : 
+      <CardContent className="p-8 space-y-10">
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <Loader2 className="w-12 h-12 animate-spin text-primary" />
+            <p className="text-muted-foreground font-bold">جاري جلب إجابات الطالب...</p>
+          </div>
+        ) : (
           answers?.map((ans, i) => (
-            <div key={ans.id} className="p-5 bg-secondary/10 rounded-2xl border border-white/5 text-right space-y-3">
-               <div className="flex justify-between items-center">
-                  <Badge variant="outline" className="text-[10px]">سؤال {i+1}</Badge>
-                  <div className="flex gap-1">
-                     <Button size="sm" variant={ans.isCorrect ? 'default' : 'outline'} onClick={() => handleGradeAnswer(ans, true, ans.maxPoints ?? 10)}>صحيح</Button>
-                     <Button size="sm" variant={ans.isCorrect === false ? 'destructive' : 'outline'} onClick={() => handleGradeAnswer(ans, false, 0)}>خطأ</Button>
-                  </div>
-               </div>
-               <div className="p-4 bg-background rounded-xl text-sm font-bold">
-                  {ans.questionType === 'MCQ' ? `الخيار المختار: ${ans.mcqSelectedOptionId}` : ans.essayAnswerText || 'لا توجد إجابة'}
-               </div>
-            </div>
+            <AnswerRow key={ans.id} index={i} answer={ans} onUpdate={(updates) => handleUpdateAnswer(ans.id, updates)} courseId={attempt.courseId} examId={attempt.courseContentId} />
           ))
-        }
+        )}
       </CardContent>
     </Card>
   );
 }
+
+function AnswerRow({ index, answer, onUpdate, courseId, examId }: any) {
+  const firestore = useFirestore();
+  const qRef = useMemoFirebase(() => (firestore && courseId && examId && answer.questionId) ? doc(firestore, 'courses', courseId, 'content', examId, 'questions', answer.questionId) : null, [firestore, courseId, examId, answer.questionId]);
+  const { data: question } = useDoc(qRef);
+
+  return (
+    <div className="p-6 bg-secondary/5 rounded-[2rem] border border-white/5 text-right space-y-6 relative overflow-hidden group hover:border-primary/20 transition-all">
+       <div className="flex justify-between items-center mb-2">
+          <Badge variant="outline" className="text-[10px] font-bold border-primary/20 text-primary">سؤال {index + 1}</Badge>
+          <div className="flex items-center gap-3">
+             <span className="text-[10px] font-black text-muted-foreground uppercase">{answer.questionType}</span>
+             <Badge className={answer.isCorrect ? "bg-accent" : "bg-destructive"}>
+                {answer.isCorrect ? "صحيحة" : "خاطئة"}
+             </Badge>
+          </div>
+       </div>
+
+       <div className="space-y-4">
+          <div className="p-4 bg-background/50 rounded-2xl border border-dashed border-white/10">
+             <p className="text-sm font-bold text-foreground mb-3">{question?.questionText || 'جاري تحميل السؤال...'}</p>
+             {question?.questionImageUrl && <img src={question.questionImageUrl} className="max-h-32 rounded-xl mb-3 shadow-md" alt="" />}
+             <div className="bg-primary/5 p-4 rounded-xl">
+                <p className="text-[10px] text-primary font-black mb-1">إجابة الطالب:</p>
+                <p className="text-sm font-bold">{answer.questionType === 'MCQ' ? `الخيار المختار: ${answer.mcqSelectedOptionId}` : answer.essayAnswerText || 'لم يكتب إجابة'}</p>
+             </div>
+          </div>
+       </div>
+
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+          <div className="space-y-3">
+             <label className="text-[10px] font-black text-muted-foreground">تعديل درجة السؤال (من {answer.maxPoints || 10})</label>
+             <div className="flex gap-2">
+                <Input 
+                   type="number" 
+                   value={answer.scoreAchieved} 
+                   onChange={(e) => onUpdate({ scoreAchieved: Number(e.target.value) })}
+                   className="h-12 bg-background border-primary/10 text-center font-black rounded-xl"
+                />
+                <Button variant="outline" size="sm" onClick={() => onUpdate({ isCorrect: true, scoreAchieved: answer.maxPoints || 10 })} className="h-12 px-4 rounded-xl gap-1 text-accent border-accent/20 hover:bg-accent/5">
+                   <CheckCircle className="w-4 h-4" /> صحيح
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => onUpdate({ isCorrect: false, scoreAchieved: 0 })} className="h-12 px-4 rounded-xl gap-1 text-destructive border-destructive/20 hover:bg-destructive/5">
+                   <XCircle className="w-4 h-4" /> خطأ
+                </Button>
+             </div>
+          </div>
+          <div className="space-y-2">
+             <label className="text-[10px] font-black text-muted-foreground flex items-center gap-1 justify-end">ملاحظات المعلم للطالب <MessageSquare className="w-3 h-3" /></label>
+             <Textarea 
+               placeholder="اكتب ملاحظة الطالب هنا..."
+               value={answer.adminFeedback || ''}
+               onChange={(e) => onUpdate({ adminFeedback: e.target.value })}
+               className="h-12 min-h-[48px] bg-background border-primary/10 rounded-xl text-xs py-2"
+             />
+          </div>
+       </div>
+    </div>
+  );
+}
+

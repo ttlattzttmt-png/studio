@@ -76,7 +76,7 @@ export default function CourseViewer() {
     if (!firestore || !user || !id || !studentProfile) return;
     try {
       const videoLogRef = doc(firestore, 'students', user.uid, 'video_progress', contentId);
-      const videoDuration = activeContent?.durationInSeconds || 600;
+      const videoDuration = 600; // مدة افتراضية 10 دقائق
 
       await setDoc(videoLogRef, {
         studentId: user.uid,
@@ -142,31 +142,22 @@ export default function CourseViewer() {
           <div className="lg:col-span-2 space-y-6">
             {activeContent?.contentType === 'Video' ? (
               <div className="space-y-6 animate-in fade-in duration-500">
-                {/* مشغل فيديوهات البشمهندس الاحترافي المحدث - حاوية براندينج بدون قص التحكم */}
                 <div className="relative group">
-                  <div className="aspect-video bg-black rounded-3xl overflow-hidden border-[6px] border-secondary/50 shadow-2xl relative shadow-primary/10 ring-1 ring-white/5">
-                    
-                    {/* طبقة التحكم والتشغيل الأصلية مع مسافة أمان */}
+                  <div className="aspect-video bg-black rounded-3xl overflow-hidden border-[6px] border-secondary shadow-2xl relative shadow-primary/10">
                     <iframe 
                       src={`https://www.youtube.com/embed/${getYouTubeId(activeContent.youtubeLink)}?rel=0&modestbranding=1&autoplay=1&iv_load_policy=3`} 
                       className="w-full h-full"
                       allow="autoplay; encrypted-media"
                       allowFullScreen 
                     />
-
-                    {/* علامات حماية بصرية لا تمنع التحكم */}
-                    <div className="absolute top-4 left-4 pointer-events-none bg-primary/80 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 flex items-center gap-2 shadow-xl opacity-50 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute top-4 left-4 pointer-events-none bg-primary/80 backdrop-blur-md px-3 py-1 rounded-full flex items-center gap-2 shadow-xl opacity-50">
                        <MonitorPlay className="w-3 h-3 text-black" />
                        <span className="text-[8px] font-black text-black uppercase tracking-widest">AL-BASHMOHANDES PRO</span>
-                    </div>
-
-                    <div className="absolute bottom-16 right-4 pointer-events-none opacity-20 text-[10px] font-black text-white italic">
-                      SECURE STREAM - {user?.uid.slice(0,8)}
                     </div>
                   </div>
                 </div>
 
-                <Card className="bg-card/40 backdrop-blur-xl p-6 rounded-3xl border-primary/10 shadow-xl relative overflow-hidden">
+                <Card className="bg-card/40 backdrop-blur-xl p-6 rounded-3xl border-primary/10 shadow-xl">
                   <div className="flex flex-col md:flex-row-reverse justify-between items-center gap-6">
                     <div className="w-full text-right space-y-2">
                       <div className="flex items-center gap-2 justify-end">
@@ -183,7 +174,7 @@ export default function CourseViewer() {
                       className={cn(
                         "w-full md:w-auto h-14 px-8 font-black rounded-2xl shadow-xl shrink-0 gap-2 transition-all active:scale-95",
                         watchedVideos?.some(v => v.courseContentId === activeContent.id) 
-                          ? "bg-accent/20 text-accent cursor-default border border-accent/20" 
+                          ? "bg-accent/20 text-accent cursor-default" 
                           : "bg-primary text-primary-foreground hover:brightness-110 shadow-primary/20"
                       )}
                     >
@@ -198,7 +189,7 @@ export default function CourseViewer() {
               </div>
             ) : activeContent ? (
               <div className="animate-in slide-in-from-bottom-8 duration-700">
-                <Card className="bg-gradient-to-br from-primary/5 via-card to-background border-2 border-dashed border-primary/20 p-8 md:p-16 text-center space-y-6 rounded-[2.5rem] shadow-xl relative overflow-hidden group">
+                <Card className="bg-gradient-to-br from-primary/5 via-card to-background border-2 border-dashed border-primary/20 p-8 md:p-12 text-center space-y-6 rounded-[2.5rem] shadow-xl">
                   <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto text-primary shadow-lg rotate-3">
                     <FileQuestion className="w-10 h-10" />
                   </div>
@@ -273,3 +264,4 @@ function getYouTubeId(url: string) {
   const match = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/);
   return (match && match[2] && match[2].length === 11) ? match[2] : url;
 }
+
