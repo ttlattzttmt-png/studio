@@ -18,7 +18,8 @@ import {
   ShieldAlert,
   CheckCircle2,
   ArrowRight,
-  Star
+  Star,
+  Activity
 } from 'lucide-react';
 import { useUser, useFirebase, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, addDoc, doc, getDocs, query, orderBy, where } from 'firebase/firestore';
@@ -41,6 +42,7 @@ export default function TakeExamPage() {
   const [isBlocked, setIsBlocked] = useState(false);
 
   // 🛡️ نظام الحماية الفولاذي المشدد جداً (للأجهزة المحمولة والكمبيوتر)
+  // تم ضبطه ليكون بأقصى حساسية أثناء الامتحان فقط
   useEffect(() => {
     if (finishedResult) return;
 
@@ -59,18 +61,22 @@ export default function TakeExamPage() {
       }
     };
 
+    // هذا التابع يتحسس محاولة تصوير الشاشة بالموبايل (فقدان التركيز اللحظي)
     const triggerProtection = () => {
       setIsBlocked(true);
     };
 
     const restoreView = () => {
       if (!finishedResult) {
+        // نترك الشاشة سوداء لمدة ثانيتين لضمان فشل أي عملية تصوير
         setTimeout(() => setIsBlocked(false), 2000);
       }
     };
 
     document.addEventListener('contextmenu', handleContext);
     document.addEventListener('keydown', handleKey);
+    
+    // أهم أحداث منع تصوير الشاشة على الموبايل
     window.addEventListener('blur', triggerProtection);
     window.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') triggerProtection();
@@ -178,81 +184,96 @@ export default function TakeExamPage() {
         isSuccess: finalPercentage >= (exam?.passMarkPercentage || 50)
       });
       setIsBlocked(false);
-      toast({ title: "تم تسليم الامتحان" });
+      toast({ title: "تم تسليم الامتحان بنجاح" });
     } catch (e) { console.error(e); } finally { setIsSubmitting(false); }
   };
 
   if (isBlocked) return (
     <div className="fixed inset-0 z-[999999] bg-black flex flex-col items-center justify-center text-center p-8 select-none animate-in fade-in duration-300">
-       <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-8 animate-pulse">
-         <ShieldAlert className="w-12 h-12 text-primary" />
+       <div className="w-28 h-28 bg-primary/20 rounded-full flex items-center justify-center mb-10 animate-pulse ring-8 ring-primary/5">
+         <ShieldAlert className="w-14 h-14 text-primary" />
        </div>
-       <h2 className="text-3xl font-black text-white mb-4">🚨 محتوى محمي</h2>
-       <p className="text-xl text-primary font-bold mb-6">يمنع منعاً باتاً تصوير الشاشة أو تسجيلها أثناء الامتحان.</p>
-       <p className="text-muted-foreground max-w-lg leading-relaxed font-bold">
-         لقد تم تعتيم الشاشة لحماية خصوصية المحتوى. يرجى العودة لصفحة الامتحان فوراً لمواصلة الحل.
+       <h2 className="text-4xl font-black text-white mb-6">🚨 محتوى محمي برمجياً</h2>
+       <p className="text-2xl text-primary font-bold mb-8">يمنع منعاً باتاً تصوير الشاشة أو تسجيلها أثناء الامتحان.</p>
+       <p className="text-muted-foreground max-w-lg leading-relaxed font-bold text-lg">
+         لقد تم تعتيم الشاشة لحماية خصوصية المحتوى. يرجى العودة لصفحة الامتحان فوراً لمواصلة الحل. أي محاولة أخرى قد تؤدي لحظر حسابك.
        </p>
-       <Button onClick={() => setIsBlocked(false)} className="mt-12 bg-white text-black hover:bg-white/90 font-black px-12 h-14 rounded-2xl shadow-2xl">أكمل الامتحان</Button>
+       <Button onClick={() => setIsBlocked(false)} className="mt-14 bg-white text-black hover:bg-white/90 font-black px-16 h-16 rounded-2xl shadow-2xl text-xl transition-all">أكمل الامتحان</Button>
     </div>
   );
 
-  if (alreadyAttempted) return <div className="min-h-screen flex items-center justify-center p-6 text-center"><Card className="max-w-md p-10 rounded-[3rem] border-primary/20 shadow-2xl"><AlertTriangle className="w-16 h-16 text-primary mx-auto mb-6" /><h2 className="text-2xl font-bold">لا يمكنك إعادة الامتحان</h2><p className="text-muted-foreground mt-4">يسمح بمحاولة واحدة فقط لضمان الأمان والجدية.</p><Link href="/student/exams"><Button className="w-full mt-6 bg-primary font-bold">عرض درجاتي</Button></Link></Card></div>;
+  if (alreadyAttempted) return (
+    <div className="min-h-screen flex items-center justify-center p-6 text-center bg-background">
+      <Card className="max-w-md p-10 rounded-[3rem] border-primary/20 shadow-2xl bg-card">
+        <AlertTriangle className="w-20 h-20 text-primary mx-auto mb-6" />
+        <h2 className="text-3xl font-black">عذراً، لا يمكنك الإعادة</h2>
+        <p className="text-muted-foreground mt-4 font-bold">يسمح بمحاولة واحدة فقط لهذا الاختبار لضمان أمان وشفافية المنصة.</p>
+        <Link href="/student/exams" className="block mt-8">
+          <Button className="w-full h-14 bg-primary font-black rounded-2xl shadow-xl">عرض درجاتي السابقة</Button>
+        </Link>
+      </Card>
+    </div>
+  );
 
   if (finishedResult) return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 md:p-8 animate-in fade-in zoom-in duration-700">
-      <div className="w-full max-w-2xl bg-card border border-primary/10 rounded-[2.5rem] overflow-hidden shadow-2xl relative text-right">
-        <div className={`absolute top-0 right-0 w-full h-3 ${finishedResult.isSuccess ? 'bg-accent' : 'bg-destructive'}`} />
+      <div className="w-full max-w-2xl bg-card border border-primary/10 rounded-[3rem] overflow-hidden shadow-[0_0_100px_rgba(255,215,0,0.1)] relative text-right">
+        <div className={`absolute top-0 right-0 w-full h-4 ${finishedResult.isSuccess ? 'bg-accent' : 'bg-destructive'}`} />
         
-        <CardContent className="p-8 md:p-12">
-           <div className="flex flex-col items-center text-center mb-10 space-y-6">
-              <div className={`w-24 h-24 rounded-full flex items-center justify-center shadow-2xl ${finishedResult.isSuccess ? 'bg-accent/10 text-accent' : 'bg-destructive/10 text-destructive'}`}>
-                {finishedResult.isSuccess ? <Trophy className="w-12 h-12 animate-bounce" /> : <AlertTriangle className="w-12 h-12" />}
+        <CardContent className="p-8 md:p-16">
+           <div className="flex flex-col items-center text-center mb-12 space-y-8">
+              <div className={`w-32 h-32 rounded-full flex items-center justify-center shadow-2xl ring-8 ${finishedResult.isSuccess ? 'bg-accent/10 text-accent ring-accent/5' : 'bg-destructive/10 text-destructive ring-destructive/5'}`}>
+                {finishedResult.isSuccess ? <Trophy className="w-16 h-16 animate-bounce" /> : <AlertTriangle className="w-16 h-16" />}
               </div>
-              <div className="space-y-2">
-                <h1 className="text-3xl md:text-5xl font-black text-foreground">
+              <div className="space-y-3">
+                <h1 className="text-4xl md:text-6xl font-black text-foreground">
                   {finishedResult.isSuccess ? "أحسنت يا بطل!" : "محاولة جيدة"}
                 </h1>
-                <p className="text-muted-foreground font-bold text-lg md:text-xl">
+                <p className="text-muted-foreground font-bold text-xl md:text-2xl">
                   لقد أتممت اختبار: <span className="text-primary">{exam?.title}</span>
                 </p>
               </div>
            </div>
 
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-              <div className="p-6 md:p-8 bg-secondary/30 rounded-[2rem] border border-white/5 flex flex-col items-center justify-center relative overflow-hidden group">
-                 <div className="absolute -top-4 -right-4 w-12 h-12 bg-primary/10 rounded-full blur-xl" />
-                 <p className="text-5xl md:text-6xl font-black text-primary mb-2">{finishedResult.score}%</p>
-                 <p className="text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest">النسبة المئوية النهائية</p>
-              </div>
-              <div className="p-6 md:p-8 bg-secondary/30 rounded-[2rem] border border-white/5 flex flex-col items-center justify-center relative overflow-hidden group">
-                 <div className="absolute -bottom-4 -left-4 w-12 h-12 bg-accent/10 rounded-full blur-xl" />
-                 <p className="text-5xl md:text-6xl font-black text-accent mb-2">{finishedResult.points}/{finishedResult.total}</p>
-                 <p className="text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest">إجمالي النقاط المحققة</p>
+           <div className="grid grid-cols-1 gap-6 mb-12">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-8 md:p-10 bg-secondary/30 rounded-[2.5rem] border border-white/5 flex flex-col items-center justify-center relative overflow-hidden group">
+                   <div className="absolute -top-4 -right-4 w-16 h-16 bg-primary/10 rounded-full blur-2xl" />
+                   <p className="text-6xl md:text-8xl font-black text-primary mb-3">{finishedResult.score}%</p>
+                   <p className="text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest">نسبة النجاح النهائية</p>
+                </div>
+                <div className="p-8 md:p-10 bg-secondary/30 rounded-[2.5rem] border border-white/5 flex flex-col items-center justify-center relative overflow-hidden group">
+                   <div className="absolute -bottom-4 -left-4 w-16 h-16 bg-accent/10 rounded-full blur-2xl" />
+                   <p className="text-6xl md:text-8xl font-black text-accent mb-3">{finishedResult.points}/{finishedResult.total}</p>
+                   <p className="text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest">النقاط المحققة</p>
+                </div>
               </div>
            </div>
 
-           <div className="bg-primary/5 p-6 rounded-2xl border border-primary/10 flex items-center gap-4 mb-10">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0"><Star className="w-6 h-6" /></div>
+           <div className="bg-primary/5 p-6 rounded-3xl border border-primary/20 flex items-center gap-5 mb-12 shadow-inner">
+              <div className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center text-primary shrink-0"><Star className="w-7 h-7 fill-current" /></div>
               <div className="text-right">
-                <p className="font-bold text-sm">تم حفظ نتيجتك بنجاح</p>
-                <p className="text-xs text-muted-foreground">يمكنك دائماً مراجعة درجاتك من لوحة الطالب في أي وقت.</p>
+                <p className="font-black text-lg">تم تسجيل النتيجة بنجاح</p>
+                <p className="text-sm text-muted-foreground font-bold">يمكنك مراجعة كافة درجاتك من لوحة الطالب في أي وقت.</p>
               </div>
            </div>
 
            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Link href="/student/dashboard" className="w-full">
-                <Button className="w-full h-14 md:h-16 bg-primary text-primary-foreground font-black rounded-2xl text-lg shadow-xl shadow-primary/20 hover:scale-105 transition-transform active:scale-95 gap-2">
-                  <ChevronRight className="w-5 h-5" /> لوحة التحكم
+                <Button className="w-full h-16 md:h-20 bg-primary text-primary-foreground font-black rounded-3xl text-xl shadow-2xl shadow-primary/20 hover:scale-105 transition-transform active:scale-95 gap-3 border-b-8 border-primary-foreground/10">
+                  <ChevronRight className="w-6 h-6" /> لوحة التحكم
                 </Button>
               </Link>
               <Link href="/student/exams" className="w-full">
-                <Button variant="outline" className="w-full h-14 md:h-16 border-primary/20 text-primary font-black rounded-2xl text-lg hover:bg-primary/5 transition-all gap-2">
-                  <CheckCircle2 className="w-5 h-5" /> سجل الدرجات
+                <Button variant="outline" className="w-full h-16 md:h-20 border-primary/20 text-primary font-black rounded-3xl text-xl hover:bg-primary/5 transition-all gap-3">
+                  <CheckCircle2 className="w-6 h-6" /> سجل الدرجات
                 </Button>
               </Link>
            </div>
         </CardContent>
-        <p className="text-center pb-6 text-[10px] text-muted-foreground font-mono">ID: {examId?.toString().slice(0,8)}</p>
+        <div className="text-center pb-8 flex items-center justify-center gap-2 text-[10px] text-muted-foreground font-mono opacity-50">
+          <Activity className="w-3 h-3" /> SECURE_EXAM_ID: {examId?.toString().slice(0,12).toUpperCase()}
+        </div>
       </div>
     </div>
   );
