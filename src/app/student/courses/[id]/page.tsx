@@ -58,198 +58,83 @@ export default function CourseViewer() {
     if (isFree && !enrollment && user && id && studentProfile && !isEnrollmentLoading && course && firestore) {
       const enRef = doc(firestore, 'students', user.uid, 'enrollments', id as string);
       setDoc(enRef, {
-        id: id as string,
-        courseId: id as string,
-        studentId: user.uid,
-        studentName: studentProfile.name,
-        status: 'active',
-        enrollmentDate: new Date().toISOString(),
-        activationDate: new Date().toISOString(),
-        progressPercentage: 0,
-        isCompleted: false,
-        courseTitle: course.title,
+        id: id as string, courseId: id as string, studentId: user.uid, studentName: studentProfile.name, status: 'active', enrollmentDate: new Date().toISOString(), activationDate: new Date().toISOString(), progressPercentage: 0, isCompleted: false, courseTitle: course.title,
       }, { merge: true });
     }
   }, [isFree, enrollment, user, id, studentProfile, isEnrollmentLoading, firestore, course]);
 
   const markAsWatched = async (contentId: string) => {
     if (!firestore || !user || !id || !studentProfile) return;
-    try {
-      const videoLogRef = doc(firestore, 'students', user.uid, 'video_progress', contentId);
-      const videoDuration = 600;
+    const videoLogRef = doc(firestore, 'students', user.uid, 'video_progress', contentId);
+    await setDoc(videoLogRef, { studentId: user.uid, studentName: studentProfile.name, courseId: id, courseContentId: contentId, isCompleted: true, watchedDurationInSeconds: 600, lastWatchedAt: serverTimestamp() }, { merge: true });
+    
+    const allWatchedRef = query(collection(firestore, 'students', user.uid, 'video_progress'), where('courseId', '==', id));
+    const watchedSnap = await getDocs(allWatchedRef);
+    const newPercent = Math.min(100, Math.round((watchedSnap.size / (visibleContents.length || 1)) * 100));
 
-      await setDoc(videoLogRef, {
-        studentId: user.uid,
-        studentName: studentProfile.name,
-        courseId: id,
-        courseContentId: contentId,
-        isCompleted: true,
-        watchedDurationInSeconds: videoDuration,
-        lastWatchedAt: serverTimestamp()
-      }, { merge: true });
-
-      const allWatchedRef = query(collection(firestore, 'students', user.uid, 'video_progress'), where('courseId', '==', id));
-      const watchedSnap = await getDocs(allWatchedRef);
-      const watchedCount = watchedSnap.size;
-      
-      const totalItems = visibleContents.length || 1;
-      const newPercent = Math.min(100, Math.round((watchedCount / totalItems) * 100));
-
-      await updateDoc(doc(firestore, 'students', user.uid, 'enrollments', id as string), {
-        progressPercentage: newPercent,
-        studentName: studentProfile.name,
-        lastActivityDate: new Date().toISOString()
-      });
-
-      toast({ title: "أحسنت يا بشمهندس!", description: `تم تحديث مستوى إنجازك إلى ${newPercent}%` });
-    } catch (e) { 
-      console.error(e);
-    }
+    await updateDoc(doc(firestore, 'students', user.uid, 'enrollments', id as string), { progressPercentage: newPercent, studentName: studentProfile.name, lastActivityDate: new Date().toISOString() });
+    toast({ title: "أحسنت يا بشمهندس!", description: `إنجازك: ${newPercent}%` });
   };
 
-  useEffect(() => {
-    if (visibleContents.length > 0 && !activeContent) setActiveContent(visibleContents[0]);
-  }, [visibleContents, activeContent]);
+  useEffect(() => { if (visibleContents.length > 0 && !activeContent) setActiveContent(visibleContents[0]); }, [visibleContents, activeContent]);
 
-  if (isUserLoading || isCourseLoading || isEnrollmentLoading || isContentLoading) {
-    return <div className="flex justify-center py-40"><Loader2 className="w-12 animate-spin text-primary" /></div>;
-  }
+  if (isUserLoading || isCourseLoading || isEnrollmentLoading || isContentLoading) return <div className="flex justify-center py-40"><Loader2 className="w-12 animate-spin text-primary" /></div>;
 
   const hasAccess = (enrollment && enrollment.status === 'active') || isFree;
-
-  if (!hasAccess) return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6 bg-background">
-      <Lock className="w-16 h-16 text-primary/40 animate-pulse" />
-      <h2 className="text-3xl font-black">الكورس مقفل</h2>
-      <p className="text-muted-foreground max-w-sm font-bold">هذا الكورس يتطلب كود تفعيل مصري لفتحه.</p>
-      <Link href="/student/redeem"><Button className="bg-primary font-black rounded-xl h-14 px-10 shadow-lg">تفعيل كود الآن</Button></Link>
-    </div>
-  );
+  if (!hasAccess) return <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6 bg-background"><Lock className="w-16 h-16 text-primary/40 animate-pulse" /><h2 className="text-3xl font-black">الكورس مقفل</h2><Link href="/student/redeem"><Button className="bg-primary h-14 px-10 rounded-xl">تفعيل كود</Button></Link></div>;
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-right">
       <Navbar />
       <main className="flex-grow pt-24 pb-20 container mx-auto px-4">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
             {activeContent?.contentType === 'Video' ? (
-              <div className="space-y-6 animate-in fade-in duration-500">
-                {/* مشغل فيديوهات البشمهندس - Cinema Wrapper */}
-                <div className="relative group">
-                  <div className="aspect-video bg-black rounded-[2rem] overflow-hidden border-[8px] border-secondary shadow-2xl relative">
-                    <iframe 
-                      src={`https://www.youtube.com/embed/${getYouTubeId(activeContent.youtubeLink)}?rel=0&modestbranding=1&autoplay=1&showinfo=0&iv_load_policy=3`} 
-                      className="w-full h-full"
-                      allow="autoplay; encrypted-media"
-                      allowFullScreen 
-                    />
-                    <div className="absolute top-6 left-6 pointer-events-none bg-primary/20 backdrop-blur-sm px-4 py-1.5 rounded-full flex items-center gap-2 border border-primary/30 shadow-lg">
-                       <MonitorPlay className="w-4 h-4 text-primary" />
-                       <span className="text-[10px] font-black text-white uppercase tracking-widest">Cinema Pro Player</span>
+              <div className="space-y-6">
+                <div className="relative bg-black rounded-[2.5rem] overflow-hidden border-[6px] border-card shadow-2xl">
+                    <div className="aspect-video w-full">
+                      <iframe 
+                        src={`https://www.youtube.com/embed/${getYouTubeId(activeContent.youtubeLink)}?rel=0&modestbranding=1&autoplay=1`} 
+                        className="w-full h-full"
+                        allowFullScreen 
+                        allow="autoplay; encrypted-media"
+                      />
                     </div>
-                  </div>
+                    <div className="absolute top-4 left-4 bg-primary/20 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black border border-primary/30 pointer-events-none">Al-Bashmohandes Pro Player</div>
                 </div>
-
-                <Card className="bg-card/40 backdrop-blur-xl p-6 rounded-3xl border-primary/10 shadow-xl">
-                  <div className="flex flex-col md:flex-row-reverse justify-between items-center gap-6">
-                    <div className="w-full text-right space-y-2">
-                      <div className="flex items-center gap-2 justify-end">
-                        <Badge className="bg-primary/10 text-primary border-none font-bold px-3 py-1 rounded-full text-[10px]">
-                          <Activity className="w-3 h-3 ml-1" /> جاري المشاهدة
-                        </Badge>
-                        <h1 className="text-xl md:text-2xl font-black text-foreground">{activeContent.title}</h1>
-                      </div>
-                      <p className="text-muted-foreground font-bold text-xs">شاهد المحتوى كاملاً واضغط على الزر أدناه لحفظ تقدمك.</p>
-                    </div>
-                    <Button 
-                      onClick={() => markAsWatched(activeContent.id)} 
-                      disabled={watchedVideos?.some(v => v.courseContentId === activeContent.id)} 
-                      className={cn(
-                        "w-full md:w-auto h-14 px-8 font-black rounded-2xl shadow-xl shrink-0 gap-2 transition-all active:scale-95",
-                        watchedVideos?.some(v => v.courseContentId === activeContent.id) 
-                          ? "bg-accent/20 text-accent cursor-default" 
-                          : "bg-primary text-primary-foreground shadow-primary/20"
-                      )}
-                    >
-                      {watchedVideos?.some(v => v.courseContentId === activeContent.id) ? (
-                        <><CheckCircle className="w-5 h-5" /> الدرس مكتمل</>
-                      ) : (
-                        <><PlayCircle className="w-5 h-5" /> تأكيد المشاهدة</>
-                      )}
+                <Card className="bg-card/50 backdrop-blur-xl p-6 rounded-3xl border-primary/10">
+                  <div className="flex flex-col md:flex-row-reverse justify-between items-center gap-4">
+                    <div className="text-right flex-grow"><h1 className="text-xl font-black">{activeContent.title}</h1><p className="text-[10px] text-muted-foreground font-bold">بشمهندس، شاهد للنهاية لتوثيق حضورك.</p></div>
+                    <Button onClick={() => markAsWatched(activeContent.id)} disabled={watchedVideos?.some(v => v.courseContentId === activeContent.id)} className="h-14 px-10 rounded-2xl font-black bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+                      {watchedVideos?.some(v => v.courseContentId === activeContent.id) ? "درس مكتمل ✓" : "تأكيد المشاهدة"}
                     </Button>
                   </div>
                 </Card>
               </div>
             ) : activeContent ? (
-              <div className="animate-in slide-in-from-bottom-8 duration-700">
-                <Card className="bg-gradient-to-br from-primary/5 via-card to-background border-2 border-dashed border-primary/20 p-8 md:p-12 text-center space-y-8 rounded-[3rem] shadow-2xl relative overflow-hidden">
-                  <div className="w-24 h-24 bg-primary/10 rounded-[2rem] flex items-center justify-center mx-auto text-primary shadow-xl rotate-6 group-hover:rotate-0 transition-transform">
-                    <FileQuestion className="w-12 h-12" />
+              <Card className="bg-gradient-to-br from-primary/5 via-card to-background border-2 border-dashed border-primary/20 p-12 text-center space-y-8 rounded-[3rem] shadow-2xl">
+                  <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto text-primary"><FileQuestion className="w-10 h-10" /></div>
+                  <h2 className="text-3xl font-black">{activeContent.title}</h2>
+                  <div className="flex justify-center gap-6 text-[10px] font-black uppercase">
+                     <span className="flex items-center gap-1"><Clock className="w-4 h-4 text-primary" /> 30 دقيقة</span>
+                     <span className="flex items-center gap-1"><Star className="w-4 h-4 text-primary" /> محاولة واحدة</span>
                   </div>
-                  
-                  <div className="space-y-3">
-                    <h2 className="text-3xl md:text-4xl font-black">{activeContent.title}</h2>
-                    <p className="text-muted-foreground font-bold text-sm max-w-md mx-auto leading-relaxed">
-                      هذا الاختبار مصمم لقياس استيعابك للمحتوى. تأكد من مراجعة الدروس السابقة جيداً قبل البدء.
-                    </p>
-                  </div>
-                  
-                  <div className="flex flex-wrap items-center justify-center gap-6 py-4">
-                     <div className="flex flex-col items-center gap-1">
-                        <div className="bg-secondary/50 p-3 rounded-2xl border border-white/5"><Clock className="w-6 h-6 text-primary" /></div>
-                        <span className="text-[10px] font-black uppercase mt-1">30 دقيقة</span>
-                     </div>
-                     <div className="flex flex-col items-center gap-1">
-                        <div className="bg-secondary/50 p-3 rounded-2xl border border-white/5"><Star className="w-6 h-6 text-primary" /></div>
-                        <span className="text-[10px] font-black uppercase mt-1">محاولة واحدة</span>
-                     </div>
-                  </div>
-
-                  <Link href={`/student/exams/${activeContent.id}`} className="block pt-6">
-                    <Button size="lg" className="w-full md:w-auto h-16 px-16 bg-primary text-primary-foreground font-black rounded-2xl text-xl shadow-2xl shadow-primary/20 hover:scale-105 transition-transform active:scale-95">
-                      ابدأ الاختبار الآن ✍️
-                    </Button>
+                  <Link href={`/student/exams/${activeContent.id}`} className="block pt-4">
+                    <Button size="lg" className="h-16 px-16 bg-primary text-primary-foreground font-black rounded-2xl text-xl shadow-xl shadow-primary/20">ابدأ الاختبار الآن ✍️</Button>
                   </Link>
-                </Card>
-              </div>
+              </Card>
             ) : null}
           </div>
-
           <div className="lg:col-span-1">
             <Card className="bg-card/40 backdrop-blur-md border-primary/10 overflow-hidden shadow-xl rounded-[2.5rem] sticky top-24">
-              <CardHeader className="border-b bg-secondary/20 py-5 px-6 flex flex-row-reverse items-center justify-between">
-                <CardTitle className="text-lg font-black flex items-center gap-2 justify-end">محتويات الكورس <Layout className="w-5 h-5 text-primary" /></CardTitle>
-                <Badge variant="outline" className="border-primary/20 text-primary font-bold px-3">{enrollment?.progressPercentage || 0}%</Badge>
-              </CardHeader>
-              <CardContent className="p-0 max-h-[60vh] overflow-y-auto custom-scrollbar">
-                {visibleContents.map((item, idx) => {
-                  const watched = watchedVideos?.some(v => v.courseContentId === item.id);
-                  const isActive = activeContent?.id === item.id;
-                  return (
-                    <button 
-                      key={item.id} 
-                      onClick={() => setActiveContent(item)} 
-                      className={cn(
-                        "w-full p-5 text-right flex flex-row-reverse items-center gap-4 transition-all border-b border-white/5 relative group", 
-                        isActive ? "bg-primary/10" : "hover:bg-secondary/10"
-                      )}
-                    >
-                      {isActive && <div className="absolute right-0 top-0 w-1.5 h-full bg-primary shadow-[0_0_15px_rgba(255,215,0,0.5)]" />}
-                      <div className={cn(
-                        "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-black text-xs transition-all", 
-                        watched ? "bg-accent text-white" : isActive ? "bg-primary text-primary-foreground scale-110" : "bg-secondary border border-white/5 text-muted-foreground"
-                      )}>
-                        {watched ? <CheckCircle className="w-5 h-5" /> : idx + 1}
-                      </div>
-                      <div className="flex-grow min-w-0">
-                        <p className={cn("font-bold text-sm truncate", isActive ? "text-primary" : "text-foreground/80")}>{item.title}</p>
-                        <p className="text-[9px] text-muted-foreground mt-0.5 font-bold">
-                          {item.contentType === 'Video' ? 'فيديو شرح' : 'اختبار تقييمي'}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
+              <CardHeader className="border-b bg-secondary/20 py-4 px-6 flex flex-row-reverse items-center justify-between"><CardTitle className="text-lg font-black flex items-center gap-2 justify-end">محتويات الكورس <Layout className="w-5 h-5 text-primary" /></CardTitle><Badge className="bg-primary/20 text-primary">{enrollment?.progressPercentage || 0}%</Badge></CardHeader>
+              <CardContent className="p-0 max-h-[60vh] overflow-y-auto">
+                {visibleContents.map((item, idx) => (
+                  <button key={item.id} onClick={() => setActiveContent(item)} className={cn("w-full p-5 text-right flex flex-row-reverse items-center gap-4 transition-all border-b border-white/5", activeContent?.id === item.id ? "bg-primary/10 border-r-4 border-primary" : "hover:bg-secondary/10")}>
+                    <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 font-black text-xs", watchedVideos?.some(v => v.courseContentId === item.id) ? "bg-accent text-white" : "bg-secondary")}>{idx+1}</div>
+                    <div className="min-w-0"><p className="font-bold text-sm truncate">{item.title}</p><p className="text-[9px] text-muted-foreground">{item.contentType === 'Video' ? 'فيديو' : 'اختبار'}</p></div>
+                  </button>
+                ))}
               </CardContent>
             </Card>
           </div>
