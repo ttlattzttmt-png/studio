@@ -27,11 +27,9 @@ export default function AdminGradingPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
 
-  // جلب كافة الطلاب لبناء خارطة الأسماء الحقيقية
   const studentsRef = useMemoFirebase(() => (firestore ? collection(firestore, 'students') : null), [firestore]);
   const { data: allStudents } = useCollection(studentsRef);
 
-  // جلب كافة المحاولات بتزامن لحظي
   const attemptsRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return collectionGroup(firestore, 'quiz_attempts');
@@ -39,14 +37,12 @@ export default function AdminGradingPage() {
   
   const { data: rawAttempts, isLoading } = useCollection(attemptsRef);
 
-  // إنشاء خارطة أسماء الطلاب (Student ID -> Full Info)
   const studentMap = useMemo(() => {
     const map: Record<string, any> = {};
     allStudents?.forEach(s => { map[s.id] = s; });
     return map;
   }, [allStudents]);
 
-  // البحث والفلترة البرمجية بالاسم الرباعي الحقيقي
   const filteredAttempts = useMemo(() => {
     if (!rawAttempts) return [];
     
@@ -66,15 +62,12 @@ export default function AdminGradingPage() {
 
   const handleDeleteAttempt = async (attempt: any) => {
     if (!firestore) return;
-    if (!confirm("🚨 تحذير: هل أنت متأكد من حذف هذه المحاولة نهائياً؟")) return;
+    if (!confirm("🚨 هل أنت متأكد من حذف هذه المحاولة؟")) return;
     try {
       await deleteDoc(doc(firestore, 'students', attempt.studentId, 'quiz_attempts', attempt.id));
-      toast({ title: "تم الحذف بنجاح" });
+      toast({ title: "تم الحذف" });
       if (selectedAttempt?.id === attempt.id) setSelectedAttempt(null);
-    } catch (e) { 
-      console.error(e);
-      toast({ variant: "destructive", title: "فشل الحذف" });
-    }
+    } catch (e) { console.error(e); }
   };
 
   const handleGradeAnswer = async (answer: any, isCorrect: boolean, score: number) => {
@@ -82,7 +75,7 @@ export default function AdminGradingPage() {
     try {
       const answerRef = doc(firestore, 'students', selectedAttempt.studentId, 'quiz_attempts', selectedAttempt.id, 'answers', answer.id);
       await updateDoc(answerRef, { isCorrect, scoreAchieved: score });
-      toast({ title: "تم تحديث درجة السؤال" });
+      toast({ title: "تم التحديث" });
     } catch (e) { console.error(e); }
   };
 
@@ -94,29 +87,23 @@ export default function AdminGradingPage() {
       
       let totalScoreAchieved = 0;
       let totalMaxPoints = 0;
-
       answersSnap.forEach(doc => {
         const data = doc.data();
         totalScoreAchieved += (data.scoreAchieved || 0);
         totalMaxPoints += (data.maxPoints || 0);
       });
-
       const finalPercentage = totalMaxPoints > 0 ? Math.round((totalScoreAchieved / totalMaxPoints) * 100) : 0;
 
       await updateDoc(doc(firestore, 'students', attempt.studentId, 'quiz_attempts', attempt.id), { 
         isGraded: true,
         score: finalPercentage,
         pointsAchieved: totalScoreAchieved,
-        totalPoints: totalMaxPoints,
-        gradeReleaseDate: new Date().toISOString()
+        totalPoints: totalMaxPoints
       });
 
-      toast({ title: "تم الاعتماد بنجاح", description: `النتيجة النهائية: ${totalScoreAchieved}/${totalMaxPoints} (${finalPercentage}%)` });
-      setSelectedAttempt({ ...attempt, isGraded: true, score: finalPercentage, pointsAchieved: totalScoreAchieved, totalPoints: totalMaxPoints });
-    } catch (e) { 
-      console.error(e);
-      toast({ variant: "destructive", title: "خطأ في الاعتماد" });
-    }
+      toast({ title: "تم الاعتماد", description: `الدرجة: ${finalPercentage}%` });
+      setSelectedAttempt({ ...attempt, isGraded: true, score: finalPercentage });
+    } catch (e) { console.error(e); }
   };
 
   if (isUserLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 animate-spin text-primary" /></div>;
@@ -126,66 +113,41 @@ export default function AdminGradingPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-headline font-bold mb-2">مركز التصحيح والاعتماد</h1>
-          <p className="text-muted-foreground text-sm font-bold">راجع إجابات الطلاب واعتمد الدرجات النهائية بالبحث بالاسم الرباعي الحقيقي.</p>
+          <p className="text-muted-foreground font-bold">البحث متاح بالاسم الرباعي الحقيقي للطالب.</p>
         </div>
         <div className="bg-primary/10 text-primary px-4 py-2 rounded-xl border border-primary/20 flex items-center gap-2">
           <RefreshCw className="w-4 h-4 animate-spin-slow" />
-          <span className="text-xs font-black">تزامن حيّ: {filteredAttempts.length} محاولة</span>
+          <span className="text-xs font-black">حيّ: {filteredAttempts.length} محاولة</span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-1 bg-card border-primary/10 shadow-xl overflow-hidden rounded-[2rem]">
+        <Card className="lg:col-span-1 bg-card border-primary/10 shadow-xl overflow-hidden rounded-3xl">
           <CardHeader className="border-b bg-secondary/5 p-4">
             <div className="relative">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input 
-                placeholder="ابحث باسم الطالب الرباعي..." 
-                className="w-full bg-background border-primary/10 rounded-xl h-12 pr-10 text-right text-xs font-bold focus:border-primary outline-none transition-all" 
+                placeholder="ابحث بالاسم الرباعي..." 
+                className="w-full bg-background border-primary/10 rounded-xl h-12 pr-10 text-right text-xs font-bold" 
                 value={searchTerm} 
                 onChange={(e) => setSearchTerm(e.target.value)} 
               />
             </div>
           </CardHeader>
-          <CardContent className="p-0">
-             {isLoading ? (
-               <div className="flex flex-col items-center justify-center py-20 gap-2">
-                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                 <p className="text-[10px] text-muted-foreground font-bold">جاري جلب المحاولات...</p>
-               </div>
-             ) : filteredAttempts.length === 0 ? (
-               <div className="text-center py-20 text-muted-foreground italic text-xs font-bold">لا توجد محاولات مطابقة للبحث حالياً.</div>
-             ) : (
-               <div className="divide-y divide-primary/5 max-h-[70vh] overflow-y-auto">
+          <CardContent className="p-0 overflow-y-auto max-h-[70vh]">
+             {isLoading ? <Loader2 className="w-8 h-8 animate-spin mx-auto my-10 text-primary" /> : (
+               <div className="divide-y divide-primary/5">
                  {filteredAttempts.map((attempt) => (
                    <button 
                      key={attempt.id}
                      onClick={() => setSelectedAttempt(attempt)}
-                     className={`w-full p-5 text-right hover:bg-primary/5 transition-all flex flex-col gap-2 relative group ${selectedAttempt?.id === attempt.id ? 'bg-primary/10 border-r-4 border-primary' : ''}`}
+                     className={`w-full p-4 text-right hover:bg-primary/5 transition-all flex flex-col gap-1 ${selectedAttempt?.id === attempt.id ? 'bg-primary/10 border-r-4 border-primary' : ''}`}
                    >
                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary border border-primary/5">
-                            <UserIcon className="w-3 h-3" />
-                          </div>
-                          <span className="text-xs font-black text-foreground truncate max-w-[120px]">
-                            {studentMap[attempt.studentId]?.name || attempt.studentName || 'جاري التحميل...'}
-                          </span>
-                        </div>
-                        <Badge className="text-[9px] h-5 font-black" variant={attempt.isGraded ? 'default' : 'secondary'}>
-                          {attempt.isGraded ? 'مكتمل' : 'قيد المراجعة'}
-                        </Badge>
+                        <span className="text-xs font-black text-foreground">{studentMap[attempt.studentId]?.name || attempt.studentName || 'جاري التحميل...'}</span>
+                        <Badge className="text-[9px]" variant={attempt.isGraded ? 'default' : 'secondary'}>{attempt.isGraded ? 'مكتمل' : 'مراجعة'}</Badge>
                      </div>
                      <ExamNameByDoc courseId={attempt.courseId} contentId={attempt.courseContentId} />
-                     <div className="flex flex-row-reverse justify-between items-center mt-1">
-                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-bold">
-                          <Clock className="w-3 h-3" />
-                          <span>{attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleDateString('ar-EG') : '---'}</span>
-                        </div>
-                        <div className="text-[10px] font-black text-primary">
-                          {attempt.pointsAchieved ?? 0} من {attempt.totalPoints ?? 0} ({attempt.score ?? 0}%)
-                        </div>
-                     </div>
                    </button>
                  ))}
                </div>
@@ -197,9 +159,9 @@ export default function AdminGradingPage() {
           {selectedAttempt ? (
             <AttemptDetails attempt={selectedAttempt} onGrade={handleGradeAnswer} onRelease={handleReleaseGrades} onDelete={handleDeleteAttempt} />
           ) : (
-            <Card className="h-[60vh] flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-[3rem] bg-secondary/5">
-              <ClipboardList className="w-16 h-16 mb-4 opacity-10" />
-              <p className="text-sm font-black">اختر محاولة طالب للبدء في مراجعة إجاباته الحقيقية.</p>
+            <Card className="h-[50vh] flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-3xl">
+              <ClipboardList className="w-12 h-12 mb-4 opacity-10" />
+              <p className="text-sm font-bold">اختر محاولة لمراجعتها.</p>
             </Card>
           )}
         </div>
@@ -212,7 +174,7 @@ function ExamNameByDoc({ courseId, contentId }: { courseId: string, contentId: s
   const firestore = useFirestore();
   const examRef = useMemoFirebase(() => (firestore && courseId && contentId) ? doc(firestore, 'courses', courseId, 'content', contentId) : null, [firestore, courseId, contentId]);
   const { data: exam } = useDoc(examRef);
-  return <p className="font-black text-sm text-primary truncate leading-tight">{exam?.title || 'اختبار مجهول'}</p>;
+  return <p className="text-[10px] text-primary font-bold truncate">{exam?.title || 'جاري تحميل الامتحان...'}</p>;
 }
 
 function AttemptDetails({ attempt, onGrade, onRelease, onDelete }: any) {
@@ -224,65 +186,35 @@ function AttemptDetails({ attempt, onGrade, onRelease, onDelete }: any) {
   const { data: answers, isLoading } = useCollection(answersRef);
 
   return (
-    <Card className="bg-card border-primary/20 shadow-2xl animate-in zoom-in-95 rounded-[2.5rem] overflow-hidden flex flex-col h-full max-h-[85vh]">
-      <CardHeader className="border-b bg-secondary/5 flex flex-col md:flex-row items-center justify-between p-6 gap-4">
-        <div className="text-right w-full">
-           <div className="flex items-center gap-3 justify-end mb-1">
-             <Badge className="bg-accent text-white border-none text-xs px-3 font-black">
-               الدرجة: {attempt.pointsAchieved || 0} من {attempt.totalPoints || 0}
-             </Badge>
-             <CardTitle className="text-2xl font-black text-primary">المجموع: {attempt.score || 0}%</CardTitle>
-           </div>
-           <p className="text-[10px] font-black text-muted-foreground">حالة التصحيح: {attempt.isGraded ? 'معتمد نهائياً' : 'قيد المراجعة والاعتماد'}</p>
+    <Card className="bg-card border-primary/20 shadow-2xl rounded-3xl overflow-hidden flex flex-col">
+      <CardHeader className="border-b bg-secondary/5 flex flex-row items-center justify-between p-6">
+        <div className="text-right">
+           <CardTitle className="text-xl font-black text-primary">{attempt.score}%</CardTitle>
+           <p className="text-[10px] font-bold text-muted-foreground">النقاط: {attempt.pointsAchieved || 0} من {attempt.totalPoints || 0}</p>
         </div>
-        <div className="flex gap-2 shrink-0">
-           <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 rounded-xl" onClick={() => onDelete(attempt)}>
-             <Trash2 className="w-5 h-5" />
-           </Button>
-           <Button onClick={() => onRelease(attempt)} className="bg-accent hover:bg-accent/90 text-white font-black h-12 px-8 gap-2 rounded-xl shadow-lg">
-              <CheckCircle className="w-5 h-5" /> اعتماد الدرجة
-           </Button>
+        <div className="flex gap-2">
+           <Button variant="ghost" size="icon" className="text-destructive" onClick={() => onDelete(attempt)}><Trash2 className="w-4 h-4" /></Button>
+           <Button onClick={() => onRelease(attempt)} className="bg-accent font-black h-10 px-6 rounded-xl">اعتماد الدرجة</Button>
         </div>
       </CardHeader>
       
-      <CardContent className="p-6 space-y-6 overflow-y-auto flex-grow">
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <Loader2 className="w-12 h-12 animate-spin text-primary" />
-            <p className="text-sm italic font-bold text-muted-foreground">جاري تحميل إجابات الطالب...</p>
-          </div>
-        ) : !answers || answers.length === 0 ? (
-          <div className="text-center py-20 text-muted-foreground italic font-bold">لا توجد تفاصيل إجابات مسجلة.</div>
-        ) : (
+      <CardContent className="p-6 space-y-4">
+        {isLoading ? <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /> : 
           answers?.map((ans, i) => (
-            <div key={ans.id} className="p-6 bg-secondary/20 rounded-[2rem] border border-primary/5 text-right space-y-4">
-               <div className="flex justify-between items-center mb-2">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-[10px] font-black">سؤال {i+1}</Badge>
-                    <Badge className="bg-primary/10 text-primary border-none text-[10px] font-black">الدرجة: {ans.maxPoints ?? 10} نقطة</Badge>
-                  </div>
+            <div key={ans.id} className="p-5 bg-secondary/10 rounded-2xl border border-white/5 text-right space-y-3">
+               <div className="flex justify-between items-center">
+                  <Badge variant="outline" className="text-[10px]">سؤال {i+1}</Badge>
                   <div className="flex gap-1">
-                     <Button size="sm" variant={ans.isCorrect ? 'default' : 'outline'} onClick={() => handleGradeAnswer(ans, true, ans.maxPoints ?? 10)} className={ans.isCorrect ? 'bg-accent font-black' : 'font-black'}>صحيح</Button>
-                     <Button size="sm" variant={ans.isCorrect === false ? 'destructive' : 'outline'} onClick={() => handleGradeAnswer(ans, false, 0)} className="font-black">خطأ</Button>
+                     <Button size="sm" variant={ans.isCorrect ? 'default' : 'outline'} onClick={() => handleGradeAnswer(ans, true, ans.maxPoints ?? 10)}>صحيح</Button>
+                     <Button size="sm" variant={ans.isCorrect === false ? 'destructive' : 'outline'} onClick={() => handleGradeAnswer(ans, false, 0)}>خطأ</Button>
                   </div>
                </div>
-               <div className="space-y-3">
-                 <p className="text-xs text-muted-foreground font-black flex items-center gap-1 justify-end">
-                    <HelpCircle className="w-3 h-3" /> {ans.questionType === 'MCQ' ? 'اختيار من متعدد' : 'سؤال مقالي'}
-                 </p>
-                 {ans.questionType === 'MCQ' ? (
-                   <p className="p-4 bg-background rounded-xl border border-dashed border-primary/10 text-sm font-bold">
-                      الخيار المختار: <span className="font-mono text-primary">{ans.mcqSelectedOptionId || 'لم يتم الاختيار'}</span>
-                   </p>
-                 ) : (
-                   <div className="p-4 bg-background rounded-2xl text-sm font-bold whitespace-pre-wrap leading-relaxed border border-primary/5 min-h-[100px]">
-                      {ans.essayAnswerText || <span className="text-muted-foreground italic">لا توجد إجابة مقدمة.</span>}
-                   </div>
-                 )}
+               <div className="p-4 bg-background rounded-xl text-sm font-bold">
+                  {ans.questionType === 'MCQ' ? `الخيار المختار: ${ans.mcqSelectedOptionId}` : ans.essayAnswerText || 'لا توجد إجابة'}
                </div>
             </div>
           ))
-        )}
+        }
       </CardContent>
     </Card>
   );

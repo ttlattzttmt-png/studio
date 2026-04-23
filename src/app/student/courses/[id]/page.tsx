@@ -11,11 +11,7 @@ import {
   CheckCircle, 
   FileQuestion, 
   Lock, 
-  ShieldAlert, 
   Play, 
-  PlayCircle, 
-  Info, 
-  ChevronLeft, 
   Layout,
   Clock,
   Star,
@@ -146,60 +142,55 @@ export default function CourseViewer() {
           <div className="lg:col-span-2 space-y-6">
             {activeContent?.contentType === 'Video' ? (
               <div className="space-y-6 animate-in fade-in duration-500">
-                {/* مشغل فيديوهات البشمهندس الاحترافي الجديد - نظام التغطية والقص */}
+                {/* مشغل فيديوهات البشمهندس الاحترافي المحدث - حاوية براندينج بدون قص التحكم */}
                 <div className="relative group">
-                  <div className="aspect-video bg-black rounded-[1.5rem] md:rounded-[3rem] overflow-hidden border-[4px] md:border-[10px] border-secondary/50 shadow-2xl relative shadow-primary/20 ring-1 ring-primary/40">
+                  <div className="aspect-video bg-black rounded-3xl overflow-hidden border-[6px] border-secondary/50 shadow-2xl relative shadow-primary/10 ring-1 ring-white/5">
                     
-                    {/* الحاوية التي تقوم بقص معالم يوتيوب */}
-                    <div className="absolute inset-0 overflow-hidden">
-                       <iframe 
-                        src={`https://www.youtube.com/embed/${getYouTubeId(activeContent.youtubeLink)}?rel=0&modestbranding=1&autoplay=1&iv_load_policy=3&controls=1&showinfo=0&disablekb=1`} 
-                        className="absolute w-[106%] h-[115%] top-[-7.5%] left-[-3%] pointer-events-auto"
-                        allow="autoplay; encrypted-media"
-                        allowFullScreen 
-                      />
+                    {/* طبقة التحكم والتشغيل الأصلية مع مسافة أمان */}
+                    <iframe 
+                      src={`https://www.youtube.com/embed/${getYouTubeId(activeContent.youtubeLink)}?rel=0&modestbranding=1&autoplay=1&iv_load_policy=3`} 
+                      className="w-full h-full"
+                      allow="autoplay; encrypted-media"
+                      allowFullScreen 
+                    />
+
+                    {/* علامات حماية بصرية لا تمنع التحكم */}
+                    <div className="absolute top-4 left-4 pointer-events-none bg-primary/80 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 flex items-center gap-2 shadow-xl opacity-50 group-hover:opacity-100 transition-opacity">
+                       <MonitorPlay className="w-3 h-3 text-black" />
+                       <span className="text-[8px] font-black text-black uppercase tracking-widest">AL-BASHMOHANDES PRO</span>
                     </div>
 
-                    {/* طبقة حماية جمالية وعلامات تجارية للمنصة */}
-                    <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-black/80 to-transparent pointer-events-none" />
-                    <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
-                    
-                    <div className="absolute top-4 right-4 bg-primary/90 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/20 flex items-center gap-2 shadow-xl">
-                       <MonitorPlay className="w-3.5 h-3.5 text-black" />
-                       <span className="text-[10px] font-black text-black uppercase tracking-widest">AL-BASHMOHANDES PRO PLAYER</span>
+                    <div className="absolute bottom-16 right-4 pointer-events-none opacity-20 text-[10px] font-black text-white italic">
+                      SECURE STREAM - {user?.uid.slice(0,8)}
                     </div>
-
-                    {/* حماية الزر الأيمن فوق الفيديو */}
-                    <div className="absolute inset-0 bg-transparent" onContextMenu={(e) => e.preventDefault()} />
                   </div>
                 </div>
 
-                <Card className="bg-card/40 backdrop-blur-xl p-6 md:p-8 rounded-[2.5rem] border-primary/20 shadow-2xl relative overflow-hidden ring-1 ring-white/5">
-                  <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2" />
-                  <div className="flex flex-col md:flex-row-reverse justify-between items-center gap-6 relative z-10">
-                    <div className="w-full text-right space-y-3">
-                      <div className="flex items-center gap-3 justify-end flex-wrap">
-                        <Badge className="bg-primary/20 text-primary border-none font-black px-4 py-1.5 rounded-full text-[10px] shadow-lg">
-                          <Activity className="w-3.5 h-3.5 ml-1.5" /> جاري التعلم الآن
+                <Card className="bg-card/40 backdrop-blur-xl p-6 rounded-3xl border-primary/10 shadow-xl relative overflow-hidden">
+                  <div className="flex flex-col md:flex-row-reverse justify-between items-center gap-6">
+                    <div className="w-full text-right space-y-2">
+                      <div className="flex items-center gap-2 justify-end">
+                        <Badge className="bg-primary/10 text-primary border-none font-bold px-3 py-1 rounded-full text-[10px]">
+                          <Activity className="w-3 h-3 ml-1" /> جاري المشاهدة
                         </Badge>
-                        <h1 className="text-xl md:text-3xl font-black text-foreground leading-tight">{activeContent.title}</h1>
+                        <h1 className="text-xl md:text-2xl font-black text-foreground">{activeContent.title}</h1>
                       </div>
-                      <p className="text-muted-foreground font-bold text-xs md:text-sm">نظام تشغيل محمي - يمنع النسخ أو التسجيل</p>
+                      <p className="text-muted-foreground font-bold text-xs">اضغط على الزر أدناه لتأكيد إتمام الدرس وحفظ التقدم.</p>
                     </div>
                     <Button 
                       onClick={() => markAsWatched(activeContent.id)} 
                       disabled={watchedVideos?.some(v => v.courseContentId === activeContent.id)} 
                       className={cn(
-                        "w-full md:w-auto h-14 md:h-16 px-10 md:px-12 font-black rounded-2xl shadow-2xl shrink-0 gap-3 transition-all active:scale-95 text-base md:text-lg border-b-[4px]",
+                        "w-full md:w-auto h-14 px-8 font-black rounded-2xl shadow-xl shrink-0 gap-2 transition-all active:scale-95",
                         watchedVideos?.some(v => v.courseContentId === activeContent.id) 
-                          ? "bg-accent border-accent-foreground/20 text-white cursor-default" 
-                          : "bg-primary border-primary-foreground/20 text-primary-foreground hover:brightness-110"
+                          ? "bg-accent/20 text-accent cursor-default border border-accent/20" 
+                          : "bg-primary text-primary-foreground hover:brightness-110 shadow-primary/20"
                       )}
                     >
                       {watchedVideos?.some(v => v.courseContentId === activeContent.id) ? (
-                        <><CheckCircle className="w-6 h-6" /> الدرس مكتمل</>
+                        <><CheckCircle className="w-5 h-5" /> الدرس مكتمل</>
                       ) : (
-                        <><Play className="w-6 h-6 fill-current" /> تأكيد المشاهدة</>
+                        <><Play className="w-5 h-5 fill-current" /> تأكيد المشاهدة</>
                       )}
                     </Button>
                   </div>
@@ -207,27 +198,27 @@ export default function CourseViewer() {
               </div>
             ) : activeContent ? (
               <div className="animate-in slide-in-from-bottom-8 duration-700">
-                <Card className="bg-gradient-to-br from-primary/10 via-background to-secondary/30 border-4 border-dashed border-primary/20 p-8 md:p-16 text-center space-y-8 rounded-[3rem] shadow-2xl relative overflow-hidden group">
-                  <div className="w-20 h-20 md:w-32 md:h-32 bg-primary/20 rounded-[2rem] flex items-center justify-center mx-auto text-primary shadow-2xl rotate-3 ring-8 ring-primary/5">
-                    <FileQuestion className="w-10 h-10 md:w-16 md:h-16" />
+                <Card className="bg-gradient-to-br from-primary/5 via-card to-background border-2 border-dashed border-primary/20 p-8 md:p-16 text-center space-y-6 rounded-[2.5rem] shadow-xl relative overflow-hidden group">
+                  <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto text-primary shadow-lg rotate-3">
+                    <FileQuestion className="w-10 h-10" />
                   </div>
-                  <div className="space-y-4 max-w-xl mx-auto">
-                    <h2 className="text-2xl md:text-5xl font-headline font-black leading-tight text-foreground">{activeContent.title}</h2>
-                    <p className="text-muted-foreground font-bold text-sm md:text-xl">اختبار تقييمي محمي برمجياً - جاهز للتحدي؟</p>
+                  <div className="space-y-2">
+                    <h2 className="text-2xl md:text-3xl font-black">{activeContent.title}</h2>
+                    <p className="text-muted-foreground font-bold text-sm">اختبار تقييمي محمي - يرجى التأكد من استقرار الإنترنت قبل البدء.</p>
                   </div>
-                  <div className="flex flex-col md:flex-row items-center justify-center gap-4 pt-4">
-                     <div className="flex items-center gap-3 bg-secondary/50 px-6 py-3 rounded-2xl border border-white/10 shadow-xl w-full md:w-auto justify-center">
-                        <Clock className="w-5 h-5 text-primary" />
-                        <span className="font-black">30 دقيقة</span>
+                  <div className="flex flex-wrap items-center justify-center gap-4 py-2">
+                     <div className="flex items-center gap-2 bg-secondary/50 px-4 py-2 rounded-xl border border-white/5">
+                        <Clock className="w-4 h-4 text-primary" />
+                        <span className="text-xs font-bold">30 دقيقة</span>
                      </div>
-                     <div className="flex items-center gap-3 bg-secondary/50 px-6 py-3 rounded-2xl border border-white/10 shadow-xl w-full md:w-auto justify-center">
-                        <Star className="w-5 h-5 text-primary" />
-                        <span className="font-black">محاولة واحدة</span>
+                     <div className="flex items-center gap-2 bg-secondary/50 px-4 py-2 rounded-xl border border-white/5">
+                        <Star className="w-4 h-4 text-primary" />
+                        <span className="text-xs font-bold">محاولة واحدة</span>
                      </div>
                   </div>
-                  <Link href={`/student/exams/${activeContent.id}`} className="block pt-6">
-                    <Button size="lg" className="w-full md:w-auto h-16 md:h-20 px-12 md:px-20 bg-primary font-black rounded-2xl text-lg md:text-2xl shadow-2xl border-b-[8px] border-primary-foreground/20">
-                      ابدأ التحدي الآن ✍️
+                  <Link href={`/student/exams/${activeContent.id}`} className="block pt-4">
+                    <Button size="lg" className="w-full md:w-auto h-16 px-12 bg-primary font-black rounded-2xl text-lg shadow-xl shadow-primary/20">
+                      ابدأ الاختبار الآن ✍️
                     </Button>
                   </Link>
                 </Card>
@@ -236,20 +227,12 @@ export default function CourseViewer() {
           </div>
 
           <div className="lg:col-span-1">
-            <Card className="bg-card/40 backdrop-blur-md border-primary/10 overflow-hidden shadow-2xl rounded-[2.5rem] sticky top-24 ring-1 ring-white/5">
-              <CardHeader className="border-b bg-secondary/20 py-5 px-8 flex flex-row-reverse items-center justify-between">
-                <div className="text-right">
-                  <CardTitle className="text-lg font-black mb-1 flex items-center gap-2 justify-end">خطة الكورس <Layout className="w-4 h-4 text-primary" /></CardTitle>
-                </div>
-                <div className="relative w-12 h-12 flex items-center justify-center">
-                  <svg className="w-full h-full -rotate-90">
-                    <circle cx="24" cy="24" r="20" fill="transparent" stroke="currentColor" strokeWidth="3" className="text-secondary" />
-                    <circle cx="24" cy="24" r="20" fill="transparent" stroke="currentColor" strokeWidth="3" strokeDasharray={126} strokeDashoffset={126 - (126 * (enrollment?.progressPercentage || 0)) / 100} className="text-primary transition-all duration-1000" />
-                  </svg>
-                  <span className="absolute text-[10px] font-black text-primary">{enrollment?.progressPercentage || 0}%</span>
-                </div>
+            <Card className="bg-card/40 backdrop-blur-md border-primary/10 overflow-hidden shadow-xl rounded-[2rem] sticky top-24">
+              <CardHeader className="border-b bg-secondary/20 py-4 px-6 flex flex-row-reverse items-center justify-between">
+                <CardTitle className="text-base font-black flex items-center gap-2 justify-end">خطة الكورس <Layout className="w-4 h-4 text-primary" /></CardTitle>
+                <Badge variant="outline" className="border-primary/20 text-primary font-bold">{enrollment?.progressPercentage || 0}%</Badge>
               </CardHeader>
-              <CardContent className="p-0 max-h-[55vh] overflow-y-auto custom-scrollbar">
+              <CardContent className="p-0 max-h-[60vh] overflow-y-auto">
                 {visibleContents.map((item, idx) => {
                   const watched = watchedVideos?.some(v => v.courseContentId === item.id);
                   const isActive = activeContent?.id === item.id;
@@ -258,25 +241,19 @@ export default function CourseViewer() {
                       key={item.id} 
                       onClick={() => setActiveContent(item)} 
                       className={cn(
-                        "w-full p-5 text-right flex flex-row-reverse items-center gap-4 transition-all border-b border-white/5 relative group", 
-                        isActive ? "bg-primary/10" : "hover:bg-secondary/20"
+                        "w-full p-4 text-right flex flex-row-reverse items-center gap-3 transition-all border-b border-white/5 relative", 
+                        isActive ? "bg-primary/10" : "hover:bg-secondary/10"
                       )}
                     >
-                      {isActive && <div className="absolute right-0 top-0 w-1.5 h-full bg-primary shadow-[0_0_10px_rgba(255,215,0,0.5)]" />}
+                      {isActive && <div className="absolute right-0 top-0 w-1 h-full bg-primary shadow-lg" />}
                       <div className={cn(
-                        "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-black shadow-lg text-xs transition-all", 
-                        watched ? "bg-accent text-white" : isActive ? "bg-primary text-primary-foreground" : "bg-secondary/80 border border-white/5"
+                        "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 font-black text-xs", 
+                        watched ? "bg-accent text-white" : isActive ? "bg-primary text-primary-foreground" : "bg-secondary border border-white/5"
                       )}>
                         {watched ? <CheckCircle className="w-4 h-4" /> : idx + 1}
                       </div>
                       <div className="flex-grow min-w-0">
-                        <p className={cn("font-black text-xs truncate mb-1", isActive ? "text-primary" : "text-foreground/80")}>{item.title}</p>
-                        <span className={cn(
-                          "text-[8px] font-black px-2 py-0.5 rounded-full border uppercase",
-                          item.contentType === 'Video' ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-purple-500/10 text-purple-400 border-purple-500/20"
-                        )}>
-                          {item.contentType === 'Video' ? 'فيديو' : 'اختبار'}
-                        </span>
+                        <p className={cn("font-bold text-xs truncate", isActive ? "text-primary" : "text-foreground/80")}>{item.title}</p>
                       </div>
                     </button>
                   );
