@@ -16,7 +16,8 @@ import {
   Clock,
   Star,
   Activity,
-  MonitorPlay
+  MonitorPlay,
+  PlayCircle
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -76,7 +77,7 @@ export default function CourseViewer() {
     if (!firestore || !user || !id || !studentProfile) return;
     try {
       const videoLogRef = doc(firestore, 'students', user.uid, 'video_progress', contentId);
-      const videoDuration = 600; // مدة افتراضية 10 دقائق
+      const videoDuration = 600;
 
       await setDoc(videoLogRef, {
         studentId: user.uid,
@@ -142,17 +143,19 @@ export default function CourseViewer() {
           <div className="lg:col-span-2 space-y-6">
             {activeContent?.contentType === 'Video' ? (
               <div className="space-y-6 animate-in fade-in duration-500">
+                {/* مشغل فيديوهات البشمهندس - Cinema Wrapper */}
                 <div className="relative group">
-                  <div className="aspect-video bg-black rounded-3xl overflow-hidden border-[6px] border-secondary shadow-2xl relative shadow-primary/10">
+                  <div className="aspect-video bg-black rounded-[2rem] overflow-hidden border-[8px] border-secondary shadow-2xl relative">
                     <iframe 
-                      src={`https://www.youtube.com/embed/${getYouTubeId(activeContent.youtubeLink)}?rel=0&modestbranding=1&autoplay=1&iv_load_policy=3`} 
+                      src={`https://www.youtube.com/embed/${getYouTubeId(activeContent.youtubeLink)}?rel=0&modestbranding=1&autoplay=1&showinfo=0&iv_load_policy=3`} 
                       className="w-full h-full"
                       allow="autoplay; encrypted-media"
                       allowFullScreen 
                     />
-                    <div className="absolute top-4 left-4 pointer-events-none bg-primary/80 backdrop-blur-md px-3 py-1 rounded-full flex items-center gap-2 shadow-xl opacity-50">
-                       <MonitorPlay className="w-3 h-3 text-black" />
-                       <span className="text-[8px] font-black text-black uppercase tracking-widest">AL-BASHMOHANDES PRO</span>
+                    {/* طبقة هوية المنصة الشفافة التي لا تحجب التحكم */}
+                    <div className="absolute top-6 left-6 pointer-events-none bg-primary/20 backdrop-blur-sm px-4 py-1.5 rounded-full flex items-center gap-2 border border-primary/30 shadow-lg">
+                       <MonitorPlay className="w-4 h-4 text-primary" />
+                       <span className="text-[10px] font-black text-white uppercase tracking-widest">Al-Bashmohandes Player</span>
                     </div>
                   </div>
                 </div>
@@ -166,7 +169,7 @@ export default function CourseViewer() {
                         </Badge>
                         <h1 className="text-xl md:text-2xl font-black text-foreground">{activeContent.title}</h1>
                       </div>
-                      <p className="text-muted-foreground font-bold text-xs">اضغط على الزر أدناه لتأكيد إتمام الدرس وحفظ التقدم.</p>
+                      <p className="text-muted-foreground font-bold text-xs">شاهد المحتوى كاملاً واضغط على الزر أدناه لحفظ تقدمك.</p>
                     </div>
                     <Button 
                       onClick={() => markAsWatched(activeContent.id)} 
@@ -181,7 +184,7 @@ export default function CourseViewer() {
                       {watchedVideos?.some(v => v.courseContentId === activeContent.id) ? (
                         <><CheckCircle className="w-5 h-5" /> الدرس مكتمل</>
                       ) : (
-                        <><Play className="w-5 h-5 fill-current" /> تأكيد المشاهدة</>
+                        <><PlayCircle className="w-5 h-5" /> تأكيد المشاهدة</>
                       )}
                     </Button>
                   </div>
@@ -189,26 +192,33 @@ export default function CourseViewer() {
               </div>
             ) : activeContent ? (
               <div className="animate-in slide-in-from-bottom-8 duration-700">
-                <Card className="bg-gradient-to-br from-primary/5 via-card to-background border-2 border-dashed border-primary/20 p-8 md:p-12 text-center space-y-6 rounded-[2.5rem] shadow-xl">
-                  <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto text-primary shadow-lg rotate-3">
-                    <FileQuestion className="w-10 h-10" />
+                <Card className="bg-gradient-to-br from-primary/5 via-card to-background border-2 border-dashed border-primary/20 p-8 md:p-12 text-center space-y-8 rounded-[3rem] shadow-2xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl" />
+                  
+                  <div className="w-24 h-24 bg-primary/10 rounded-[2rem] flex items-center justify-center mx-auto text-primary shadow-xl rotate-6 group-hover:rotate-0 transition-transform">
+                    <FileQuestion className="w-12 h-12" />
                   </div>
-                  <div className="space-y-2">
-                    <h2 className="text-2xl md:text-3xl font-black">{activeContent.title}</h2>
-                    <p className="text-muted-foreground font-bold text-sm">اختبار تقييمي محمي - يرجى التأكد من استقرار الإنترنت قبل البدء.</p>
+                  
+                  <div className="space-y-3">
+                    <h2 className="text-3xl md:text-4xl font-black">{activeContent.title}</h2>
+                    <p className="text-muted-foreground font-bold text-sm max-w-md mx-auto leading-relaxed">
+                      هذا الاختبار مصمم لقياس استيعابك للمحتوى. تأكد من مراجعة الدروس السابقة جيداً قبل البدء.
+                    </p>
                   </div>
-                  <div className="flex flex-wrap items-center justify-center gap-4 py-2">
-                     <div className="flex items-center gap-2 bg-secondary/50 px-4 py-2 rounded-xl border border-white/5">
-                        <Clock className="w-4 h-4 text-primary" />
-                        <span className="text-xs font-bold">30 دقيقة</span>
+                  
+                  <div className="flex flex-wrap items-center justify-center gap-6 py-4">
+                     <div className="flex flex-col items-center gap-1">
+                        <div className="bg-secondary/50 p-3 rounded-2xl border border-white/5"><Clock className="w-6 h-6 text-primary" /></div>
+                        <span className="text-[10px] font-black uppercase mt-1">30 دقيقة</span>
                      </div>
-                     <div className="flex items-center gap-2 bg-secondary/50 px-4 py-2 rounded-xl border border-white/5">
-                        <Star className="w-4 h-4 text-primary" />
-                        <span className="text-xs font-bold">محاولة واحدة</span>
+                     <div className="flex flex-col items-center gap-1">
+                        <div className="bg-secondary/50 p-3 rounded-2xl border border-white/5"><Star className="w-6 h-6 text-primary" /></div>
+                        <span className="text-[10px] font-black uppercase mt-1">محاولة واحدة</span>
                      </div>
                   </div>
-                  <Link href={`/student/exams/${activeContent.id}`} className="block pt-4">
-                    <Button size="lg" className="w-full md:w-auto h-16 px-12 bg-primary font-black rounded-2xl text-lg shadow-xl shadow-primary/20">
+
+                  <Link href={`/student/exams/${activeContent.id}`} className="block pt-6">
+                    <Button size="lg" className="w-full md:w-auto h-16 px-16 bg-primary text-primary-foreground font-black rounded-2xl text-xl shadow-2xl shadow-primary/20 hover:scale-105 transition-transform active:scale-95">
                       ابدأ الاختبار الآن ✍️
                     </Button>
                   </Link>
@@ -218,12 +228,12 @@ export default function CourseViewer() {
           </div>
 
           <div className="lg:col-span-1">
-            <Card className="bg-card/40 backdrop-blur-md border-primary/10 overflow-hidden shadow-xl rounded-[2rem] sticky top-24">
-              <CardHeader className="border-b bg-secondary/20 py-4 px-6 flex flex-row-reverse items-center justify-between">
-                <CardTitle className="text-base font-black flex items-center gap-2 justify-end">خطة الكورس <Layout className="w-4 h-4 text-primary" /></CardTitle>
-                <Badge variant="outline" className="border-primary/20 text-primary font-bold">{enrollment?.progressPercentage || 0}%</Badge>
+            <Card className="bg-card/40 backdrop-blur-md border-primary/10 overflow-hidden shadow-xl rounded-[2.5rem] sticky top-24">
+              <CardHeader className="border-b bg-secondary/20 py-5 px-6 flex flex-row-reverse items-center justify-between">
+                <CardTitle className="text-lg font-black flex items-center gap-2 justify-end">محتويات الكورس <Layout className="w-5 h-5 text-primary" /></CardTitle>
+                <Badge variant="outline" className="border-primary/20 text-primary font-bold px-3">{enrollment?.progressPercentage || 0}%</Badge>
               </CardHeader>
-              <CardContent className="p-0 max-h-[60vh] overflow-y-auto">
+              <CardContent className="p-0 max-h-[60vh] overflow-y-auto custom-scrollbar">
                 {visibleContents.map((item, idx) => {
                   const watched = watchedVideos?.some(v => v.courseContentId === item.id);
                   const isActive = activeContent?.id === item.id;
@@ -232,19 +242,22 @@ export default function CourseViewer() {
                       key={item.id} 
                       onClick={() => setActiveContent(item)} 
                       className={cn(
-                        "w-full p-4 text-right flex flex-row-reverse items-center gap-3 transition-all border-b border-white/5 relative", 
+                        "w-full p-5 text-right flex flex-row-reverse items-center gap-4 transition-all border-b border-white/5 relative group", 
                         isActive ? "bg-primary/10" : "hover:bg-secondary/10"
                       )}
                     >
-                      {isActive && <div className="absolute right-0 top-0 w-1 h-full bg-primary shadow-lg" />}
+                      {isActive && <div className="absolute right-0 top-0 w-1.5 h-full bg-primary shadow-[0_0_15px_rgba(255,215,0,0.5)]" />}
                       <div className={cn(
-                        "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 font-black text-xs", 
-                        watched ? "bg-accent text-white" : isActive ? "bg-primary text-primary-foreground" : "bg-secondary border border-white/5"
+                        "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-black text-xs transition-all", 
+                        watched ? "bg-accent text-white" : isActive ? "bg-primary text-primary-foreground scale-110" : "bg-secondary border border-white/5 text-muted-foreground"
                       )}>
-                        {watched ? <CheckCircle className="w-4 h-4" /> : idx + 1}
+                        {watched ? <CheckCircle className="w-5 h-5" /> : idx + 1}
                       </div>
                       <div className="flex-grow min-w-0">
-                        <p className={cn("font-bold text-xs truncate", isActive ? "text-primary" : "text-foreground/80")}>{item.title}</p>
+                        <p className={cn("font-bold text-sm truncate", isActive ? "text-primary" : "text-foreground/80")}>{item.title}</p>
+                        <p className="text-[9px] text-muted-foreground mt-0.5 font-bold">
+                          {item.contentType === 'Video' ? 'فيديو شرح' : 'اختبار تقييمي'}
+                        </p>
                       </div>
                     </button>
                   );
@@ -264,4 +277,3 @@ function getYouTubeId(url: string) {
   const match = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/);
   return (match && match[2] && match[2].length === 11) ? match[2] : url;
 }
-

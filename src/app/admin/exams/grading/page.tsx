@@ -16,7 +16,6 @@ import {
   Clock,
   RefreshCw,
   User as UserIcon,
-  HelpCircle,
   XCircle,
   Save,
   MessageSquare,
@@ -251,9 +250,21 @@ function AnswerRow({ index, answer, onUpdate, courseId, examId }: any) {
           <div className="p-4 bg-background/50 rounded-2xl border border-dashed border-white/10">
              <p className="text-sm font-bold text-foreground mb-3">{question?.questionText || 'جاري تحميل السؤال...'}</p>
              {question?.questionImageUrl && <img src={question.questionImageUrl} className="max-h-32 rounded-xl mb-3 shadow-md" alt="" />}
-             <div className="bg-primary/5 p-4 rounded-xl">
+             
+             <div className="bg-primary/5 p-4 rounded-xl border border-primary/10">
                 <p className="text-[10px] text-primary font-black mb-1">إجابة الطالب:</p>
-                <p className="text-sm font-bold">{answer.questionType === 'MCQ' ? `الخيار المختار: ${answer.mcqSelectedOptionId}` : answer.essayAnswerText || 'لم يكتب إجابة'}</p>
+                <div className="text-sm font-bold">
+                  {answer.questionType === 'MCQ' ? (
+                    <MCQOptionText 
+                      courseId={courseId} 
+                      examId={examId} 
+                      questionId={answer.questionId} 
+                      optionId={answer.mcqSelectedOptionId} 
+                    />
+                  ) : (
+                    <p className="whitespace-pre-wrap">{answer.essayAnswerText || 'لم يكتب إجابة'}</p>
+                  )}
+                </div>
              </div>
           </div>
        </div>
@@ -290,3 +301,17 @@ function AnswerRow({ index, answer, onUpdate, courseId, examId }: any) {
   );
 }
 
+function MCQOptionText({ courseId, examId, questionId, optionId }: any) {
+  const firestore = useFirestore();
+  const optionRef = useMemoFirebase(() => 
+    (firestore && courseId && examId && questionId && optionId) 
+    ? doc(firestore, 'courses', courseId, 'content', examId, 'questions', questionId, 'options', optionId) 
+    : null
+  , [firestore, courseId, examId, questionId, optionId]);
+  
+  const { data: option, isLoading } = useDoc(optionRef);
+
+  if (!optionId) return <span className="text-destructive">لم يتم اختيار أي إجابة</span>;
+  if (isLoading) return <span className="text-muted-foreground italic">جاري جلب النص...</span>;
+  return <p className="text-primary font-black">{option?.optionText || 'لم يتم العثور على نص الخيار'}</p>;
+}
