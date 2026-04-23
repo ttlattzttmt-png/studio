@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -27,7 +28,7 @@ export default function CourseInsightsPage() {
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // جلب الكورسات والطلاب لبناء خارطة الأسماء
+  // جلب الكورسات والطلاب لبناء خارطة الأسماء الحقيقية
   const coursesRef = useMemoFirebase(() => collection(firestore, 'courses'), [firestore]);
   const studentsRef = useMemoFirebase(() => collection(firestore, 'students'), [firestore]);
   
@@ -43,6 +44,13 @@ export default function CourseInsightsPage() {
   const { data: rawAttempts } = useCollection(allAttemptsRef);
   const { data: rawVideoLogs } = useCollection(allVideoLogsRef);
 
+  // إنشاء خارطة أسماء الطلاب (Student ID -> Student Info)
+  const studentMap = useMemo(() => {
+    const map: Record<string, any> = {};
+    allStudents?.forEach(s => { map[s.id] = s; });
+    return map;
+  }, [allStudents]);
+
   // جلب محتوى الكورس المختار لحساب عدد الفيديوهات
   const courseContentRef = useMemoFirebase(() => {
     if (!firestore || !selectedCourseId) return null;
@@ -52,13 +60,6 @@ export default function CourseInsightsPage() {
 
   const totalVideos = useMemo(() => contents?.filter(c => c.contentType === 'Video').length || 0, [contents]);
 
-  // إنشاء خارطة أسماء الطلاب (Student ID -> Student Info)
-  const studentMap = useMemo(() => {
-    const map: Record<string, any> = {};
-    allStudents?.forEach(s => { map[s.id] = s; });
-    return map;
-  }, [allStudents]);
-
   // معالجة الإحصائيات برمجياً (تزامن 100% وبحث دقيق بالاسم الرباعي)
   const processedData = useMemo(() => {
     if (!selectedCourseId || !rawEnrollments) return [];
@@ -66,7 +67,7 @@ export default function CourseInsightsPage() {
     // 1. فلترة الاشتراكات للكورس المختار
     const filteredEnrollments = rawEnrollments.filter(en => en.courseId === selectedCourseId);
     
-    // 2. تجميع البيانات لكل طالب
+    // 2. تجميع البيانات لكل طالب بربطها بخارطة الطلاب
     const stats = filteredEnrollments.map(en => {
       const studentInfo = studentMap[en.studentId] || {};
       
@@ -114,7 +115,7 @@ export default function CourseInsightsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-headline font-bold mb-2">إحصائيات المتابعة الحية</h1>
-          <p className="text-muted-foreground font-bold">راقب تقدم الطلاب، دقائق المشاهدة، والدرجات لحظياً بالاسم الرباعي.</p>
+          <p className="text-muted-foreground font-bold">راقب تقدم الطلاب ودقائق المشاهدة لحظياً بالاسم الرباعي.</p>
         </div>
         <div className="w-full md:w-80">
           <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
