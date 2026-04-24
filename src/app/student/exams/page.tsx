@@ -8,7 +8,8 @@ import { collection, doc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 
 /**
- * صفحة سجل درجات الطالب - تعرض كافة المحاولات السابقة وحالتها
+ * @fileOverview صفحة سجل درجات الطالب - تعرض كافة المحاولات السابقة وحالتها
+ * تم إصلاح أخطاء التعريفات (cn, useDoc) لضمان استقرار الصفحة.
  */
 export default function StudentExamsPage() {
   const { user, isUserLoading } = useUser();
@@ -52,7 +53,7 @@ function ExamResultCard({ attempt }: { attempt: any }) {
   const examRef = useMemoFirebase(() => {
     if (!firestore || !attempt.courseId || !attempt.courseContentId) return null;
     return doc(firestore, 'courses', attempt.courseId, 'content', attempt.courseContentId);
-  }, [firestore, attempt]);
+  }, [firestore, attempt.courseId, attempt.courseContentId]);
   
   const { data: exam } = useDoc(examRef);
 

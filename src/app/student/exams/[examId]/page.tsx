@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
 /**
- * صفحة أداء الامتحان - تضمن ظهور الصور وحماية المحتوى
+ * @fileOverview صفحة أداء الامتحان - تضمن ظهور الصور وحماية المحتوى وحل أخطاء التعريفات.
  */
 export default function TakeExamPage() {
   const { examId } = useParams();
@@ -219,19 +219,13 @@ export default function TakeExamPage() {
               <Badge variant="secondary" className="font-bold">{currentQ.points} درجة</Badge>
            </div>
 
-           {/* حل مشكلة ظهور الصور بشكل نهائي للطالب باستخدام img مباشر */}
+           {/* إظهار صورة السؤال للطالب - تم الإصلاح باستخدام img مباشر */}
            {currentQ.imageUrl && (
              <div className="w-full rounded-2xl overflow-hidden border-2 border-primary/10 bg-black/20 mb-8 shadow-2xl relative">
                 <img 
                   src={currentQ.imageUrl} 
                   alt="السؤال المصور" 
-                  className="w-full h-auto max-h-[500px] object-contain block mx-auto transition-all"
-                  loading="eager"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    console.error("Image load failed:", currentQ.imageUrl);
-                    // في حالة الفشل، نحاول إظهار بديل أو تنبيه
-                  }}
+                  className="w-full h-auto max-h-[500px] object-contain block mx-auto"
                 />
              </div>
            )}
