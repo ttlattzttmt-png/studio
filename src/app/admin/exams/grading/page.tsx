@@ -19,7 +19,8 @@ import {
   MessageCircle,
   Zap,
   Clock,
-  AlertCircle
+  AlertCircle,
+  BookOpen
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collectionGroup, updateDoc, doc, collection, getDocs, query, where } from 'firebase/firestore';
@@ -172,10 +173,11 @@ export default function AdminGradingPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <Card className="lg:col-span-1 bg-card border-primary/10 rounded-[2rem] overflow-hidden h-fit shadow-xl">
-          <CardHeader className="bg-secondary/10 p-5 border-b">
+          <CardHeader className="bg-secondary/10 p-5 border-b text-right">
+            <p className="text-[10px] font-black text-primary mb-3">قائمة المحاولات الأخيرة</p>
             <div className="relative">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input placeholder="ابحث بالاسم الرباعي..." className="w-full bg-background rounded-xl h-12 pr-10 text-right font-bold text-sm border-primary/5 focus:border-primary transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              <input placeholder="ابحث بالاسم الرباعي..." className="w-full bg-background rounded-xl h-12 pr-10 text-right font-bold text-sm border-primary/5 focus:border-primary transition-all shadow-inner" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
           </CardHeader>
           <CardContent className="p-0 max-h-[70vh] overflow-y-auto">
@@ -190,6 +192,7 @@ export default function AdminGradingPage() {
                    <Badge variant={a.isGraded ? 'default' : 'secondary'} className="text-[9px] h-5">{a.isGraded ? 'تم' : 'مراجعة'}</Badge>
                    <div className="text-right min-w-0">
                      <p className="text-xs font-black truncate">{studentMap[a.studentId]?.name || a.studentName || 'طالب مجهول'}</p>
+                     <ExamName courseId={a.courseId} examId={a.courseContentId} />
                      <p className="text-[10px] opacity-50 mt-0.5">{new Date(a.submittedAt).toLocaleDateString('ar-EG')}</p>
                    </div>
                  </button>
@@ -210,6 +213,20 @@ export default function AdminGradingPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function ExamName({ courseId, examId }: { courseId: string, examId: string }) {
+  const firestore = useFirestore();
+  const examRef = useMemoFirebase(() => 
+    (firestore && courseId && examId) ? doc(firestore, 'courses', courseId, 'content', examId) : null, 
+    [firestore, courseId, examId]
+  );
+  const { data: exam } = useDoc(examRef);
+  return (
+    <p className="text-[9px] text-primary font-bold truncate flex items-center gap-1 justify-end mt-0.5">
+      {exam?.title || 'جاري تحميل العنوان...'} <BookOpen className="w-2 h-2 opacity-50" />
+    </p>
   );
 }
 
@@ -247,8 +264,9 @@ function AttemptDetails({ attempt, studentInfo, onRelease }: any) {
   return (
     <Card className="bg-card border-primary/20 rounded-[3rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
       <CardHeader className="bg-secondary/10 flex flex-col md:flex-row md:items-center justify-between p-10 border-b gap-6">
-        <div className="text-right">
-           <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">النتيجة النهائية</p>
+        <div className="text-right min-w-0">
+           <h2 className="text-2xl font-black text-primary mb-2 truncate">{examData?.title || 'جاري التحميل...'}</h2>
+           <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">النتيجة النهائية للطالب</p>
            <div className="flex items-baseline gap-2 justify-end">
               <span className="text-5xl font-black text-primary">{attempt.score}%</span>
               <span className="text-sm font-bold opacity-40">({attempt.pointsAchieved}/{attempt.totalPoints})</span>
