@@ -322,7 +322,7 @@ function QuestionManager({ exam }: { exam: any }) {
         }
       }
 
-      toast({ title: "تمت إضافة السؤال" });
+      toast({ title: "تمت إضافة السؤال بنجاح" });
       setNewQuestion({ text: '', type: 'MCQ', points: '1', imageUrl: '', options: ['', '', '', ''], correctIndex: 0 });
     } catch (e) { console.error(e); } finally { setIsAdding(false); }
   };
@@ -364,7 +364,7 @@ function QuestionManager({ exam }: { exam: any }) {
           <div className="space-y-2">
             <Label className="flex items-center gap-2 justify-end">رابط الصورة (اختياري) <ImageIconLucide className="w-4 h-4 text-primary" /></Label>
             <Input 
-              placeholder="ألصق رابط الصورة هنا (مثل: imgur أو Google Drive رابط مباشر)" 
+              placeholder="ألصق رابط الصورة المباشر هنا" 
               className="text-right font-mono text-xs" 
               value={newQuestion.imageUrl} 
               onChange={(e) => setNewQuestion({...newQuestion, imageUrl: e.target.value})} 
