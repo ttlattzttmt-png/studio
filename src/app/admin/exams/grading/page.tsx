@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -218,13 +219,13 @@ function AnswerRow({ index, answer, attempt }: any) {
        </div>
        
        <div className="space-y-4">
-          {/* إظهار صورة السؤال للمصحح لضمان دقة التقييم */}
+          {/* إظهار الصورة للمصحح لضمان دقة التقييم */}
           {question?.imageUrl && (
-            <div className="w-full rounded-xl overflow-hidden border-2 border-primary/10 bg-black/10 mb-4 shadow-inner relative max-h-[300px]">
+            <div className="w-full rounded-xl overflow-hidden border-2 border-primary/10 bg-black/10 mb-4 shadow-inner relative h-auto">
               <img 
                 src={question.imageUrl} 
                 alt="السؤال المرجعي" 
-                className="w-full h-auto max-h-[300px] object-contain block mx-auto"
+                className="w-full h-auto max-h-[400px] object-contain block mx-auto"
               />
             </div>
           )}

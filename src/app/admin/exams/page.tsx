@@ -24,17 +24,14 @@ import {
   Settings2,
   Eye,
   EyeOff,
-  Zap,
   CheckCircle2,
   Circle,
-  FileDown,
   ImageIcon,
   Printer
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, updateDoc, getDocs, collectionGroup, where, orderBy } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, updateDoc, getDocs, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { sendAutomatedMessage, formatExamResultMessage } from '@/lib/whatsapp-utils';
 
 export default function AdminExams() {
   const firestore = useFirestore();
@@ -44,8 +41,6 @@ export default function AdminExams() {
   const [isAdding, setIsAdding] = useState(false);
   const [selectedExamForQuestions, setSelectedExamForQuestions] = useState<any>(null);
   const [activeCourseId, setActiveCourseId] = useState<string>('');
-  
-  const [isBatchSending, setIsBatchSending] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     courseId: '',
@@ -208,8 +203,8 @@ export default function AdminExams() {
       <Dialog open={!!selectedExamForQuestions} onOpenChange={() => setSelectedExamForQuestions(null)}>
         <DialogContent className="max-w-5xl bg-card border-primary/20 max-h-[90vh] overflow-y-auto rounded-[2.5rem]">
           <DialogHeader>
-            <div className="flex justify-between items-center flex-row-reverse w-full px-6">
-              <DialogTitle className="text-2xl font-black text-right">إدارة أسئلة: {selectedExamForQuestions?.title}</DialogTitle>
+            <div className="flex justify-between items-center flex-row-reverse w-full px-6 pt-6">
+              <DialogTitle className="text-3xl font-black text-right">إدارة أسئلة: {selectedExamForQuestions?.title}</DialogTitle>
               <AnswerKeyPDFExport exam={selectedExamForQuestions} />
             </div>
           </DialogHeader>
@@ -224,11 +219,11 @@ export default function AdminExams() {
 
 function AnswerKeyPDFExport({ exam }: { exam: any }) {
   const firestore = useFirestore();
-  const [isExporting, setIsBatchSending] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const handleExport = async () => {
     if (!firestore || !exam) return;
-    setIsBatchSending(true);
+    setIsExporting(true);
     try {
       const qSnap = await getDocs(query(collection(firestore, 'courses', exam.courseId, 'content', exam.id, 'questions'), orderBy('orderIndex', 'asc')));
       const questionsData = [];
@@ -255,7 +250,7 @@ function AnswerKeyPDFExport({ exam }: { exam: any }) {
               body { font-family: system-ui, sans-serif; padding: 40px; }
               .header { text-align: center; border-bottom: 3px solid #FFD700; padding-bottom: 20px; margin-bottom: 40px; }
               .question-box { border: 1px solid #eee; padding: 20px; margin-bottom: 30px; page-break-inside: avoid; border-radius: 10px; }
-              .q-image { max-width: 100%; max-height: 300px; display: block; margin: 10px 0; border-radius: 5px; }
+              .q-image { max-width: 100%; max-height: 300px; display: block; margin: 10px 0; border-radius: 5px; border: 1px solid #eee; }
               .answer { color: #2e7d32; font-weight: bold; background: #e8f5e9; padding: 10px; border-radius: 5px; margin-top: 10px; }
               .footer { text-align: center; margin-top: 50px; font-size: 12px; color: #999; }
             </style>
@@ -275,11 +270,11 @@ function AnswerKeyPDFExport({ exam }: { exam: any }) {
       `);
       printWindow.document.close();
       setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
-    } catch (e) { console.error(e); } finally { setIsBatchSending(false); }
+    } catch (e) { console.error(e); } finally { setIsExporting(false); }
   };
 
   return (
-    <Button onClick={handleExport} disabled={isExporting} variant="outline" className="gap-2 border-primary/20 text-primary font-black">
+    <Button onClick={handleExport} disabled={isExporting} variant="outline" className="gap-2 border-primary/20 text-primary font-black h-12 rounded-xl">
       {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
       تصدير نموذج الإجابة PDF
     </Button>
@@ -335,25 +330,26 @@ function QuestionManager({ exam }: { exam: any }) {
 
   const handleDeleteQuestion = async (id: string) => {
     if (!firestore || !exam) return;
+    if(!confirm('حذف السؤال نهائياً؟')) return;
     await deleteDoc(doc(firestore, 'courses', exam.courseId, 'content', exam.id, 'questions', id));
     toast({ title: "تم الحذف" });
   };
 
   return (
     <div className="space-y-8 text-right p-4">
-      <Card className="bg-secondary/20 border-dashed border-primary/20 p-6 rounded-2xl">
-        <h3 className="font-black mb-4 flex flex-row-reverse items-center gap-2 justify-start"><Plus className="w-5 h-5 text-primary" /> إضافة سؤال جديد</h3>
+      <Card className="bg-secondary/20 border-dashed border-primary/20 p-8 rounded-3xl">
+        <h3 className="font-black text-xl mb-6 flex flex-row-reverse items-center gap-2 justify-start"><Plus className="w-6 h-6 text-primary" /> إضافة سؤال جديد</h3>
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <div className="space-y-2">
-                <Label>نص السؤال</Label>
-                <Input placeholder="اكتب السؤال هنا..." className="text-right bg-background" value={newQuestion.text} onChange={(e) => setNewQuestion({...newQuestion, text: e.target.value})} />
+                <Label className="font-bold">نص السؤال</Label>
+                <Input placeholder="اكتب السؤال هنا..." className="text-right bg-background h-12 rounded-xl" value={newQuestion.text} onChange={(e) => setNewQuestion({...newQuestion, text: e.target.value})} />
              </div>
-             <div className="grid grid-cols-2 gap-2">
+             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                   <Label>النوع</Label>
+                   <Label className="font-bold">النوع</Label>
                    <Select value={newQuestion.type} onValueChange={(v) => setNewQuestion({...newQuestion, type: v})}>
-                      <SelectTrigger className="text-right bg-background"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="text-right bg-background h-12 rounded-xl"><SelectValue /></SelectTrigger>
                       <SelectContent>
                          <SelectItem value="MCQ">اختيار من متعدد</SelectItem>
                          <SelectItem value="ESSAY">سؤال مقالي</SelectItem>
@@ -361,60 +357,63 @@ function QuestionManager({ exam }: { exam: any }) {
                    </Select>
                 </div>
                 <div className="space-y-2">
-                   <Label>الدرجات</Label>
-                   <Input type="number" className="text-center bg-background" value={newQuestion.points} onChange={(e) => setNewQuestion({...newQuestion, points: e.target.value})} />
+                   <Label className="font-bold">الدرجات</Label>
+                   <Input type="number" className="text-center bg-background h-12 rounded-xl" value={newQuestion.points} onChange={(e) => setNewQuestion({...newQuestion, points: e.target.value})} />
                 </div>
              </div>
           </div>
 
           <div className="space-y-2">
-            <Label className="flex items-center gap-2 justify-end">رابط صورة السؤال (اختياري)</Label>
-            <Input placeholder="ألصق رابط الصورة هنا" className="text-right bg-background" value={newQuestion.imageUrl} onChange={(e) => setNewQuestion({...newQuestion, imageUrl: e.target.value})} />
+            <Label className="flex items-center gap-2 justify-end font-bold">رابط صورة السؤال (اختياري) <ImageIcon className="w-4 h-4 text-primary" /></Label>
+            <Input placeholder="ألصق رابط الصورة المباشر هنا لظهوره للطالب" className="text-right bg-background h-12 rounded-xl" value={newQuestion.imageUrl} onChange={(e) => setNewQuestion({...newQuestion, imageUrl: e.target.value})} />
             {newQuestion.imageUrl && (
-              <div className="mt-2 border rounded-xl overflow-hidden bg-black/10 flex justify-center">
-                 <img src={newQuestion.imageUrl} alt="Preview" className="max-h-40 object-contain" />
+              <div className="mt-4 border-2 border-primary/10 rounded-2xl overflow-hidden bg-black/10 flex justify-center p-2 shadow-inner">
+                 <img src={newQuestion.imageUrl} alt="Preview" className="max-h-56 object-contain" />
               </div>
             )}
           </div>
 
           {newQuestion.type === 'MCQ' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-background/30 p-4 rounded-xl">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-background/30 p-6 rounded-2xl border border-primary/5">
                 {[0,1,2,3].map(i => (
-                  <div key={i} className="flex flex-row-reverse items-center gap-2">
-                    <Input placeholder={`خيار ${i+1}`} className="text-right flex-grow h-10 bg-background" value={newQuestion.options[i]} onChange={(e) => {
+                  <div key={i} className="flex flex-row-reverse items-center gap-3">
+                    <Input placeholder={`خيار ${i+1}`} className="text-right flex-grow h-12 bg-background rounded-xl" value={newQuestion.options[i]} onChange={(e) => {
                         const opts = [...newQuestion.options];
                         opts[i] = e.target.value;
                         setNewQuestion({...newQuestion, options: opts});
                     }} />
-                    <Button variant={newQuestion.correctIndex === i ? "default" : "outline"} className="w-10 h-10 p-0 rounded-lg" onClick={() => setNewQuestion({...newQuestion, correctIndex: i})}>
-                      {newQuestion.correctIndex === i ? <CheckCircle2 className="w-5 h-5" /> : <Circle className="w-4 h-4" />}
+                    <Button variant={newQuestion.correctIndex === i ? "default" : "outline"} className="w-12 h-12 p-0 rounded-xl" onClick={() => setNewQuestion({...newQuestion, correctIndex: i})}>
+                      {newQuestion.correctIndex === i ? <CheckCircle2 className="w-6 h-6" /> : <Circle className="w-5 h-5" />}
                     </Button>
                   </div>
                 ))}
             </div>
           )}
 
-          <Button onClick={handleAddQuestion} disabled={isAdding || !newQuestion.text} className="w-full bg-primary font-black h-12 rounded-xl shadow-lg">إضافة السؤال</Button>
+          <Button onClick={handleAddQuestion} disabled={isAdding || !newQuestion.text} className="w-full bg-primary text-primary-foreground font-black h-14 rounded-2xl shadow-xl shadow-primary/20 text-lg">
+            {isAdding ? <Loader2 className="w-6 h-6 animate-spin" /> : "نشر السؤال الآن"}
+          </Button>
         </div>
       </Card>
 
       <div className="space-y-4">
-        {isLoading ? <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /> :
+        <h4 className="font-black text-lg border-r-4 border-primary pr-3 mt-8">الأسئلة الحالية ({questions?.length || 0}):</h4>
+        {isLoading ? <Loader2 className="w-10 h-10 animate-spin mx-auto text-primary" /> :
         questions?.map((q, idx) => (
-          <div key={q.id} className="p-6 bg-card border border-primary/5 rounded-2xl flex flex-row-reverse items-center justify-between group">
-             <div className="flex flex-row-reverse items-center gap-4">
-                <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center font-black text-xs">{idx+1}</div>
-                {q.imageUrl && <div className="w-14 h-14 rounded-lg bg-muted overflow-hidden border"><img src={q.imageUrl} className="w-full h-full object-cover" /></div>}
+          <div key={q.id} className="p-6 bg-card border border-primary/5 rounded-[2rem] flex flex-row-reverse items-center justify-between group hover:border-primary/20 transition-all shadow-md">
+             <div className="flex flex-row-reverse items-center gap-5">
+                <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center font-black text-sm">{idx+1}</div>
+                {q.imageUrl && <div className="w-20 h-20 rounded-xl bg-muted overflow-hidden border-2 border-white/5 shadow-inner"><img src={q.imageUrl} className="w-full h-full object-contain" /></div>}
                 <div className="text-right min-w-0">
-                   <p className="font-bold truncate max-w-[400px]">{q.questionText}</p>
-                   <div className="flex flex-row-reverse gap-3 mt-1">
-                      <Badge variant="outline" className="text-[8px] font-black">{q.questionType}</Badge>
-                      <span className="text-[9px] opacity-50">{q.points} درجة</span>
+                   <p className="font-bold text-lg truncate max-w-[500px]">{q.questionText}</p>
+                   <div className="flex flex-row-reverse gap-4 mt-2">
+                      <Badge variant="outline" className="text-[10px] font-black px-3 py-0.5 rounded-full">{q.questionType === 'MCQ' ? 'اختيار من متعدد' : 'سؤال مقالي'}</Badge>
+                      <span className="text-[10px] font-bold text-primary">{q.points} درجة</span>
                    </div>
                 </div>
              </div>
-             <Button variant="ghost" size="icon" className="text-destructive opacity-0 group-hover:opacity-100" onClick={() => handleDeleteQuestion(q.id)}>
-               <Trash2 className="w-4 h-4" />
+             <Button variant="ghost" size="icon" className="text-destructive opacity-0 group-hover:opacity-100 transition-all rounded-full hover:bg-destructive/10" onClick={() => handleDeleteQuestion(q.id)}>
+               <Trash2 className="w-5 h-5" />
              </Button>
           </div>
         ))}

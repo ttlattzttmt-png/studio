@@ -151,47 +151,56 @@ export default function TakeExamPage() {
           <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-primary font-black px-8 h-12 rounded-xl">إنهاء وتسليم</Button>
       </div>
 
-      <main className="container mx-auto p-4 max-w-4xl pt-10">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          <div className="lg:col-span-1">
-             <Card className="bg-card border-primary/10 p-6 rounded-3xl">
-                <h3 className="font-black text-sm mb-4 border-b pb-2">خارطة الأسئلة</h3>
-                <div className="grid grid-cols-4 gap-2">
-                   {questions.map((q, i) => (
-                      <button key={q.id} onClick={() => setActiveQuestionIndex(i)} className={cn("w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs transition-all", 
-                        activeQuestionIndex === i ? "ring-2 ring-primary bg-primary text-primary-foreground" : 
-                        (answers[q.id]?.mcqOptionId || answers[q.id]?.essayText) ? "bg-accent/20 text-accent border border-accent/40" : "bg-secondary text-muted-foreground"
-                      )}>{i + 1}</button>
-                   ))}
-                </div>
-             </Card>
-          </div>
+      <main className="container mx-auto p-4 max-w-4xl pt-10 space-y-8">
+        <Card className="bg-card border-primary/10 rounded-[2.5rem] p-6 md:p-10 shadow-xl relative overflow-hidden">
+           <div className="flex justify-between items-center flex-row-reverse mb-8"><Badge variant="outline" className="text-primary font-black">سؤال {activeQuestionIndex + 1}</Badge><Badge variant="secondary">{currentQ.points} درجة</Badge></div>
+           
+           {currentQ.imageUrl && (
+             <div className="w-full rounded-2xl overflow-hidden border-2 border-primary/10 bg-black/5 mb-8 flex justify-center shadow-inner transition-all h-auto">
+                <img 
+                  src={currentQ.imageUrl} 
+                  alt="سؤال مصور" 
+                  className="w-full h-auto max-h-[800px] object-contain block" 
+                />
+             </div>
+           )}
 
-          <div className="lg:col-span-3 space-y-6">
-            <Card className="bg-card border-primary/10 rounded-[2.5rem] p-6 md:p-10 shadow-xl relative">
-               <div className="flex justify-between items-center flex-row-reverse mb-8"><Badge variant="outline" className="text-primary font-black">سؤال {activeQuestionIndex + 1}</Badge><Badge variant="secondary">{currentQ.points} درجة</Badge></div>
-               
-               {currentQ.imageUrl && (
-                 <div className="w-full rounded-2xl overflow-hidden border bg-black/5 mb-8 flex justify-center shadow-inner">
-                    <img src={currentQ.imageUrl} alt="سؤال مصور" className="max-h-[500px] object-contain" />
-                 </div>
-               )}
+           <h2 className="text-2xl font-bold leading-relaxed border-r-4 border-primary pr-4 mb-10">{currentQ.questionText}</h2>
+           
+           {currentQ.questionType === 'MCQ' ? (
+             <MCQOptions courseId={courseId!} examId={examId as string} qId={currentQ.id} selected={answers[currentQ.id]?.mcqOptionId} onSelect={(id:string) => setAnswers({...answers, [currentQ.id]: {mcqOptionId: id}})} />
+           ) : (
+             <Textarea placeholder="اكتب إجابتك هنا..." className="min-h-[250px] bg-background/50 rounded-2xl p-6 text-lg border-primary/10 text-right" value={answers[currentQ.id]?.essayText || ''} onChange={(e) => setAnswers({...answers, [currentQ.id]: {essayText: e.target.value}})} />
+           )}
 
-               <h2 className="text-2xl font-bold leading-relaxed border-r-4 border-primary pr-4 mb-10">{currentQ.questionText}</h2>
-               
-               {currentQ.questionType === 'MCQ' ? (
-                 <MCQOptions courseId={courseId!} examId={examId as string} qId={currentQ.id} selected={answers[currentQ.id]?.mcqOptionId} onSelect={(id:string) => setAnswers({...answers, [currentQ.id]: {mcqOptionId: id}})} />
-               ) : (
-                 <Textarea placeholder="اكتب إجابتك هنا..." className="min-h-[250px] bg-background/50 rounded-2xl p-6 text-lg border-primary/10 text-right" value={answers[currentQ.id]?.essayText || ''} onChange={(e) => setAnswers({...answers, [currentQ.id]: {essayText: e.target.value}})} />
-               )}
+           <div className="flex justify-between pt-12 gap-4">
+              <Button variant="outline" disabled={activeQuestionIndex === 0} onClick={() => setActiveQuestionIndex(p => p - 1)} className="h-14 flex-1 rounded-2xl font-black">السابق</Button>
+              <Button variant="outline" disabled={activeQuestionIndex === questions.length - 1} onClick={() => setActiveQuestionIndex(p => p + 1)} className="h-14 flex-1 rounded-2xl font-black">التالي</Button>
+           </div>
+        </Card>
 
-               <div className="flex justify-between pt-12 gap-4">
-                  <Button variant="outline" disabled={activeQuestionIndex === 0} onClick={() => setActiveQuestionIndex(p => p - 1)} className="h-14 flex-1 rounded-2xl font-black">السابق</Button>
-                  <Button variant="outline" disabled={activeQuestionIndex === questions.length - 1} onClick={() => setActiveQuestionIndex(p => p + 1)} className="h-14 flex-1 rounded-2xl font-black">التالي</Button>
-               </div>
-            </Card>
-          </div>
-        </div>
+        {/* خارطة الأسئلة في الأسفل */}
+        <Card className="bg-card border-primary/10 p-8 rounded-[2rem] shadow-lg">
+            <h3 className="font-black text-sm mb-6 border-b pb-3 flex items-center gap-2 justify-end">خارطة تقدمك في الامتحان</h3>
+            <div className="flex flex-wrap gap-3 justify-center">
+               {questions.map((q, i) => (
+                  <button 
+                    key={q.id} 
+                    onClick={() => setActiveQuestionIndex(i)} 
+                    className={cn(
+                      "w-12 h-12 rounded-xl flex items-center justify-center font-black text-sm transition-all shadow-sm", 
+                      activeQuestionIndex === i 
+                        ? "ring-4 ring-primary/30 bg-primary text-primary-foreground scale-110" 
+                        : (answers[q.id]?.mcqOptionId || answers[q.id]?.essayText) 
+                          ? "bg-accent text-white" 
+                          : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                    )}
+                  >
+                    {i + 1}
+                  </button>
+               ))}
+            </div>
+        </Card>
       </main>
     </div>
   );
