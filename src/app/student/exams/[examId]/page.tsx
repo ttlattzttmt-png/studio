@@ -21,7 +21,7 @@ import {
   SendHorizontal
 } from 'lucide-react';
 import { useUser, useFirebase, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, addDoc, doc, getDocs, query, orderBy, where } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, getDocs, query, orderBy, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -91,13 +91,13 @@ export default function TakeExamPage() {
   const handleSubmit = async () => {
     if (isSubmitting || !questions || !user || !firestore) return;
     
-    const confirmSubmit = window.confirm("هل أنت متأكد من إنهاء وتسليم الامتحان؟");
-    if (!confirmSubmit && timeLeft !== 0) return;
-
+    // تم الغاء رسالة تاكيد التسليم بناء على طلب المستخدم
     setIsSubmitting(true);
     try {
-      const studentProfileSnap = await getDocs(query(collection(firestore, 'students'), where('id', '==', user.uid)));
-      const studentData = studentProfileSnap.docs[0]?.data();
+      // إصلاح: جلب بيانات الطالب بشكل مباشر بالمعرف (ID) لتجنب خطأ الصلاحيات
+      const studentRef = doc(firestore, 'students', user.uid);
+      const studentSnap = await getDoc(studentRef);
+      const studentData = studentSnap.exists() ? studentSnap.data() : null;
       const name = studentData?.name || 'طالب مجهول';
       
       let scoreAchieved = 0;
@@ -105,17 +105,18 @@ export default function TakeExamPage() {
       const submissionAnswers = [];
 
       for (const q of questions) {
-        totalPoints += q.points;
+        totalPoints += (Number(q.points) || 0);
         const ans = answers[q.id] || {};
         let correct = false;
         let points = 0;
 
         if (q.questionType === 'MCQ') {
-          const opts = await getDocs(collection(firestore, 'courses', courseId!, 'content', examId as string, 'questions', q.id, 'options'));
-          const correctOpt = opts.docs.find(d => d.data().isCorrect);
+          const optsRef = collection(firestore, 'courses', courseId!, 'content', examId as string, 'questions', q.id, 'options');
+          const optsSnap = await getDocs(optsRef);
+          const correctOpt = optsSnap.docs.find(d => d.data().isCorrect);
           if (correctOpt && correctOpt.id === ans.mcqOptionId) { 
             correct = true; 
-            points = q.points; 
+            points = (Number(q.points) || 0); 
             scoreAchieved += points; 
           }
         }
@@ -127,7 +128,7 @@ export default function TakeExamPage() {
           essayAnswerText: ans.essayText || '', 
           isCorrect: correct, 
           scoreAchieved: points, 
-          maxPoints: q.points 
+          maxPoints: (Number(q.points) || 0)
         });
       }
 
@@ -157,9 +158,13 @@ export default function TakeExamPage() {
       });
       
       toast({ title: "تم تسليم الامتحان بنجاح" });
-    } catch (e) { 
-      console.error(e); 
-      toast({ variant: "destructive", title: "خطأ في التسليم", description: "تأكد من اتصالك بالإنترنت وحاول مجدداً." });
+    } catch (e: any) { 
+      console.error("Submission Error:", e); 
+      toast({ 
+        variant: "destructive", 
+        title: "خطأ في التسليم", 
+        description: "عذراً، حدث خطأ تقني أثناء حفظ إجاباتك. يرجى المحاولة مرة أخرى." 
+      });
     } finally { 
       setIsSubmitting(false); 
     }
@@ -186,7 +191,7 @@ export default function TakeExamPage() {
                 {finishedResult.isSuccess ? <Trophy className="w-12 h-12" /> : <XCircle className="w-12 h-12" />}
               </div>
               <h1 className="text-3xl md:text-4xl font-black">{finishedResult.isSuccess ? "عاش يا بطل!" : "محاولة جيدة"}</h1>
-              <p className="text-muted-foreground font-bold">لقد أتممت الاختبار بنجاح، بشمهندس.</p>
+              <p className="text-muted-foreground font-bold italic">لقد أتممت الاختبار بنجاح، بشمهندس.</p>
            </div>
 
            {exam?.allowInstantResultsDisplay ? (
@@ -236,7 +241,6 @@ export default function TakeExamPage() {
 
   return (
     <div className="min-h-screen bg-background pb-32 text-right">
-      {/* Header التفاعلي */}
       <div className="sticky top-0 z-50 bg-card/80 backdrop-blur-xl border-b w-full flex items-center justify-between p-4 px-6 shadow-sm">
           <div className="text-base md:text-lg font-black bg-primary/10 px-4 py-2 rounded-xl text-primary flex items-center gap-2 border border-primary/20">
             <Clock className="w-4 h-4" /> 
@@ -289,7 +293,6 @@ export default function TakeExamPage() {
              />
            )}
 
-           {/* أزرار التنقل */}
            <div className="flex justify-between pt-10 gap-4">
               <Button 
                 variant="outline" 
@@ -310,7 +313,6 @@ export default function TakeExamPage() {
            </div>
         </Card>
 
-        {/* خارطة الأسئلة بالأسفل */}
         <Card className="bg-card border-primary/5 p-6 rounded-[2.5rem] shadow-lg">
             <h3 className="font-black text-xs mb-4 border-b border-white/5 pb-2 flex items-center gap-2 justify-end opacity-60">
               خارطة تقدمك في الامتحان <Layout className="w-4 h-4" />
