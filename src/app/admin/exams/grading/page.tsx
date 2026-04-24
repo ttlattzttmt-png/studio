@@ -19,8 +19,8 @@ import {
   MessageCircle,
   Zap,
   Clock,
-  AlertCircle,
-  BookOpen
+  BookOpen,
+  Activity
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collectionGroup, updateDoc, doc, collection, getDocs, query, where } from 'firebase/firestore';
@@ -39,27 +39,41 @@ export default function AdminGradingPage() {
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [broadcastProgress, setBroadcastProgress] = useState({ current: 0, total: 0 });
 
+  // جلب كافة الطلاب لبناء خارطة الأسماء الحقيقية
   const studentsRef = useMemoFirebase(() => (firestore ? collection(firestore, 'students') : null), [firestore]);
   const { data: allStudents } = useCollection(studentsRef);
 
-  const attemptsRef = useMemoFirebase(() => (firestore && user) ? collectionGroup(firestore, 'quiz_attempts') : null, [firestore, user]);
-  const { data: rawAttempts, isLoading } = useCollection(attemptsRef);
+  // جلب كافة المحاولات بتزامن لحظي (Live Snapshot)
+  const attemptsRef = useMemoFirebase(() => 
+    (firestore && user) ? collectionGroup(firestore, 'quiz_attempts') : null, 
+    [firestore, user]
+  );
+  const { data: rawAttempts, isLoading, error } = useCollection(attemptsRef);
 
+  // خارطة الطلاب للوصول السريع للبيانات
   const studentMap = useMemo(() => {
     const map: Record<string, any> = {};
     allStudents?.forEach(s => { map[s.id] = s; });
     return map;
   }, [allStudents]);
 
+  // تصفية وترتيب المحاولات (الأحدث أولاً + بحث ذكي)
   const filteredAttempts = useMemo(() => {
     if (!rawAttempts) return [];
+    
     return rawAttempts
       .filter(a => {
         const studentInfo = studentMap[a.studentId];
-        const name = (studentInfo?.name || a.studentName || '').toLowerCase();
-        return name.includes(searchTerm.toLowerCase());
+        const studentName = (studentInfo?.name || a.studentName || '').toLowerCase();
+        const searchLower = searchTerm.toLowerCase();
+        return studentName.includes(searchLower);
       })
-      .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+      .sort((a, b) => {
+        // ترتيب بالأحدث أولاً بناءً على تاريخ التسليم
+        const dateA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+        const dateB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+        return dateB - dateA;
+      });
   }, [rawAttempts, searchTerm, studentMap]);
 
   const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'admin_config', 'whatsapp') : null), [firestore]);
@@ -96,13 +110,10 @@ export default function AdminGradingPage() {
         
         // إرسال للطالب
         await sendAutomatedMessage(student.studentPhoneNumber, msg, whatsappConfig as any);
-        
-        // تأخير بسيط لمنع الحظر
-        await new Promise(r => setTimeout(r, 4000));
+        await new Promise(r => setTimeout(r, 4000)); // تأخير الحماية
 
         // إرسال لولي الأمر
         await sendAutomatedMessage(student.parentPhoneNumber, msg, whatsappConfig as any);
-        
         await new Promise(r => setTimeout(r, 4000));
       } catch (e) {
         console.error("Broadcast Error:", e);
@@ -124,40 +135,49 @@ export default function AdminGradingPage() {
       totalPoints += (Number(d.data().maxPoints) || 0);
     });
     const finalPercent = totalPoints > 0 ? Math.round((totalScore / totalPoints) * 100) : 0;
-    await updateDoc(doc(firestore, 'students', attempt.studentId, 'quiz_attempts', attempt.id), { 
-      isGraded: true, score: finalPercent, pointsAchieved: totalScore, totalPoints: totalPoints 
+    
+    const attRef = doc(firestore, 'students', attempt.studentId, 'quiz_attempts', attempt.id);
+    await updateDoc(attRef, { 
+      isGraded: true, 
+      score: finalPercent, 
+      pointsAchieved: totalScore, 
+      totalPoints: totalPoints 
     });
+    
     toast({ title: "تم الاعتماد بنجاح", description: `النتيجة النهائية المعتمدة: ${finalPercent}%` });
     setSelectedAttempt({...attempt, isGraded: true, score: finalPercent, pointsAchieved: totalScore, totalPoints: totalPoints});
   };
 
-  if (isUserLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 animate-spin text-primary" /></div>;
+  if (isUserLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20 text-right">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-4xl font-headline font-bold mb-2">مركز التصحيح والتحكم</h1>
-          <p className="text-muted-foreground font-bold italic">اعتمد الدرجات وبث النتائج فوراً لأولياء الأمور والطلاب بضغطة زر.</p>
+          <div className="flex items-center gap-2 text-accent font-bold italic">
+            <Activity className="w-4 h-4 animate-pulse" />
+            <p>النظام متصل لحظياً.. تظهر المحاولات الجديدة فوراً بالأعلى.</p>
+          </div>
         </div>
         <div className="flex flex-wrap gap-3">
           <Button 
             onClick={handleBatchBroadcast} 
             disabled={isBroadcasting || filteredAttempts.length === 0}
-            className="h-14 px-8 bg-accent text-white font-black rounded-2xl shadow-xl shadow-accent/20 gap-3 text-lg animate-pulse"
+            className="h-14 px-8 bg-accent text-white font-black rounded-2xl shadow-xl shadow-accent/20 gap-3 text-lg"
           >
             {isBroadcasting ? <Loader2 className="w-6 h-6 animate-spin" /> : <Zap className="w-6 h-6" />}
             بث نتائج الامتحان آلياً 🚀
           </Button>
-          <div className="bg-primary/10 text-primary px-6 py-3 rounded-2xl flex items-center gap-3 border border-primary/20">
+          <div className="bg-primary/10 text-primary px-6 py-3 rounded-2xl flex items-center gap-3 border border-primary/20 shadow-sm">
             <RefreshCw className="w-5 h-5 animate-spin-slow" />
-            <span className="font-black text-sm">{filteredAttempts.length} محاولة</span>
+            <span className="font-black text-sm">{filteredAttempts.length} محاولة مُسجلة</span>
           </div>
         </div>
       </div>
 
       {isBroadcasting && (
-        <Card className="p-8 bg-accent/5 border-accent/20 rounded-3xl animate-in slide-in-from-top duration-500">
+        <Card className="p-8 bg-accent/5 border-accent/20 rounded-3xl animate-in slide-in-from-top duration-500 shadow-inner">
           <div className="space-y-4">
              <div className="flex justify-between items-center text-accent font-black">
                 <span>جاري بث الرسائل الآلية: {broadcastProgress.current} من {broadcastProgress.total}</span>
@@ -165,35 +185,57 @@ export default function AdminGradingPage() {
              </div>
              <Progress value={(broadcastProgress.current/broadcastProgress.total)*100} className="h-3 bg-secondary" />
              <p className="text-xs text-muted-foreground flex items-center gap-2 justify-center">
-                <Clock className="w-4 h-4 animate-spin" /> نظام الحماية نشط.. ننتظر قليلاً بين كل رسالة لضمان الأمان.
+                <Clock className="w-4 h-4 animate-spin" /> حماية البشمهندس نشطة.. ننتظر قليلاً بين كل رسالة لضمان الأمان.
              </p>
           </div>
         </Card>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-1 bg-card border-primary/10 rounded-[2rem] overflow-hidden h-fit shadow-xl">
-          <CardHeader className="bg-secondary/10 p-5 border-b text-right">
-            <p className="text-[10px] font-black text-primary mb-3">قائمة المحاولات الأخيرة</p>
+        {/* قائمة المحاولات - مرتبة بالأحدث */}
+        <Card className="lg:col-span-1 bg-card border-primary/10 rounded-[2.5rem] overflow-hidden h-fit shadow-2xl flex flex-col">
+          <CardHeader className="bg-secondary/10 p-6 border-b text-right space-y-4">
+            <p className="text-[10px] font-black text-primary uppercase tracking-widest">المحاولات الأخيرة (المرتبة زمنياً)</p>
             <div className="relative">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input placeholder="ابحث بالاسم الرباعي..." className="w-full bg-background rounded-xl h-12 pr-10 text-right font-bold text-sm border-primary/5 focus:border-primary transition-all shadow-inner" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              <input 
+                placeholder="ابحث بالاسم الرباعي..." 
+                className="w-full bg-background rounded-xl h-12 pr-10 text-right font-bold text-sm border-primary/5 focus:border-primary transition-all shadow-inner" 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+              />
             </div>
           </CardHeader>
           <CardContent className="p-0 max-h-[70vh] overflow-y-auto">
-             {filteredAttempts.length === 0 ? (
-               <div className="p-10 text-center text-muted-foreground opacity-30 italic">لا توجد محاولات بانتظار التصحيح.</div>
+             {isLoading ? (
+               <div className="p-20 text-center"><Loader2 className="w-10 h-10 animate-spin mx-auto text-primary" /></div>
+             ) : filteredAttempts.length === 0 ? (
+               <div className="p-10 text-center text-muted-foreground opacity-30 italic font-bold">لا توجد محاولات مطابقة حالياً.</div>
              ) : (
                filteredAttempts.map(a => (
-                 <button key={a.id} onClick={() => setSelectedAttempt(a)} className={cn(
-                   "w-full p-5 text-right border-b hover:bg-primary/5 transition-all flex items-center justify-between group",
-                   selectedAttempt?.id === a.id ? 'bg-primary/10 border-r-4 border-primary shadow-inner' : ''
-                 )}>
-                   <Badge variant={a.isGraded ? 'default' : 'secondary'} className="text-[9px] h-5">{a.isGraded ? 'تم' : 'مراجعة'}</Badge>
-                   <div className="text-right min-w-0">
-                     <p className="text-xs font-black truncate">{studentMap[a.studentId]?.name || a.studentName || 'طالب مجهول'}</p>
+                 <button 
+                   key={a.id} 
+                   onClick={() => setSelectedAttempt(a)} 
+                   className={cn(
+                     "w-full p-5 text-right border-b hover:bg-primary/5 transition-all flex items-center justify-between group",
+                     selectedAttempt?.id === a.id ? 'bg-primary/10 border-r-4 border-primary shadow-inner scale-[0.98]' : ''
+                   )}
+                 >
+                   <Badge 
+                    variant={a.isGraded ? 'default' : 'secondary'} 
+                    className={cn("text-[9px] h-5", a.isGraded ? "bg-accent" : "bg-primary/20 text-primary")}
+                   >
+                     {a.isGraded ? 'تم التصحيح' : 'بانتظارك'}
+                   </Badge>
+                   <div className="text-right min-w-0 pr-4">
+                     <p className="text-xs font-black truncate text-foreground group-hover:text-primary transition-colors">
+                        {studentMap[a.studentId]?.name || a.studentName || 'طالب مجهول'}
+                     </p>
                      <ExamName courseId={a.courseId} examId={a.courseContentId} />
-                     <p className="text-[10px] opacity-50 mt-0.5">{new Date(a.submittedAt).toLocaleDateString('ar-EG')}</p>
+                     <p className="text-[9px] opacity-50 mt-1 flex items-center gap-1 justify-end font-mono">
+                        {new Date(a.submittedAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })} | {new Date(a.submittedAt).toLocaleDateString('ar-EG')}
+                        <Clock className="w-2.5 h-2.5" />
+                     </p>
                    </div>
                  </button>
                ))
@@ -201,13 +243,22 @@ export default function AdminGradingPage() {
           </CardContent>
         </Card>
 
+        {/* تفاصيل المحاولة المختارة */}
         <div className="lg:col-span-2">
           {selectedAttempt ? (
-            <AttemptDetails key={selectedAttempt.id} attempt={selectedAttempt} studentInfo={studentMap[selectedAttempt.studentId]} onRelease={handleReleaseGrades} />
+            <AttemptDetails 
+              key={selectedAttempt.id} 
+              attempt={selectedAttempt} 
+              studentInfo={studentMap[selectedAttempt.studentId]} 
+              onRelease={handleReleaseGrades} 
+            />
           ) : (
-            <Card className="h-96 flex flex-col items-center justify-center border-2 border-dashed rounded-[3rem] bg-secondary/5 opacity-40">
-              <ClipboardList className="w-20 h-20 mb-4 text-primary" />
-              <p className="font-black text-xl">اختر محاولة طالب للبدء في تقييمها</p>
+            <Card className="h-[600px] flex flex-col items-center justify-center border-2 border-dashed rounded-[3rem] bg-secondary/5 opacity-40">
+              <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+                <ClipboardList className="w-12 h-12 text-primary" />
+              </div>
+              <p className="font-black text-2xl text-primary">بشمهندس، اختر محاولة طالب للتقييم</p>
+              <p className="text-sm mt-2">سيظهر هنا نص الأسئلة، الصور، وإجابات الطالب.</p>
             </Card>
           )}
         </div>
@@ -224,8 +275,8 @@ function ExamName({ courseId, examId }: { courseId: string, examId: string }) {
   );
   const { data: exam } = useDoc(examRef);
   return (
-    <p className="text-[9px] text-primary font-bold truncate flex items-center gap-1 justify-end mt-0.5">
-      {exam?.title || 'جاري تحميل العنوان...'} <BookOpen className="w-2 h-2 opacity-50" />
+    <p className="text-[9px] text-primary font-bold truncate flex items-center gap-1 justify-end mt-1">
+      {exam?.title || 'جاري تحميل العنوان...'} <BookOpen className="w-2.5 h-2.5 opacity-50" />
     </p>
   );
 }
@@ -238,10 +289,16 @@ function AttemptDetails({ attempt, studentInfo, onRelease }: any) {
   const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'admin_config', 'whatsapp') : null), [firestore]);
   const { data: config } = useDoc(configRef);
 
-  const answersRef = useMemoFirebase(() => (firestore && attempt) ? collection(firestore, 'students', attempt.studentId, 'quiz_attempts', attempt.id, 'answers') : null, [firestore, attempt]);
+  const answersRef = useMemoFirebase(() => 
+    (firestore && attempt) ? collection(firestore, 'students', attempt.studentId, 'quiz_attempts', attempt.id, 'answers') : null, 
+    [firestore, attempt]
+  );
   const { data: answers, isLoading } = useCollection(answersRef);
 
-  const examRef = useMemoFirebase(() => (firestore && attempt.courseId && attempt.courseContentId) ? doc(firestore, 'courses', attempt.courseId, 'content', attempt.courseContentId) : null, [firestore, attempt]);
+  const examRef = useMemoFirebase(() => 
+    (firestore && attempt.courseId && attempt.courseContentId) ? doc(firestore, 'courses', attempt.courseId, 'content', attempt.courseContentId) : null, 
+    [firestore, attempt]
+  );
   const { data: examData } = useDoc(examRef);
 
   const handleSendToBoth = async () => {
@@ -300,7 +357,10 @@ function AttemptDetails({ attempt, studentInfo, onRelease }: any) {
 
 function AnswerRow({ index, answer, attempt }: any) {
   const firestore = useFirestore();
-  const qRef = useMemoFirebase(() => (firestore && answer.questionId) ? doc(firestore, 'courses', attempt.courseId, 'content', attempt.courseContentId, 'questions', answer.questionId) : null, [firestore, answer.questionId, attempt]);
+  const qRef = useMemoFirebase(() => 
+    (firestore && answer.questionId) ? doc(firestore, 'courses', attempt.courseId, 'content', attempt.courseContentId, 'questions', answer.questionId) : null, 
+    [firestore, answer.questionId, attempt]
+  );
   const { data: question } = useDoc(qRef);
 
   const handleUpdate = async (updates: any) => {
@@ -332,7 +392,7 @@ function AnswerRow({ index, answer, attempt }: any) {
           
           <p className="font-bold text-lg leading-relaxed border-r-4 border-primary pr-3">{question?.questionText || 'جاري تحميل نص السؤال...'}</p>
           
-          <div className="bg-background/40 p-6 rounded-2xl border border-dashed border-primary/20">
+          <div className="bg-background/40 p-6 rounded-2xl border border-dashed border-primary/20 shadow-inner">
              <p className="text-[10px] text-primary font-black mb-2 flex items-center gap-2 justify-end">إجابة الطالب <CheckCircle className="w-3 h-3" /></p>
              <p className="font-black text-base">
                 {answer.questionType === 'MCQ' 
@@ -377,7 +437,10 @@ function AnswerRow({ index, answer, attempt }: any) {
 
 function OptionText({ courseId, examId, questionId, optionId }: any) {
   const firestore = useFirestore();
-  const oRef = useMemoFirebase(() => (firestore && optionId) ? doc(firestore, 'courses', courseId, 'content', examId, 'questions', questionId, 'options', optionId) : null, [firestore, optionId, courseId, examId, questionId]);
+  const oRef = useMemoFirebase(() => 
+    (firestore && optionId) ? doc(firestore, 'courses', courseId, 'content', examId, 'questions', questionId, 'options', optionId) : null, 
+    [firestore, optionId, courseId, examId, questionId]
+  );
   const { data: option } = useDoc(oRef);
   return <span className={cn(option?.isCorrect ? "text-accent font-bold" : "")}>{option?.optionText || 'جاري التحميل...'}</span>;
 }
