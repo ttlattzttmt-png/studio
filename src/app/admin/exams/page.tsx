@@ -23,12 +23,14 @@ import {
   Settings2,
   Eye,
   EyeOff,
-  MessageCircle,
   Zap,
-  Clock
+  Clock,
+  CheckCircle2,
+  Circle,
+  X
 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, updateDoc, getDocs, collectionGroup, where } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
+import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, updateDoc, getDocs, collectionGroup, where, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { sendAutomatedMessage, formatExamResultMessage } from '@/lib/whatsapp-utils';
 
@@ -266,8 +268,154 @@ export default function AdminExams() {
           )}
         </CardContent>
       </Card>
-      
-      {/* Question Manager Dialog OMITTED for brevity as it was correct */}
+
+      <Dialog open={!!selectedExamForQuestions} onOpenChange={() => setSelectedExamForQuestions(null)}>
+        <DialogContent className="max-w-4xl bg-card border-primary/20 max-h-[90vh] overflow-y-auto rounded-[2.5rem]">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black text-right">أسئلة اختبار: {selectedExamForQuestions?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="py-6">
+            <QuestionManager exam={selectedExamForQuestions} />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function QuestionManager({ exam }: { exam: any }) {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  const [isAdding, setIsAdding] = useState(false);
+  const [newQuestion, setNewQuestion] = useState({ 
+    text: '', 
+    type: 'MCQ', 
+    points: '1', 
+    options: ['', '', '', ''], 
+    correctIndex: 0 
+  });
+
+  const questionsRef = useMemoFirebase(() => 
+    exam ? query(collection(firestore, 'courses', exam.courseId, 'content', exam.id, 'questions'), orderBy('orderIndex', 'asc')) : null
+  , [firestore, exam]);
+
+  const { data: questions, isLoading } = useCollection(questionsRef);
+
+  const handleAddQuestion = async () => {
+    if (!firestore || !exam || !newQuestion.text) return;
+    setIsAdding(true);
+    try {
+      const qRef = await addDoc(collection(firestore, 'courses', exam.courseId, 'content', exam.id, 'questions'), {
+        questionText: newQuestion.text,
+        questionType: newQuestion.type,
+        points: Number(newQuestion.points),
+        orderIndex: (questions?.length || 0) + 1,
+        createdAt: serverTimestamp()
+      });
+
+      if (newQuestion.type === 'MCQ') {
+        for (let i = 0; i < 4; i++) {
+          await addDoc(collection(firestore, 'courses', exam.courseId, 'content', exam.id, 'questions', qRef.id, 'options'), {
+            optionText: newQuestion.options[i],
+            isCorrect: i === newQuestion.correctIndex,
+            orderIndex: i
+          });
+        }
+      }
+
+      toast({ title: "تمت إضافة السؤال" });
+      setNewQuestion({ text: '', type: 'MCQ', points: '1', options: ['', '', '', ''], correctIndex: 0 });
+    } catch (e) { console.error(e); } finally { setIsAdding(false); }
+  };
+
+  const handleDeleteQuestion = async (id: string) => {
+    if (!firestore || !exam) return;
+    await deleteDoc(doc(firestore, 'courses', exam.courseId, 'content', exam.id, 'questions', id));
+    toast({ title: "تم حذف السؤال" });
+  };
+
+  return (
+    <div className="space-y-8 text-right">
+      <Card className="bg-secondary/20 border-dashed border-primary/20 p-6 rounded-2xl">
+        <h3 className="font-black mb-4 flex flex-row-reverse items-center gap-2 justify-start"><Plus className="w-5 h-5 text-primary" /> إضافة سؤال جديد</h3>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             <div className="space-y-2">
+                <Label>نص السؤال</Label>
+                <Input placeholder="اكتب السؤال هنا..." className="text-right" value={newQuestion.text} onChange={(e) => setNewQuestion({...newQuestion, text: e.target.value})} />
+             </div>
+             <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-2">
+                   <Label>النوع</Label>
+                   <Select value={newQuestion.type} onValueChange={(v) => setNewQuestion({...newQuestion, type: v})}>
+                      <SelectTrigger className="text-right"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                         <SelectItem value="MCQ">اختيار من متعدد</SelectItem>
+                         <SelectItem value="ESSAY">سؤال مقالي</SelectItem>
+                      </SelectContent>
+                   </Select>
+                </div>
+                <div className="space-y-2">
+                   <Label>الدرجات</Label>
+                   <Input type="number" className="text-center" value={newQuestion.points} onChange={(e) => setNewQuestion({...newQuestion, points: e.target.value})} />
+                </div>
+             </div>
+          </div>
+
+          {newQuestion.type === 'MCQ' && (
+            <div className="space-y-4 bg-background/50 p-4 rounded-xl border border-primary/5">
+              <Label className="text-xs font-black">الاختيارات (وحدد الإجابة الصحيحة)</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {[0,1,2,3].map(i => (
+                  <div key={i} className="flex flex-row-reverse items-center gap-2">
+                    <Input 
+                      placeholder={`خيار ${i+1}`} 
+                      className="text-right flex-grow h-10" 
+                      value={newQuestion.options[i]} 
+                      onChange={(e) => {
+                        const opts = [...newQuestion.options];
+                        opts[i] = e.target.value;
+                        setNewQuestion({...newQuestion, options: opts});
+                      }}
+                    />
+                    <Button 
+                      variant={newQuestion.correctIndex === i ? "default" : "outline"}
+                      className="w-10 h-10 p-0 rounded-lg shrink-0"
+                      onClick={() => setNewQuestion({...newQuestion, correctIndex: i})}
+                    >
+                      {newQuestion.correctIndex === i ? <CheckCircle2 className="w-5 h-5" /> : <Circle className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <Button onClick={handleAddQuestion} disabled={isAdding || !newQuestion.text} className="w-full bg-primary font-black h-12 rounded-xl">إضافة السؤال للاختبار</Button>
+        </div>
+      </Card>
+
+      <div className="space-y-4">
+        {isLoading ? <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /> :
+        !questions || questions.length === 0 ? <p className="text-center opacity-30 italic py-10">لا توجد أسئلة بعد.</p> :
+        questions.map((q, idx) => (
+          <div key={q.id} className="p-6 bg-card border border-primary/5 rounded-2xl flex flex-row-reverse items-center justify-between group hover:border-primary/20 transition-all shadow-sm">
+             <div className="flex flex-row-reverse items-center gap-4">
+                <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center font-black text-xs">{idx+1}</div>
+                <div className="text-right">
+                   <p className="font-bold">{q.questionText}</p>
+                   <div className="flex flex-row-reverse gap-3 mt-1">
+                      <Badge variant="outline" className="text-[8px] font-black">{q.questionType === 'MCQ' ? 'اختياري' : 'مقالي'}</Badge>
+                      <span className="text-[9px] text-muted-foreground font-bold">{q.points} درجة</span>
+                   </div>
+                </div>
+             </div>
+             <Button variant="ghost" size="icon" className="text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleDeleteQuestion(q.id)}>
+               <Trash2 className="w-4 h-4" />
+             </Button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
