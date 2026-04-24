@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Dialog, 
@@ -27,8 +27,9 @@ import {
   Zap,
   CheckCircle2,
   Circle,
+  FileDown,
   ImageIcon,
-  Image as ImageIconLucide
+  Printer
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, updateDoc, getDocs, collectionGroup, where, orderBy } from 'firebase/firestore';
@@ -45,7 +46,6 @@ export default function AdminExams() {
   const [activeCourseId, setActiveCourseId] = useState<string>('');
   
   const [isBatchSending, setIsBatchSending] = useState<string | null>(null);
-  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   
   const [formData, setFormData] = useState({
     courseId: '',
@@ -98,58 +98,19 @@ export default function AdminExams() {
 
   const handleDeleteExam = async (exam: any) => {
     if (!firestore) return;
-    const confirmed = window.confirm(`🚨 تحذير نهائي: هل أنت متأكد من مسح اختبار "${exam.title}"؟ سيمسح ذلك كافة نتائج الطلاب المرتبطة به أيضاً.`);
+    const confirmed = window.confirm(`🚨 تحذير نهائي: هل أنت متأكد من مسح اختبار "${exam.title}"؟`);
     if (!confirmed) return;
     await deleteDoc(doc(firestore, 'courses', exam.courseId, 'content', exam.id));
     toast({ title: "تم الحذف النهائي" });
   };
 
-  const handleSendBatchResults = async (exam: any) => {
-    if (!firestore || isBatchSending || !whatsappConfig) return;
-    setIsBatchSending(exam.id);
-    
-    try {
-      const attemptsRef = collectionGroup(firestore, 'quiz_attempts');
-      const q = query(attemptsRef, where('courseContentId', '==', exam.id), where('isGraded', '==', true));
-      const snap = await getDocs(q);
-
-      if (snap.empty) {
-        toast({ variant: "destructive", title: "لا توجد نتائج", description: "لم يتم تصحيح أي محاولات لهذا الاختبار بعد." });
-        setIsBatchSending(null);
-        return;
-      }
-
-      const studentsRef = collection(firestore, 'students');
-      const studentsSnap = await getDocs(studentsRef);
-      const studentMap: any = {};
-      studentsSnap.forEach(d => { studentMap[d.id] = d.data(); });
-
-      const attempts = snap.docs.map(d => ({ id: d.id, ...d.data() as any }));
-      setBatchProgress({ current: 0, total: attempts.length });
-
-      for (let i = 0; i < attempts.length; i++) {
-        const attempt = attempts[i];
-        const student = studentMap[attempt.studentId];
-        setBatchProgress(p => ({ ...p, current: i + 1 }));
-
-        if (student) {
-          const msg = formatExamResultMessage(student.name, exam.title, attempt.score, attempt.pointsAchieved, attempt.totalPoints);
-          await sendAutomatedMessage(student.studentPhoneNumber, msg, whatsappConfig as any);
-          await sendAutomatedMessage(student.parentPhoneNumber, msg, whatsappConfig as any);
-        }
-
-        if (i < attempts.length - 1) {
-          await new Promise(r => setTimeout(r, 7000));
-        }
-      }
-
-      toast({ title: "اكتمل الإرسال الآلي", description: `تم إرسال ${attempts.length} نتيجة بنجاح للطلاب وأولياء الأمور.` });
-    } catch (e) { 
-      console.error(e);
-      toast({ variant: "destructive", title: "خطأ في الإرسال الجماعي" });
-    } finally { 
-      setIsBatchSending(null); 
-    }
+  const toggleInstantResults = async (exam: any) => {
+    if (!firestore) return;
+    const newVal = !exam.allowInstantResultsDisplay;
+    await updateDoc(doc(firestore, 'courses', exam.courseId, 'content', exam.id), {
+      allowInstantResultsDisplay: newVal
+    });
+    toast({ title: newVal ? "تفعيل النتائج الفورية" : "إيقاف النتائج الفورية" });
   };
 
   if (isUserLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 animate-spin text-primary" /></div>;
@@ -159,11 +120,11 @@ export default function AdminExams() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-headline font-bold mb-2">إدارة الاختبارات</h1>
-          <p className="text-muted-foreground font-bold italic">تحكم في ظهور الاختبارات، تعديل الأسئلة، ومراسلة النتائج آلياً.</p>
+          <p className="text-muted-foreground font-bold">تحكم في ظهور النتائج، تصدير نماذج الإجابة، والمراسلة الآلية.</p>
         </div>
         <Dialog>
           <DialogTrigger asChild>
-            <Button className="h-14 px-8 bg-primary text-primary-foreground font-bold rounded-2xl gap-2 text-lg shadow-xl">
+            <Button className="h-14 px-8 bg-primary text-primary-foreground font-bold rounded-2xl gap-2 shadow-xl">
               <Plus className="w-6 h-6" /> اختبار جديد
             </Button>
           </DialogTrigger>
@@ -187,11 +148,11 @@ export default function AdminExams() {
               </div>
               <div className="space-y-2">
                 <Label>عنوان الاختبار</Label>
-                <Input placeholder="مثال: امتحان الفصل الأول - فيزياء" className="text-right" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} />
+                <Input placeholder="مثال: امتحان الفيزياء الشامل" className="text-right" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} />
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={handleAddExam} disabled={isAdding} className="w-full h-12 bg-primary font-bold">نشر الاختبار للمنصة</Button>
+              <Button onClick={handleAddExam} disabled={isAdding} className="w-full h-12 bg-primary font-bold">نشر الاختبار</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -200,7 +161,7 @@ export default function AdminExams() {
       <Card className="bg-card border-primary/10 shadow-xl overflow-hidden rounded-[2.5rem]">
         <CardHeader className="border-b bg-secondary/10 flex flex-row-reverse items-center justify-between p-6">
             <Select value={activeCourseId} onValueChange={setActiveCourseId}>
-              <SelectTrigger className="w-64 bg-background text-right h-12 rounded-xl font-bold border-primary/10"><SelectValue placeholder="اختر كورس لعرض امتحاناته" /></SelectTrigger>
+              <SelectTrigger className="w-64 bg-background text-right h-12 rounded-xl font-bold"><SelectValue placeholder="اختر كورس لعرض امتحاناته" /></SelectTrigger>
               <SelectContent>
                 {courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}
               </SelectContent>
@@ -211,7 +172,7 @@ export default function AdminExams() {
           {!activeCourseId ? (
             <div className="text-center py-24 text-muted-foreground italic flex flex-col items-center gap-4">
               <Settings2 className="w-20 h-20 opacity-5" />
-              <p className="text-xl font-bold">يرجى اختيار كورس من القائمة لعرض الاختبارات والتحكم بها.</p>
+              <p className="text-xl font-bold">يرجى اختيار كورس لعرض الاختبارات.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -220,27 +181,18 @@ export default function AdminExams() {
                   <div className={`absolute top-0 right-0 w-2 h-full transition-colors ${exam.isVisible ? 'bg-accent' : 'bg-destructive/50'}`} />
                   <CardContent className="p-7 space-y-5 text-right">
                     <div className="flex justify-between items-start mb-2">
-                      <div className="flex gap-2">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10 rounded-full" onClick={() => handleDeleteExam(exam)}><Trash2 className="w-4 h-4" /></Button>
-                        <Badge variant={exam.isVisible ? "default" : "destructive"} className="text-[9px] font-black h-5">{exam.isVisible ? "ظاهر" : "مخفي"}</Badge>
-                      </div>
-                      <h3 className="font-black text-lg line-clamp-1 flex-grow pr-2">{exam.title}</h3>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteExam(exam)}><Trash2 className="w-4 h-4" /></Button>
+                      <h3 className="font-black text-lg line-clamp-1">{exam.title}</h3>
+                    </div>
+
+                    <div className="flex items-center justify-between bg-background/50 p-3 rounded-xl border border-white/5">
+                       <span className="text-xs font-bold">نتائج فورية:</span>
+                       <Switch checked={exam.allowInstantResultsDisplay} onCheckedChange={() => toggleInstantResults(exam)} />
                     </div>
 
                     <div className="flex flex-col gap-3">
-                       <Button className="w-full bg-primary font-black h-12 rounded-xl shadow-lg active:scale-95 transition-transform" onClick={() => setSelectedExamForQuestions(exam)}>إدارة الأسئلة</Button>
-                       
-                       <Button 
-                         variant="outline" 
-                         className="w-full gap-2 h-11 rounded-xl font-black border-accent/20 text-accent hover:bg-accent/5"
-                         disabled={!!isBatchSending}
-                         onClick={() => handleSendBatchResults(exam)}
-                       >
-                         {isBatchSending === exam.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                         {isBatchSending === exam.id ? "جاري الإرسال الآلي..." : "إرسال النتائج للكل (واتساب)"}
-                       </Button>
-
-                       <Button variant="outline" className="w-full gap-2 h-11 rounded-xl font-bold border-dashed border-primary/20" onClick={() => updateDoc(doc(firestore!, 'courses', exam.courseId, 'content', exam.id), { isVisible: !exam.isVisible })}>
+                       <Button className="w-full bg-primary font-black h-12 rounded-xl" onClick={() => setSelectedExamForQuestions(exam)}>إدارة الأسئلة</Button>
+                       <Button variant="outline" className="w-full gap-2 h-11 rounded-xl font-bold" onClick={() => updateDoc(doc(firestore!, 'courses', exam.courseId, 'content', exam.id), { isVisible: !exam.isVisible })}>
                           {exam.isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           {exam.isVisible ? "إخفاء عن الطلاب" : "إظهار للطلاب"}
                        </Button>
@@ -254,9 +206,12 @@ export default function AdminExams() {
       </Card>
 
       <Dialog open={!!selectedExamForQuestions} onOpenChange={() => setSelectedExamForQuestions(null)}>
-        <DialogContent className="max-w-4xl bg-card border-primary/20 max-h-[90vh] overflow-y-auto rounded-[2.5rem]">
+        <DialogContent className="max-w-5xl bg-card border-primary/20 max-h-[90vh] overflow-y-auto rounded-[2.5rem]">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-black text-right">إدارة أسئلة: {selectedExamForQuestions?.title}</DialogTitle>
+            <div className="flex justify-between items-center flex-row-reverse w-full px-6">
+              <DialogTitle className="text-2xl font-black text-right">إدارة أسئلة: {selectedExamForQuestions?.title}</DialogTitle>
+              <AnswerKeyPDFExport exam={selectedExamForQuestions} />
+            </div>
           </DialogHeader>
           <div className="py-6">
             <QuestionManager exam={selectedExamForQuestions} />
@@ -264,6 +219,70 @@ export default function AdminExams() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function AnswerKeyPDFExport({ exam }: { exam: any }) {
+  const firestore = useFirestore();
+  const [isExporting, setIsBatchSending] = useState(false);
+
+  const handleExport = async () => {
+    if (!firestore || !exam) return;
+    setIsBatchSending(true);
+    try {
+      const qSnap = await getDocs(query(collection(firestore, 'courses', exam.courseId, 'content', exam.id, 'questions'), orderBy('orderIndex', 'asc')));
+      const questionsData = [];
+      
+      for (const qDoc of qSnap.docs) {
+        const qData = qDoc.data();
+        let correctText = '---';
+        if (qData.questionType === 'MCQ') {
+          const oSnap = await getDocs(collection(firestore, 'courses', exam.courseId, 'content', exam.id, 'questions', qDoc.id, 'options'));
+          const correct = oSnap.docs.find(d => d.data().isCorrect);
+          correctText = correct?.data().optionText || '---';
+        }
+        questionsData.push({ ...qData, correctText });
+      }
+
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) return;
+
+      printWindow.document.write(`
+        <html dir="rtl">
+          <head>
+            <title>نموذج إجابة: ${exam.title}</title>
+            <style>
+              body { font-family: system-ui, sans-serif; padding: 40px; }
+              .header { text-align: center; border-bottom: 3px solid #FFD700; padding-bottom: 20px; margin-bottom: 40px; }
+              .question-box { border: 1px solid #eee; padding: 20px; margin-bottom: 30px; page-break-inside: avoid; border-radius: 10px; }
+              .q-image { max-width: 100%; max-height: 300px; display: block; margin: 10px 0; border-radius: 5px; }
+              .answer { color: #2e7d32; font-weight: bold; background: #e8f5e9; padding: 10px; border-radius: 5px; margin-top: 10px; }
+              .footer { text-align: center; margin-top: 50px; font-size: 12px; color: #999; }
+            </style>
+          </head>
+          <body>
+            <div class="header"><h1>نموذج إجابة: ${exam.title}</h1><p>منصة البشمهندس التعليمية</p></div>
+            ${questionsData.map((q, i) => `
+              <div class="question-box">
+                <h3>س ${i+1}: ${q.questionText}</h3>
+                ${q.imageUrl ? `<img src="${q.imageUrl}" class="q-image" />` : ''}
+                <div class="answer">الإجابة الصحيحة: ${q.correctText}</div>
+              </div>
+            `).join('')}
+            <div class="footer">صنع بكل فخر بواسطة : Mohamed Alaa - 01008006562</div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
+    } catch (e) { console.error(e); } finally { setIsBatchSending(false); }
+  };
+
+  return (
+    <Button onClick={handleExport} disabled={isExporting} variant="outline" className="gap-2 border-primary/20 text-primary font-black">
+      {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+      تصدير نموذج الإجابة PDF
+    </Button>
   );
 }
 
@@ -309,7 +328,7 @@ function QuestionManager({ exam }: { exam: any }) {
         }
       }
 
-      toast({ title: "تمت إضافة السؤال بنجاح" });
+      toast({ title: "تم إضافة السؤال" });
       setNewQuestion({ text: '', type: 'MCQ', points: '1', imageUrl: '', options: ['', '', '', ''], correctIndex: 0 });
     } catch (e) { console.error(e); } finally { setIsAdding(false); }
   };
@@ -317,24 +336,24 @@ function QuestionManager({ exam }: { exam: any }) {
   const handleDeleteQuestion = async (id: string) => {
     if (!firestore || !exam) return;
     await deleteDoc(doc(firestore, 'courses', exam.courseId, 'content', exam.id, 'questions', id));
-    toast({ title: "تم حذف السؤال" });
+    toast({ title: "تم الحذف" });
   };
 
   return (
-    <div className="space-y-8 text-right">
+    <div className="space-y-8 text-right p-4">
       <Card className="bg-secondary/20 border-dashed border-primary/20 p-6 rounded-2xl">
         <h3 className="font-black mb-4 flex flex-row-reverse items-center gap-2 justify-start"><Plus className="w-5 h-5 text-primary" /> إضافة سؤال جديد</h3>
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
              <div className="space-y-2">
                 <Label>نص السؤال</Label>
-                <Input placeholder="اكتب السؤال هنا..." className="text-right" value={newQuestion.text} onChange={(e) => setNewQuestion({...newQuestion, text: e.target.value})} />
+                <Input placeholder="اكتب السؤال هنا..." className="text-right bg-background" value={newQuestion.text} onChange={(e) => setNewQuestion({...newQuestion, text: e.target.value})} />
              </div>
              <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-2">
                    <Label>النوع</Label>
                    <Select value={newQuestion.type} onValueChange={(v) => setNewQuestion({...newQuestion, type: v})}>
-                      <SelectTrigger className="text-right"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="text-right bg-background"><SelectValue /></SelectTrigger>
                       <SelectContent>
                          <SelectItem value="MCQ">اختيار من متعدد</SelectItem>
                          <SelectItem value="ESSAY">سؤال مقالي</SelectItem>
@@ -343,83 +362,58 @@ function QuestionManager({ exam }: { exam: any }) {
                 </div>
                 <div className="space-y-2">
                    <Label>الدرجات</Label>
-                   <Input type="number" className="text-center" value={newQuestion.points} onChange={(e) => setNewQuestion({...newQuestion, points: e.target.value})} />
+                   <Input type="number" className="text-center bg-background" value={newQuestion.points} onChange={(e) => setNewQuestion({...newQuestion, points: e.target.value})} />
                 </div>
              </div>
           </div>
 
           <div className="space-y-2">
-            <Label className="flex items-center gap-2 justify-end">رابط صورة السؤال (اختياري) <ImageIconLucide className="w-4 h-4 text-primary" /></Label>
-            <Input 
-              placeholder="ألصق رابط الصورة المباشر هنا (imgur, drive, etc.)" 
-              className="text-right font-mono text-xs" 
-              value={newQuestion.imageUrl} 
-              onChange={(e) => setNewQuestion({...newQuestion, imageUrl: e.target.value})} 
-            />
+            <Label className="flex items-center gap-2 justify-end">رابط صورة السؤال (اختياري)</Label>
+            <Input placeholder="ألصق رابط الصورة هنا" className="text-right bg-background" value={newQuestion.imageUrl} onChange={(e) => setNewQuestion({...newQuestion, imageUrl: e.target.value})} />
             {newQuestion.imageUrl && (
-              <div className="mt-2 w-full max-h-40 rounded-xl border overflow-hidden bg-muted">
-                <img src={newQuestion.imageUrl} alt="Preview" className="w-full h-full object-contain" />
+              <div className="mt-2 border rounded-xl overflow-hidden bg-black/10 flex justify-center">
+                 <img src={newQuestion.imageUrl} alt="Preview" className="max-h-40 object-contain" />
               </div>
             )}
           </div>
 
           {newQuestion.type === 'MCQ' && (
-            <div className="space-y-4 bg-background/50 p-4 rounded-xl border border-primary/5">
-              <Label className="text-xs font-black">الاختيارات (وحدد الإجابة الصحيحة)</Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-background/30 p-4 rounded-xl">
                 {[0,1,2,3].map(i => (
                   <div key={i} className="flex flex-row-reverse items-center gap-2">
-                    <Input 
-                      placeholder={`خيار ${i+1}`} 
-                      className="text-right flex-grow h-10" 
-                      value={newQuestion.options[i]} 
-                      onChange={(e) => {
+                    <Input placeholder={`خيار ${i+1}`} className="text-right flex-grow h-10 bg-background" value={newQuestion.options[i]} onChange={(e) => {
                         const opts = [...newQuestion.options];
                         opts[i] = e.target.value;
                         setNewQuestion({...newQuestion, options: opts});
-                      }}
-                    />
-                    <Button 
-                      variant={newQuestion.correctIndex === i ? "default" : "outline"}
-                      className="w-10 h-10 p-0 rounded-lg shrink-0"
-                      onClick={() => setNewQuestion({...newQuestion, correctIndex: i})}
-                    >
+                    }} />
+                    <Button variant={newQuestion.correctIndex === i ? "default" : "outline"} className="w-10 h-10 p-0 rounded-lg" onClick={() => setNewQuestion({...newQuestion, correctIndex: i})}>
                       {newQuestion.correctIndex === i ? <CheckCircle2 className="w-5 h-5" /> : <Circle className="w-4 h-4" />}
                     </Button>
                   </div>
                 ))}
-              </div>
             </div>
           )}
 
-          <Button onClick={handleAddQuestion} disabled={isAdding || !newQuestion.text} className="w-full bg-primary font-black h-12 rounded-xl shadow-lg active:scale-95 transition-transform">إضافة السؤال للاختبار</Button>
+          <Button onClick={handleAddQuestion} disabled={isAdding || !newQuestion.text} className="w-full bg-primary font-black h-12 rounded-xl shadow-lg">إضافة السؤال</Button>
         </div>
       </Card>
 
       <div className="space-y-4">
         {isLoading ? <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /> :
-        !questions || questions.length === 0 ? <p className="text-center opacity-30 italic py-10">لا توجد أسئلة بعد.</p> :
-        questions.map((q, idx) => (
-          <div key={q.id} className="p-6 bg-card border border-primary/5 rounded-2xl flex flex-row-reverse items-center justify-between group hover:border-primary/20 transition-all shadow-sm">
+        questions?.map((q, idx) => (
+          <div key={q.id} className="p-6 bg-card border border-primary/5 rounded-2xl flex flex-row-reverse items-center justify-between group">
              <div className="flex flex-row-reverse items-center gap-4">
                 <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center font-black text-xs">{idx+1}</div>
-                
-                {q.imageUrl && (
-                  <div className="w-16 h-16 rounded-lg bg-muted relative overflow-hidden shrink-0 border border-primary/10">
-                    <img src={q.imageUrl} alt="preview" className="w-full h-full object-cover" />
-                  </div>
-                )}
-
+                {q.imageUrl && <div className="w-14 h-14 rounded-lg bg-muted overflow-hidden border"><img src={q.imageUrl} className="w-full h-full object-cover" /></div>}
                 <div className="text-right min-w-0">
-                   <p className="font-bold truncate max-w-[300px]">{q.questionText}</p>
+                   <p className="font-bold truncate max-w-[400px]">{q.questionText}</p>
                    <div className="flex flex-row-reverse gap-3 mt-1">
-                      <Badge variant="outline" className="text-[8px] font-black">{q.questionType === 'MCQ' ? 'اختياري' : 'مقالي'}</Badge>
-                      <span className="text-[9px] text-muted-foreground font-bold">{q.points} درجة</span>
-                      {q.imageUrl && <span className="text-[8px] text-accent font-black flex items-center gap-1">يحتوي على صورة <ImageIcon className="w-2 h-2" /></span>}
+                      <Badge variant="outline" className="text-[8px] font-black">{q.questionType}</Badge>
+                      <span className="text-[9px] opacity-50">{q.points} درجة</span>
                    </div>
                 </div>
              </div>
-             <Button variant="ghost" size="icon" className="text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleDeleteQuestion(q.id)}>
+             <Button variant="ghost" size="icon" className="text-destructive opacity-0 group-hover:opacity-100" onClick={() => handleDeleteQuestion(q.id)}>
                <Trash2 className="w-4 h-4" />
              </Button>
           </div>
