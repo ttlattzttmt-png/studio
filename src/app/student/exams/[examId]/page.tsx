@@ -6,7 +6,6 @@ import { useParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { RadioGroup } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -15,14 +14,14 @@ import {
   Trophy,
   ShieldAlert,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  XCircle
 } from 'lucide-react';
 import { useUser, useFirebase, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, addDoc, doc, getDocs, query, orderBy, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import Image from 'next/image';
 
 export default function TakeExamPage() {
   const { examId } = useParams();
@@ -38,7 +37,7 @@ export default function TakeExamPage() {
   const [finishedResult, setFinishedResult] = useState<any>(null);
   const [isBlocked, setIsBlocked] = useState(false);
 
-  // حماية الامتحان من لقطات الشاشة
+  // حماية الامتحان من لقطات الشاشة والهروب من الصفحة
   useEffect(() => {
     if (finishedResult) return;
     const triggerProtection = () => setIsBlocked(true);
@@ -55,7 +54,7 @@ export default function TakeExamPage() {
     };
   }, [finishedResult]);
 
-  // البحث عن الكورس المرتبط بالامتحان
+  // العثور على الكورس المرتبط بالامتحان (ضروري لجلب الأسئلة)
   useEffect(() => {
     const findCourse = async () => {
       if (!firestore || !examId) return;
@@ -71,7 +70,7 @@ export default function TakeExamPage() {
   const examRef = useMemoFirebase(() => (firestore && courseId && examId) ? doc(firestore, 'courses', courseId, 'content', examId as string) : null, [firestore, courseId, examId]);
   const { data: exam } = useDoc(examRef);
 
-  // إدارة الوقت
+  // إدارة وقت الامتحان
   useEffect(() => { if (exam?.durationMinutes && timeLeft === null) setTimeLeft(exam.durationMinutes * 60); }, [exam, timeLeft]);
   useEffect(() => {
     if (timeLeft === 0 && !finishedResult) handleSubmit();
@@ -137,7 +136,7 @@ export default function TakeExamPage() {
         await addDoc(collection(firestore, 'students', user.uid, 'quiz_attempts', attRef.id, 'answers'), a);
       }
 
-      setFinishedResult({ score: finalPercent, points: scoreAchieved, total: totalPoints });
+      setFinishedResult({ score: finalPercent, points: scoreAchieved, total: totalPoints, isSuccess: finalPercent >= (exam?.passMarkPercentage || 50) });
       toast({ title: "تم تسليم الامتحان بنجاح" });
     } catch (e) { 
       console.error(e);
@@ -151,19 +150,22 @@ export default function TakeExamPage() {
     <div className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center text-center p-8 select-none">
       <ShieldAlert className="w-20 h-20 text-primary mb-6 animate-pulse" />
       <h2 className="text-3xl font-black text-white">🚨 محتوى محمي</h2>
-      <p className="text-primary font-bold mt-2">يمنع منعاً باتاً تصوير الشاشة في منصة البشمهندس.</p>
+      <p className="text-primary font-bold mt-2">يمنع منعاً باتاً تصوير الشاشة أو الخروج من الصفحة أثناء الامتحان.</p>
     </div>
   );
 
   if (finishedResult) return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 text-right">
-      <Card className="w-full max-w-xl bg-card border-primary/10 rounded-[2.5rem] overflow-hidden shadow-2xl">
-        <div className="h-3 bg-accent" />
+      <Card className="w-full max-w-xl bg-card border-primary/10 rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in duration-500">
+        <div className={cn("h-3", finishedResult.isSuccess ? "bg-accent" : "bg-destructive")} />
         <CardContent className="p-12 text-center space-y-10">
-           <div className="w-24 h-24 rounded-full bg-accent/10 flex items-center justify-center mx-auto text-accent shadow-lg">
-             <Trophy className="w-12 h-12" />
+           <div className={cn(
+             "w-24 h-24 rounded-full flex items-center justify-center mx-auto shadow-lg",
+             finishedResult.isSuccess ? "bg-accent/10 text-accent" : "bg-destructive/10 text-destructive"
+           )}>
+             {finishedResult.isSuccess ? <Trophy className="w-12 h-12" /> : <XCircle className="w-12 h-12" />}
            </div>
-           <h1 className="text-4xl font-black">أحسنت يا بطل!</h1>
+           <h1 className="text-4xl font-black">{finishedResult.isSuccess ? "أحسنت يا بطل!" : "حظاً موفقاً المرة القادمة"}</h1>
            <div className="grid grid-cols-2 gap-6">
               <div className="p-8 bg-secondary/30 rounded-3xl border border-white/5">
                 <p className="text-5xl font-black text-primary">{finishedResult.score}%</p>
@@ -201,16 +203,13 @@ export default function TakeExamPage() {
               <Badge variant="secondary" className="font-bold">{currentQ.points} درجة</Badge>
            </div>
 
-           {/* عرض صورة السؤال - تم الإصلاح */}
+           {/* حل مشكلة ظهور الصور بشكل نهائي */}
            {currentQ.imageUrl && (
-             <div className="relative w-full h-64 md:h-96 rounded-2xl overflow-hidden border-2 border-primary/5 bg-muted mb-6 shadow-inner">
-                <Image 
+             <div className="w-full rounded-2xl overflow-hidden border-2 border-primary/5 bg-muted mb-6 shadow-inner">
+                <img 
                   src={currentQ.imageUrl} 
-                  alt="Question" 
-                  fill 
-                  className="object-contain" 
-                  unoptimized 
-                  priority
+                  alt="سؤال مصور" 
+                  className="w-full h-auto max-h-[500px] object-contain block mx-auto animate-in fade-in duration-700" 
                 />
              </div>
            )}
@@ -273,7 +272,7 @@ function MCQOptions({ courseId, examId, qId, selected, onSelect }: any) {
       onClick={() => onSelect(o.id)} 
       className={cn(
         "flex flex-row-reverse items-center gap-4 p-5 border-2 rounded-2xl cursor-pointer transition-all", 
-        selected === o.id ? "border-primary bg-primary/5" : "border-white/5 hover:bg-white/5"
+        selected === o.id ? "border-primary bg-primary/5 shadow-inner" : "border-white/5 hover:bg-white/5"
       )}
     >
        <div className={cn(

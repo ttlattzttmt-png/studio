@@ -36,7 +36,6 @@ import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@
 import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, updateDoc, getDocs, collectionGroup, where, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { sendAutomatedMessage, formatExamResultMessage } from '@/lib/whatsapp-utils';
-import Image from 'next/image';
 
 export default function AdminExams() {
   const firestore = useFirestore();
@@ -61,6 +60,7 @@ export default function AdminExams() {
     isVisible: true 
   });
 
+  // التأكد من استيراد وجلب إعدادات الواتساب بشكل صحيح
   const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'admin_config', 'whatsapp') : null), [firestore]);
   const { data: whatsappConfig } = useDoc(configRef);
 
@@ -127,7 +127,7 @@ export default function AdminExams() {
       const studentMap: any = {};
       studentsSnap.forEach(d => { studentMap[d.id] = d.data(); });
 
-      const attempts = snap.docs.map(d => d.data());
+      const attempts = snap.docs.map(d => ({ id: d.id, ...d.data() as any }));
       setBatchProgress({ current: 0, total: attempts.length });
 
       for (let i = 0; i < attempts.length; i++) {
@@ -142,11 +142,11 @@ export default function AdminExams() {
         }
 
         if (i < attempts.length - 1) {
-          await new Promise(r => setTimeout(r, 7000));
+          await new Promise(r => setTimeout(r, 7000)); // تأخير لحماية الرقم
         }
       }
 
-      toast({ title: "اكتمل الإرسال الآلي", description: `تم إرسال ${attempts.length} نتيجة بنجاح.` });
+      toast({ title: "اكتمل الإرسال الآلي", description: `تم إرسال ${attempts.length} نتيجة بنجاح للطلاب وأولياء الأمور.` });
     } catch (e) { 
       console.error(e);
       toast({ variant: "destructive", title: "خطأ في الإرسال الجماعي" });
@@ -250,7 +250,7 @@ export default function AdminExams() {
                          onClick={() => handleSendBatchResults(exam)}
                        >
                          {isBatchSending === exam.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                         {isBatchSending === exam.id ? "جاري الإرسال الآلي..." : "إرسال النتائج آلياً"}
+                         {isBatchSending === exam.id ? "جاري الإرسال الآلي..." : "إرسال النتائج للكل (واتساب)"}
                        </Button>
 
                        <Button variant="outline" className="w-full gap-2 h-11 rounded-xl font-bold border-dashed border-primary/20" onClick={() => updateDoc(doc(firestore!, 'courses', exam.courseId, 'content', exam.id), { isVisible: !exam.isVisible })}>
@@ -269,7 +269,7 @@ export default function AdminExams() {
       <Dialog open={!!selectedExamForQuestions} onOpenChange={() => setSelectedExamForQuestions(null)}>
         <DialogContent className="max-w-4xl bg-card border-primary/20 max-h-[90vh] overflow-y-auto rounded-[2.5rem]">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-black text-right">أسئلة اختبار: {selectedExamForQuestions?.title}</DialogTitle>
+            <DialogTitle className="text-2xl font-black text-right">إدارة أسئلة: {selectedExamForQuestions?.title}</DialogTitle>
           </DialogHeader>
           <div className="py-6">
             <QuestionManager exam={selectedExamForQuestions} />
@@ -362,9 +362,9 @@ function QuestionManager({ exam }: { exam: any }) {
           </div>
 
           <div className="space-y-2">
-            <Label className="flex items-center gap-2 justify-end">رابط الصورة (اختياري) <ImageIconLucide className="w-4 h-4 text-primary" /></Label>
+            <Label className="flex items-center gap-2 justify-end">رابط صورة السؤال (اختياري) <ImageIconLucide className="w-4 h-4 text-primary" /></Label>
             <Input 
-              placeholder="ألصق رابط الصورة المباشر هنا" 
+              placeholder="ألصق رابط الصورة المباشر هنا (imgur, drive, etc.)" 
               className="text-right font-mono text-xs" 
               value={newQuestion.imageUrl} 
               onChange={(e) => setNewQuestion({...newQuestion, imageUrl: e.target.value})} 
@@ -413,8 +413,8 @@ function QuestionManager({ exam }: { exam: any }) {
                 <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center font-black text-xs">{idx+1}</div>
                 
                 {q.imageUrl && (
-                  <div className="w-12 h-12 rounded-lg bg-muted relative overflow-hidden shrink-0 border border-primary/10">
-                    <Image src={q.imageUrl} alt="preview" fill className="object-cover" unoptimized />
+                  <div className="w-16 h-16 rounded-lg bg-muted relative overflow-hidden shrink-0 border border-primary/10">
+                    <img src={q.imageUrl} alt="preview" className="w-full h-full object-cover" />
                   </div>
                 )}
 
@@ -423,7 +423,7 @@ function QuestionManager({ exam }: { exam: any }) {
                    <div className="flex flex-row-reverse gap-3 mt-1">
                       <Badge variant="outline" className="text-[8px] font-black">{q.questionType === 'MCQ' ? 'اختياري' : 'مقالي'}</Badge>
                       <span className="text-[9px] text-muted-foreground font-bold">{q.points} درجة</span>
-                      {q.imageUrl && <span className="text-[8px] text-accent font-black flex items-center gap-1">صورة <ImageIcon className="w-2 h-2" /></span>}
+                      {q.imageUrl && <span className="text-[8px] text-accent font-black flex items-center gap-1">يحتوي على صورة <ImageIcon className="w-2 h-2" /></span>}
                    </div>
                 </div>
              </div>
