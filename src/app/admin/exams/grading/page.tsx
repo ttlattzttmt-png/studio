@@ -7,13 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   Loader2, 
   Search,
   CheckCircle,
   ClipboardList,
   RefreshCw,
-  XCircle,
   Save,
   MessageCircle,
 } from 'lucide-react';
@@ -46,7 +46,8 @@ export default function AdminGradingPage() {
     if (!rawAttempts) return [];
     return rawAttempts
       .filter(a => {
-        const name = (studentMap[a.studentId]?.name || a.studentName || '').toLowerCase();
+        const studentInfo = studentMap[a.studentId];
+        const name = (studentInfo?.name || a.studentName || '').toLowerCase();
         return name.includes(searchTerm.toLowerCase());
       })
       .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
@@ -206,11 +207,18 @@ function AnswerRow({ index, answer, attempt }: any) {
        
        <div className="space-y-4">
           {question?.imageUrl && (
-            <div className="relative w-full h-40 rounded-xl overflow-hidden border border-white/10 mb-4 bg-muted">
-              <Image src={question.imageUrl} alt="Q Image" fill className="object-contain" unoptimized />
+            <div className="relative w-full h-48 md:h-64 rounded-xl overflow-hidden border border-white/10 mb-4 bg-muted shadow-sm">
+              <Image 
+                src={question.imageUrl} 
+                alt="Question Reference" 
+                fill 
+                className="object-contain" 
+                unoptimized 
+              />
             </div>
           )}
-          <p className="font-bold text-lg leading-relaxed">{question?.questionText || 'جاري التحميل...'}</p>
+          <p className="font-bold text-lg leading-relaxed border-r-4 border-primary/20 pr-3">{question?.questionText || 'جاري التحميل...'}</p>
+          
           <div className="bg-background/40 p-6 rounded-2xl border border-dashed border-primary/10">
              <p className="text-[10px] text-primary font-black mb-2 flex items-center gap-2 justify-end">إجابة الطالب <CheckCircle className="w-3 h-3" /></p>
              <p className="font-black text-base">
@@ -221,18 +229,34 @@ function AnswerRow({ index, answer, attempt }: any) {
           </div>
        </div>
 
-       <div className="flex flex-wrap gap-3 items-center pt-4 border-t border-white/5">
-          <div className="space-y-1">
-             <Label className="text-[9px] font-black opacity-40">الدرجة المستحقة</Label>
-             <Input type="number" value={answer.scoreAchieved} onChange={(e) => handleUpdate({scoreAchieved: Number(e.target.value)})} className="w-28 text-center font-black h-12 rounded-xl bg-background" />
+       <div className="flex flex-wrap gap-4 items-center pt-6 border-t border-white/5">
+          <div className="space-y-1.5">
+             <Label className="text-[10px] font-black opacity-50 block">الدرجة المستحقة</Label>
+             <Input 
+                type="number" 
+                value={answer.scoreAchieved} 
+                onChange={(e) => handleUpdate({scoreAchieved: Number(e.target.value)})} 
+                className="w-28 text-center font-black h-12 rounded-xl bg-background border-primary/10" 
+             />
           </div>
           <div className="flex gap-2 mt-auto">
-            <Button variant="outline" onClick={() => handleUpdate({isCorrect: true, scoreAchieved: answer.maxPoints})} className="h-12 px-6 rounded-xl text-accent border-accent/20 hover:bg-accent/10 font-black">صح ✓</Button>
-            <Button variant="outline" onClick={() => handleUpdate({isCorrect: false, scoreAchieved: 0})} className="h-12 px-6 rounded-xl text-destructive border-destructive/20 hover:bg-destructive/10 font-black">خطأ ✗</Button>
+            <Button variant="outline" onClick={() => handleUpdate({isCorrect: true, scoreAchieved: answer.maxPoints})} className="h-12 px-6 rounded-xl text-accent border-accent/20 hover:bg-accent/10 font-black">إجابة صحيحة ✓</Button>
+            <Button variant="outline" onClick={() => handleUpdate({isCorrect: false, scoreAchieved: 0})} className="h-12 px-6 rounded-xl text-destructive border-destructive/20 hover:bg-destructive/10 font-black">إجابة خاطئة ✗</Button>
           </div>
-          <div className="mr-auto text-left">
-             <p className="text-[10px] font-bold text-muted-foreground">من أصل: {answer.maxPoints} درجة</p>
+          <div className="mr-auto text-left flex flex-col items-end">
+             <p className="text-[10px] font-bold text-muted-foreground uppercase">من أصل</p>
+             <p className="text-xl font-black text-primary">{answer.maxPoints}</p>
           </div>
+       </div>
+
+       <div className="pt-4">
+          <Label className="text-[10px] font-black opacity-50 mb-1.5 block">ملاحظات المعلم للطالب (اختياري)</Label>
+          <Textarea 
+            placeholder="اكتب ملاحظاتك هنا ليراها الطالب..." 
+            className="bg-background/50 border-white/5 h-20 text-xs" 
+            value={answer.teacherNote || ''}
+            onChange={(e) => handleUpdate({teacherNote: e.target.value})}
+          />
        </div>
     </div>
   );
@@ -242,5 +266,5 @@ function OptionText({ courseId, examId, questionId, optionId }: any) {
   const firestore = useFirestore();
   const oRef = useMemoFirebase(() => (firestore && optionId) ? doc(firestore, 'courses', courseId, 'content', examId, 'questions', questionId, 'options', optionId) : null, [firestore, optionId, courseId, examId, questionId]);
   const { data: option } = useDoc(oRef);
-  return <span>{option?.optionText || '...'}</span>;
+  return <span className={option?.isCorrect ? "text-accent" : ""}>{option?.optionText || '...'}</span>;
 }

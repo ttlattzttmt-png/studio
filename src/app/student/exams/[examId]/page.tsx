@@ -3,19 +3,16 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { RadioGroup } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { 
   Loader2, 
   Clock, 
   Trophy,
-  AlertTriangle,
-  ChevronRight,
-  ChevronLeft,
   ShieldAlert,
   CheckCircle2,
 } from 'lucide-react';
@@ -104,12 +101,28 @@ export default function TakeExamPage() {
           const correctOpt = opts.docs.find(d => d.data().isCorrect);
           if (correctOpt && correctOpt.id === ans.mcqOptionId) { correct = true; points = q.points; scoreAchieved += points; }
         }
-        submissionAnswers.push({ questionId: q.id, questionType: q.questionType, mcqSelectedOptionId: ans.mcqOptionId || null, essayAnswerText: ans.essayText || '', isCorrect: correct, scoreAchieved: points, maxPoints: q.points });
+        submissionAnswers.push({ 
+          questionId: q.id, 
+          questionType: q.questionType, 
+          mcqSelectedOptionId: ans.mcqOptionId || null, 
+          essayAnswerText: ans.essayText || '', 
+          isCorrect: correct, 
+          scoreAchieved: points, 
+          maxPoints: q.points 
+        });
       }
 
       const finalPercent = totalPoints > 0 ? Math.round((scoreAchieved / totalPoints) * 100) : 0;
       const attRef = await addDoc(collection(firestore!, 'students', user.uid, 'quiz_attempts'), {
-        studentId: user.uid, studentName: name, courseContentId: examId, courseId: courseId, submittedAt: new Date().toISOString(), isGraded: questions.every(q => q.questionType === 'MCQ'), score: finalPercent, pointsAchieved: scoreAchieved, totalPoints: totalPoints
+        studentId: user.uid, 
+        studentName: name, 
+        courseContentId: examId, 
+        courseId: courseId, 
+        submittedAt: new Date().toISOString(), 
+        isGraded: questions.every(q => q.questionType === 'MCQ'), 
+        score: finalPercent, 
+        pointsAchieved: scoreAchieved, 
+        totalPoints: totalPoints
       });
 
       for (const a of submissionAnswers) await addDoc(collection(firestore!, 'students', user.uid, 'quiz_attempts', attRef.id, 'answers'), a);
@@ -154,12 +167,12 @@ export default function TakeExamPage() {
            </div>
 
            {currentQ.imageUrl && (
-             <div className="relative w-full aspect-video rounded-2xl overflow-hidden border-2 border-primary/5 bg-muted">
+             <div className="relative w-full h-64 md:h-80 rounded-2xl overflow-hidden border-2 border-primary/5 bg-muted mb-6 shadow-inner">
                 <Image 
                   src={currentQ.imageUrl} 
-                  alt="Question" 
+                  alt="Question Image" 
                   fill 
-                  className="object-contain p-2" 
+                  className="object-contain" 
                   unoptimized 
                 />
              </div>
@@ -168,11 +181,11 @@ export default function TakeExamPage() {
            <h2 className="text-2xl font-bold leading-relaxed">{currentQ.questionText}</h2>
            
            {currentQ.questionType === 'MCQ' ? (
-             <RadioGroup value={answers[currentQ.id]?.mcqOptionId} onValueChange={(v) => setAnswers({...answers, [currentQ.id]: {mcqOptionId: v}})} className="grid gap-4">
+             <RadioGroup value={answers[currentQ.id]?.mcqOptionId} onValueChange={(v) => setAnswers({...answers, [currentQ.id]: {mcqOptionId: v}})} className="grid gap-4 mt-6">
                 <MCQOptions courseId={courseId!} examId={examId as string} qId={currentQ.id} selected={answers[currentQ.id]?.mcqOptionId} onSelect={(id:string) => setAnswers({...answers, [currentQ.id]: {mcqOptionId: id}})} />
              </RadioGroup>
            ) : (
-             <Textarea placeholder="أدخل إجابتك المقالية هنا..." className="min-h-[200px] bg-background/50 rounded-2xl p-6 text-lg border-primary/10" value={answers[currentQ.id]?.essayText || ''} onChange={(e) => setAnswers({...answers, [currentQ.id]: {essayText: e.target.value}})} />
+             <Textarea placeholder="أدخل إجابتك المقالية هنا..." className="min-h-[200px] bg-background/50 rounded-2xl p-6 text-lg border-primary/10 mt-6" value={answers[currentQ.id]?.essayText || ''} onChange={(e) => setAnswers({...answers, [currentQ.id]: {essayText: e.target.value}})} />
            )}
            <div className="flex justify-between pt-8">
               <Button variant="outline" disabled={activeQuestionIndex === 0} onClick={() => setActiveQuestionIndex(p => p - 1)} className="h-12 w-32 rounded-xl">السابق</Button>
@@ -186,11 +199,13 @@ export default function TakeExamPage() {
 
 function MCQOptions({ courseId, examId, qId, selected, onSelect }: any) {
   const firestore = useFirestore();
-  const { data: options } = useCollection(useMemoFirebase(() => collection(firestore!, 'courses', courseId, 'content', examId, 'questions', qId, 'options'), [firestore, qId]));
+  const optionsRef = useMemoFirebase(() => collection(firestore!, 'courses', courseId, 'content', examId, 'questions', qId, 'options'), [firestore, qId, courseId, examId]);
+  const { data: options } = useCollection(optionsRef);
+
   return options?.map(o => (
-    <div key={o.id} onClick={() => onSelect(o.id)} className={cn("flex items-center gap-4 p-5 border-2 rounded-2xl cursor-pointer transition-all", selected === o.id ? "border-primary bg-primary/5" : "border-white/5 hover:bg-white/5")}>
-       <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center", selected === o.id ? "border-primary" : "border-muted")}>{selected === o.id && <div className="w-2 h-2 bg-primary rounded-full" />}</div>
-       <Label className="flex-grow font-bold text-lg cursor-pointer">{o.optionText}</Label>
+    <div key={o.id} onClick={() => onSelect(o.id)} className={cn("flex flex-row-reverse items-center gap-4 p-5 border-2 rounded-2xl cursor-pointer transition-all", selected === o.id ? "border-primary bg-primary/5" : "border-white/5 hover:bg-white/5")}>
+       <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center", selected === o.id ? "border-primary" : "border-muted")}>{selected === o.id && <div className="w-2.5 h-2.5 bg-primary rounded-full" />}</div>
+       <Label className="flex-grow font-bold text-lg cursor-pointer text-right">{o.optionText}</Label>
     </div>
   ));
 }
