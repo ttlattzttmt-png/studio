@@ -25,10 +25,8 @@ import {
   Eye,
   EyeOff,
   Zap,
-  Clock,
   CheckCircle2,
   Circle,
-  X,
   ImageIcon,
   Image as ImageIconLucide
 } from 'lucide-react';
@@ -107,7 +105,7 @@ export default function AdminExams() {
   };
 
   const handleSendBatchResults = async (exam: any) => {
-    if (!firestore || isBatchSending) return;
+    if (!firestore || isBatchSending || !whatsappConfig) return;
     setIsBatchSending(exam.id);
     
     try {
@@ -160,7 +158,7 @@ export default function AdminExams() {
     <div className="space-y-8 animate-in fade-in duration-500 text-right">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-headline font-bold mb-2">إدارة الاختبارات الاحترافية</h1>
+          <h1 className="text-4xl font-headline font-bold mb-2">إدارة الاختبارات</h1>
           <p className="text-muted-foreground font-bold italic">تحكم في ظهور الاختبارات، تعديل الأسئلة، ومراسلة النتائج آلياً.</p>
         </div>
         <Dialog>
@@ -228,16 +226,6 @@ export default function AdminExams() {
                       </div>
                       <h3 className="font-black text-lg line-clamp-1 flex-grow pr-2">{exam.title}</h3>
                     </div>
-
-                    {isBatchSending === exam.id && (
-                      <div className="space-y-2 animate-in fade-in duration-300">
-                         <div className="flex justify-between text-[10px] font-black text-primary">
-                            <span>جاري إرسال النتائج: {batchProgress.current} / {batchProgress.total}</span>
-                            <span>{Math.round((batchProgress.current/batchProgress.total)*100)}%</span>
-                         </div>
-                         <Progress value={(batchProgress.current/batchProgress.total)*100} className="h-2" />
-                      </div>
-                    )}
 
                     <div className="flex flex-col gap-3">
                        <Button className="w-full bg-primary font-black h-12 rounded-xl shadow-lg active:scale-95 transition-transform" onClick={() => setSelectedExamForQuestions(exam)}>إدارة الأسئلة</Button>

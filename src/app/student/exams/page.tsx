@@ -1,8 +1,9 @@
+
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardList, Trophy, Loader2, AlertCircle, Lock } from 'lucide-react';
+import { Loader2, AlertCircle, Lock } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
@@ -52,8 +53,6 @@ function ExamResultCard({ attempt }: { attempt: any }) {
   }, [firestore, attempt.courseId, attempt.courseContentId]);
   
   const { data: exam } = useDoc(examRef);
-
-  // إظهار النتيجة إذا كانت معتمدة أو إذا كان الامتحان يسمح بالنتائج الفورية
   const canShowScore = exam?.allowInstantResultsDisplay || attempt.isGraded;
 
   return (
@@ -67,19 +66,16 @@ function ExamResultCard({ attempt }: { attempt: any }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="p-6">
-        <div className="flex flex-col items-center justify-center p-8 bg-secondary/20 rounded-2xl relative overflow-hidden border border-white/5 shadow-inner">
+        <div className="flex flex-col items-center justify-center p-8 bg-secondary/20 rounded-2xl relative overflow-hidden border border-white/5">
           {canShowScore ? (
             <div className="text-center animate-in zoom-in duration-300">
-              <div className="flex flex-col items-center">
-                <p className="text-5xl font-black text-primary">{attempt.score}%</p>
-                <p className="text-sm font-bold text-muted-foreground mt-2">الدرجة: {attempt.pointsAchieved} من {attempt.totalPoints}</p>
-              </div>
+              <p className="text-5xl font-black text-primary">{attempt.score}%</p>
+              <p className="text-sm font-bold text-muted-foreground mt-2">الدرجة: {attempt.pointsAchieved} من {attempt.totalPoints}</p>
             </div>
           ) : (
             <div className="text-center opacity-40 flex flex-col items-center">
               <Lock className="w-10 h-10 mb-2 text-primary" />
               <p className="text-sm font-bold">النتيجة ستظهر قريباً</p>
-              <p className="text-[10px] mt-1 italic">بانتظار مراجعة البشمهندس</p>
             </div>
           )}
         </div>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -200,7 +201,6 @@ export default function TakeExamPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24 text-right">
-      {/* الهيدر العلوي */}
       <div className="sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b w-full flex items-center justify-between p-4 px-6">
           <div className="flex items-center gap-4">
              <div className="text-lg font-bold bg-primary/10 px-4 py-2 rounded-xl text-primary flex items-center gap-2">
@@ -212,7 +212,6 @@ export default function TakeExamPage() {
 
       <main className="container mx-auto p-4 max-w-4xl pt-10">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* خارطة الأسئلة (مؤشر التقدم) */}
           <div className="lg:col-span-1 order-2 lg:order-1">
              <Card className="bg-card border-primary/10 p-6 rounded-3xl">
                 <h3 className="font-black text-sm mb-4 border-b pb-2">خارطة الأسئلة</h3>
@@ -231,14 +230,9 @@ export default function TakeExamPage() {
                       </button>
                    ))}
                 </div>
-                <div className="mt-6 space-y-2 text-[10px] font-bold">
-                   <div className="flex items-center gap-2 justify-end"><span className="w-3 h-3 bg-accent/20 rounded-sm" /> تم الحل</div>
-                   <div className="flex items-center gap-2 justify-end"><span className="w-3 h-3 bg-primary rounded-sm" /> السؤال الحالي</div>
-                </div>
              </Card>
           </div>
 
-          {/* السؤال الحالي */}
           <div className="lg:col-span-3 order-1 lg:order-2 space-y-6">
             <Card className="bg-card border-primary/10 rounded-[2.5rem] p-6 md:p-10 shadow-xl overflow-hidden relative">
                <div className="flex justify-between items-center flex-row-reverse mb-8">
@@ -246,56 +240,34 @@ export default function TakeExamPage() {
                   <Badge variant="secondary" className="font-bold">{currentQ.points} درجة</Badge>
                </div>
 
-               {/* إظهار صورة السؤال المرفوعة */}
                {currentQ.imageUrl && (
-                 <div className="w-full rounded-2xl overflow-hidden border-2 border-primary/10 bg-black/40 mb-8 shadow-2xl relative">
-                    <img 
-                      src={currentQ.imageUrl} 
-                      alt="السؤال المصور" 
-                      className="w-full h-auto max-h-[600px] object-contain block mx-auto p-2"
-                      onError={(e) => (e.currentTarget.style.display = 'none')}
-                    />
+                 <div className="w-full rounded-2xl overflow-hidden border-2 border-primary/10 bg-black/40 mb-8 shadow-2xl">
+                    <img src={currentQ.imageUrl} alt="السؤال المصور" className="w-full h-auto max-h-[600px] object-contain block mx-auto p-2" />
                  </div>
                )}
 
                <h2 className="text-2xl font-bold leading-relaxed border-r-4 border-primary pr-4 mb-10">{currentQ.questionText}</h2>
                
                {currentQ.questionType === 'MCQ' ? (
-                 <div className="grid gap-4">
-                    <MCQOptions 
-                      courseId={courseId!} 
-                      examId={examId as string} 
-                      qId={currentQ.id} 
-                      selected={answers[currentQ.id]?.mcqOptionId} 
-                      onSelect={(id:string) => setAnswers({...answers, [currentQ.id]: {mcqOptionId: id}})} 
-                    />
-                 </div>
+                 <MCQOptions 
+                    courseId={courseId!} 
+                    examId={examId as string} 
+                    qId={currentQ.id} 
+                    selected={answers[currentQ.id]?.mcqOptionId} 
+                    onSelect={(id:string) => setAnswers({...answers, [currentQ.id]: {mcqOptionId: id}})} 
+                 />
                ) : (
                  <Textarea 
                    placeholder="اكتب إجابتك هنا..." 
-                   className="min-h-[250px] bg-background/50 rounded-2xl p-6 text-lg border-primary/10 text-right resize-none focus:border-primary transition-all" 
+                   className="min-h-[250px] bg-background/50 rounded-2xl p-6 text-lg border-primary/10 text-right" 
                    value={answers[currentQ.id]?.essayText || ''} 
                    onChange={(e) => setAnswers({...answers, [currentQ.id]: {essayText: e.target.value}})} 
                  />
                )}
 
                <div className="flex justify-between pt-12 gap-4">
-                  <Button 
-                    variant="outline" 
-                    disabled={activeQuestionIndex === 0} 
-                    onClick={() => setActiveQuestionIndex(p => p - 1)} 
-                    className="h-14 flex-1 rounded-2xl font-black text-lg gap-2"
-                  >
-                    السؤال السابق <ChevronLeft className="w-5 h-5" />
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    disabled={activeQuestionIndex === questions.length - 1} 
-                    onClick={() => setActiveQuestionIndex(p => p + 1)} 
-                    className="h-14 flex-1 rounded-2xl font-black text-lg gap-2"
-                  >
-                    السؤال التالي <ChevronRight className="w-5 h-5" />
-                  </Button>
+                  <Button variant="outline" disabled={activeQuestionIndex === 0} onClick={() => setActiveQuestionIndex(p => p - 1)} className="h-14 flex-1 rounded-2xl font-black">السؤال السابق</Button>
+                  <Button variant="outline" disabled={activeQuestionIndex === questions.length - 1} onClick={() => setActiveQuestionIndex(p => p + 1)} className="h-14 flex-1 rounded-2xl font-black">السؤال التالي</Button>
                </div>
             </Card>
           </div>
@@ -319,17 +291,12 @@ function MCQOptions({ courseId, examId, qId, selected, onSelect }: any) {
           key={o.id} 
           onClick={() => onSelect(o.id)} 
           className={cn(
-            "flex flex-row-reverse items-center gap-4 p-6 border-2 rounded-3xl cursor-pointer transition-all active:scale-[0.98]", 
-            selected === o.id ? "border-primary bg-primary/5 shadow-xl" : "border-white/5 hover:bg-white/5"
+            "flex flex-row-reverse items-center gap-4 p-6 border-2 rounded-3xl cursor-pointer transition-all", 
+            selected === o.id ? "border-primary bg-primary/5" : "border-white/5 hover:bg-white/5"
           )}
         >
-           <div className={cn(
-             "w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0", 
-             selected === o.id ? "border-primary" : "border-muted"
-           )}>
-             {selected === o.id && <div className="w-3.5 h-3.5 bg-primary rounded-full shadow-lg" />}
-           </div>
-           <Label className="flex-grow font-black text-xl cursor-pointer text-right leading-snug">{o.optionText}</Label>
+           <div className={cn("w-6 h-6 rounded-full border-2", selected === o.id ? "border-primary" : "border-muted")} />
+           <Label className="flex-grow font-black text-xl cursor-pointer text-right">{o.optionText}</Label>
         </div>
       ))}
     </div>
