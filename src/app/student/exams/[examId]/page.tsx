@@ -14,6 +14,7 @@ import {
   Trophy,
   ShieldAlert,
   XCircle,
+  Layout
 } from 'lucide-react';
 import { useUser, useFirebase, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, addDoc, doc, getDocs, query, orderBy, where } from 'firebase/firestore';
@@ -180,7 +181,7 @@ export default function TakeExamPage() {
         </Card>
 
         <Card className="bg-card border-primary/10 p-8 rounded-[2rem] shadow-lg">
-            <h3 className="font-black text-sm mb-6 border-b pb-3 flex items-center gap-2 justify-end">خارطة تقدمك في الامتحان</h3>
+            <h3 className="font-black text-sm mb-6 border-b pb-3 flex items-center gap-2 justify-end">خارطة تقدمك في الامتحان <Layout className="w-4 h-4 text-primary" /></h3>
             <div className="flex flex-wrap gap-3 justify-center">
                {questions.map((q, i) => (
                   <button 
@@ -191,7 +192,7 @@ export default function TakeExamPage() {
                       activeQuestionIndex === i 
                         ? "ring-4 ring-primary/30 bg-primary text-primary-foreground scale-110" 
                         : (answers[q.id]?.mcqOptionId || answers[q.id]?.essayText) 
-                          ? "bg-accent text-white" 
+                          ? "bg-accent text-white shadow-accent/20" 
                           : "bg-secondary text-muted-foreground hover:bg-secondary/80"
                     )}
                   >

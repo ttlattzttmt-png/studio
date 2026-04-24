@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Dialog, 
@@ -27,11 +28,15 @@ import {
   CheckCircle2,
   Circle,
   ImageIcon,
-  Printer
+  Printer,
+  Zap,
+  MessageCircle,
+  Clock
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, updateDoc, getDocs, orderBy } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, updateDoc, getDocs, orderBy, where, collectionGroup } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { sendAutomatedMessage, formatExamResultMessage } from '@/lib/whatsapp-utils';
 
 export default function AdminExams() {
   const firestore = useFirestore();
@@ -41,6 +46,8 @@ export default function AdminExams() {
   const [isAdding, setIsAdding] = useState(false);
   const [selectedExamForQuestions, setSelectedExamForQuestions] = useState<any>(null);
   const [activeCourseId, setActiveCourseId] = useState<string>('');
+  const [broadcastingId, setBroadcastingId] = useState<string | null>(null);
+  const [broadcastProgress, setBroadcastProgress] = useState({ current: 0, total: 0 });
   
   const [formData, setFormData] = useState({
     courseId: '',
@@ -108,6 +115,52 @@ export default function AdminExams() {
     toast({ title: newVal ? "تفعيل النتائج الفورية" : "إيقاف النتائج الفورية" });
   };
 
+  const handleExamBroadcast = async (exam: any) => {
+    if (!firestore || !whatsappConfig) {
+      toast({ variant: "destructive", title: "نقص إعدادات", description: "يرجى ضبط إعدادات الواتساب أولاً." });
+      return;
+    }
+
+    const attemptsSnap = await getDocs(query(
+      collectionGroup(firestore, 'quiz_attempts'), 
+      where('courseContentId', '==', exam.id),
+      where('isGraded', '==', true)
+    ));
+
+    if (attemptsSnap.empty) {
+      toast({ variant: "destructive", title: "لا توجد نتائج", description: "لم يتم تصحيح أي محاولات لهذا الامتحان بعد." });
+      return;
+    }
+
+    if (!confirm(`هل أنت متأكد من بدء بث النتائج لـ ${attemptsSnap.size} طالب؟ سيصل إشعار لكل طالب وولي أمره.`)) return;
+
+    setBroadcastingId(exam.id);
+    setBroadcastProgress({ current: 0, total: attemptsSnap.size });
+
+    for (let i = 0; i < attemptsSnap.docs.length; i++) {
+      const att = attemptsSnap.docs[i].data();
+      setBroadcastProgress(p => ({ ...p, current: i + 1 }));
+
+      try {
+        const studentSnap = await getDocs(query(collection(firestore, 'students'), where('id', '==', att.studentId)));
+        const student = studentSnap.docs[0]?.data();
+
+        if (student) {
+          const msg = formatExamResultMessage(student.name, exam.title, att.score, att.pointsAchieved, att.totalPoints);
+          
+          await sendAutomatedMessage(student.studentPhoneNumber, msg, whatsappConfig as any);
+          await new Promise(r => setTimeout(r, 5000)); // تأخير 5 ثوانٍ
+
+          await sendAutomatedMessage(student.parentPhoneNumber, msg, whatsappConfig as any);
+          await new Promise(r => setTimeout(r, 5000)); // تأخير 5 ثوانٍ
+        }
+      } catch (e) { console.error("Broadcast Error:", e); }
+    }
+
+    setBroadcastingId(null);
+    toast({ title: "اكتمل البث الآلي", description: "تم إرسال كافة الدرجات بنجاح لهذا الامتحان." });
+  };
+
   if (isUserLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 animate-spin text-primary" /></div>;
 
   return (
@@ -153,6 +206,21 @@ export default function AdminExams() {
         </Dialog>
       </div>
 
+      {broadcastingId && (
+        <Card className="p-8 bg-accent/5 border-accent/20 rounded-3xl animate-in slide-in-from-top duration-500">
+          <div className="space-y-4">
+             <div className="flex justify-between items-center text-accent font-black">
+                <span>جاري بث نتائج الامتحان: {broadcastProgress.current} من {broadcastProgress.total}</span>
+                <span>{Math.round((broadcastProgress.current/broadcastProgress.total)*100)}%</span>
+             </div>
+             <Progress value={(broadcastProgress.current/broadcastProgress.total)*100} className="h-3 bg-secondary" />
+             <p className="text-xs text-muted-foreground flex items-center gap-2 justify-center">
+                <Clock className="w-4 h-4 animate-spin" /> نظام حماية البشمهندس نشط.. ننتظر 5 ثوانٍ لضمان وصول الرسالة بأمان.
+             </p>
+          </div>
+        </Card>
+      )}
+
       <Card className="bg-card border-primary/10 shadow-xl overflow-hidden rounded-[2.5rem]">
         <CardHeader className="border-b bg-secondary/10 flex flex-row-reverse items-center justify-between p-6">
             <Select value={activeCourseId} onValueChange={setActiveCourseId}>
@@ -187,6 +255,17 @@ export default function AdminExams() {
 
                     <div className="flex flex-col gap-3">
                        <Button className="w-full bg-primary font-black h-12 rounded-xl" onClick={() => setSelectedExamForQuestions(exam)}>إدارة الأسئلة</Button>
+                       
+                       <Button 
+                         variant="outline" 
+                         className="w-full gap-2 h-11 rounded-xl font-bold border-accent/20 text-accent hover:bg-accent/5"
+                         disabled={broadcastingId === exam.id}
+                         onClick={() => handleExamBroadcast(exam)}
+                       >
+                         {broadcastingId === exam.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                         بث النتائج (واتساب)
+                       </Button>
+
                        <Button variant="outline" className="w-full gap-2 h-11 rounded-xl font-bold" onClick={() => updateDoc(doc(firestore!, 'courses', exam.courseId, 'content', exam.id), { isVisible: !exam.isVisible })}>
                           {exam.isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           {exam.isVisible ? "إخفاء عن الطلاب" : "إظهار للطلاب"}
@@ -236,7 +315,7 @@ function AnswerKeyPDFExport({ exam }: { exam: any }) {
           const correct = oSnap.docs.find(d => d.data().isCorrect);
           correctText = correct?.data().optionText || '---';
         }
-        questionsData.push({ ...qData, correctText });
+        questionsData.push({ ...qData, id: qDoc.id, correctText });
       }
 
       const printWindow = window.open('', '_blank');
@@ -247,11 +326,11 @@ function AnswerKeyPDFExport({ exam }: { exam: any }) {
           <head>
             <title>نموذج إجابة: ${exam.title}</title>
             <style>
-              body { font-family: system-ui, sans-serif; padding: 40px; }
+              body { font-family: system-ui, sans-serif; padding: 40px; background: #fff; }
               .header { text-align: center; border-bottom: 3px solid #FFD700; padding-bottom: 20px; margin-bottom: 40px; }
-              .question-box { border: 1px solid #eee; padding: 20px; margin-bottom: 30px; page-break-inside: avoid; border-radius: 10px; }
-              .q-image { max-width: 100%; max-height: 300px; display: block; margin: 10px 0; border-radius: 5px; border: 1px solid #eee; }
-              .answer { color: #2e7d32; font-weight: bold; background: #e8f5e9; padding: 10px; border-radius: 5px; margin-top: 10px; }
+              .question-box { border: 2px solid #eee; padding: 25px; margin-bottom: 30px; page-break-inside: avoid; border-radius: 15px; }
+              .q-image { max-width: 100%; max-height: 400px; display: block; margin: 15px auto; border-radius: 10px; border: 1px solid #ddd; }
+              .answer { color: #2e7d32; font-weight: bold; background: #e8f5e9; padding: 12px; border-radius: 8px; margin-top: 15px; border-right: 5px solid #2e7d32; }
               .footer { text-align: center; margin-top: 50px; font-size: 12px; color: #999; }
             </style>
           </head>
@@ -259,7 +338,7 @@ function AnswerKeyPDFExport({ exam }: { exam: any }) {
             <div class="header"><h1>نموذج إجابة: ${exam.title}</h1><p>منصة البشمهندس التعليمية</p></div>
             ${questionsData.map((q, i) => `
               <div class="question-box">
-                <h3>س ${i+1}: ${q.questionText}</h3>
+                <h3 style="margin-top:0">س ${i+1}: ${q.questionText}</h3>
                 ${q.imageUrl ? `<img src="${q.imageUrl}" class="q-image" />` : ''}
                 <div class="answer">الإجابة الصحيحة: ${q.correctText}</div>
               </div>
