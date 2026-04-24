@@ -15,6 +15,7 @@ import {
   Trophy,
   ShieldAlert,
   CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { useUser, useFirebase, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, addDoc, doc, getDocs, query, orderBy, where } from 'firebase/firestore';
