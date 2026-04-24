@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -27,12 +28,15 @@ import {
   Clock,
   CheckCircle2,
   Circle,
-  X
+  X,
+  ImageIcon,
+  Image as ImageIconLucide
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, addDoc, serverTimestamp, deleteDoc, doc, query, updateDoc, getDocs, collectionGroup, where, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { sendAutomatedMessage, formatExamResultMessage } from '@/lib/whatsapp-utils';
+import Image from 'next/image';
 
 export default function AdminExams() {
   const firestore = useFirestore();
@@ -43,7 +47,6 @@ export default function AdminExams() {
   const [selectedExamForQuestions, setSelectedExamForQuestions] = useState<any>(null);
   const [activeCourseId, setActiveCourseId] = useState<string>('');
   
-  // حالة الإرسال الآلي الجماعي
   const [isBatchSending, setIsBatchSending] = useState<string | null>(null);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   
@@ -109,7 +112,6 @@ export default function AdminExams() {
     setIsBatchSending(exam.id);
     
     try {
-      // 1. جلب كافة المحاولات المصححة لهذا الاختبار
       const attemptsRef = collectionGroup(firestore, 'quiz_attempts');
       const q = query(attemptsRef, where('courseContentId', '==', exam.id), where('isGraded', '==', true));
       const snap = await getDocs(q);
@@ -120,7 +122,6 @@ export default function AdminExams() {
         return;
       }
 
-      // 2. جلب خارطة الطلاب للوصول للأرقام
       const studentsRef = collection(firestore, 'students');
       const studentsSnap = await getDocs(studentsRef);
       const studentMap: any = {};
@@ -129,7 +130,6 @@ export default function AdminExams() {
       const attempts = snap.docs.map(d => d.data());
       setBatchProgress({ current: 0, total: attempts.length });
 
-      // 3. الإرسال الآلي مع تأخير زمني
       for (let i = 0; i < attempts.length; i++) {
         const attempt = attempts[i];
         const student = studentMap[attempt.studentId];
@@ -137,13 +137,10 @@ export default function AdminExams() {
 
         if (student) {
           const msg = formatExamResultMessage(student.name, exam.title, attempt.score, attempt.pointsAchieved, attempt.totalPoints);
-          
-          // إرسال للطالب وولي الأمر (آلياً)
           await sendAutomatedMessage(student.studentPhoneNumber, msg, whatsappConfig as any);
           await sendAutomatedMessage(student.parentPhoneNumber, msg, whatsappConfig as any);
         }
 
-        // تأخير 7 ثوانٍ بين كل طالب وآخر لمنع الحظر
         if (i < attempts.length - 1) {
           await new Promise(r => setTimeout(r, 7000));
         }
@@ -291,6 +288,7 @@ function QuestionManager({ exam }: { exam: any }) {
     text: '', 
     type: 'MCQ', 
     points: '1', 
+    imageUrl: '',
     options: ['', '', '', ''], 
     correctIndex: 0 
   });
@@ -309,6 +307,7 @@ function QuestionManager({ exam }: { exam: any }) {
         questionText: newQuestion.text,
         questionType: newQuestion.type,
         points: Number(newQuestion.points),
+        imageUrl: newQuestion.imageUrl || null,
         orderIndex: (questions?.length || 0) + 1,
         createdAt: serverTimestamp()
       });
@@ -324,7 +323,7 @@ function QuestionManager({ exam }: { exam: any }) {
       }
 
       toast({ title: "تمت إضافة السؤال" });
-      setNewQuestion({ text: '', type: 'MCQ', points: '1', options: ['', '', '', ''], correctIndex: 0 });
+      setNewQuestion({ text: '', type: 'MCQ', points: '1', imageUrl: '', options: ['', '', '', ''], correctIndex: 0 });
     } catch (e) { console.error(e); } finally { setIsAdding(false); }
   };
 
@@ -362,6 +361,16 @@ function QuestionManager({ exam }: { exam: any }) {
              </div>
           </div>
 
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2 justify-end">رابط الصورة (اختياري) <ImageIconLucide className="w-4 h-4 text-primary" /></Label>
+            <Input 
+              placeholder="ألصق رابط الصورة هنا (مثل: imgur أو Google Drive رابط مباشر)" 
+              className="text-right font-mono text-xs" 
+              value={newQuestion.imageUrl} 
+              onChange={(e) => setNewQuestion({...newQuestion, imageUrl: e.target.value})} 
+            />
+          </div>
+
           {newQuestion.type === 'MCQ' && (
             <div className="space-y-4 bg-background/50 p-4 rounded-xl border border-primary/5">
               <Label className="text-xs font-black">الاختيارات (وحدد الإجابة الصحيحة)</Label>
@@ -391,7 +400,7 @@ function QuestionManager({ exam }: { exam: any }) {
             </div>
           )}
 
-          <Button onClick={handleAddQuestion} disabled={isAdding || !newQuestion.text} className="w-full bg-primary font-black h-12 rounded-xl">إضافة السؤال للاختبار</Button>
+          <Button onClick={handleAddQuestion} disabled={isAdding || !newQuestion.text} className="w-full bg-primary font-black h-12 rounded-xl shadow-lg active:scale-95 transition-transform">إضافة السؤال للاختبار</Button>
         </div>
       </Card>
 
@@ -402,11 +411,19 @@ function QuestionManager({ exam }: { exam: any }) {
           <div key={q.id} className="p-6 bg-card border border-primary/5 rounded-2xl flex flex-row-reverse items-center justify-between group hover:border-primary/20 transition-all shadow-sm">
              <div className="flex flex-row-reverse items-center gap-4">
                 <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center font-black text-xs">{idx+1}</div>
-                <div className="text-right">
-                   <p className="font-bold">{q.questionText}</p>
+                
+                {q.imageUrl && (
+                  <div className="w-12 h-12 rounded-lg bg-muted relative overflow-hidden shrink-0 border border-primary/10">
+                    <Image src={q.imageUrl} alt="preview" fill className="object-cover" unoptimized />
+                  </div>
+                )}
+
+                <div className="text-right min-w-0">
+                   <p className="font-bold truncate max-w-[300px]">{q.questionText}</p>
                    <div className="flex flex-row-reverse gap-3 mt-1">
                       <Badge variant="outline" className="text-[8px] font-black">{q.questionType === 'MCQ' ? 'اختياري' : 'مقالي'}</Badge>
                       <span className="text-[9px] text-muted-foreground font-bold">{q.points} درجة</span>
+                      {q.imageUrl && <span className="text-[8px] text-accent font-black flex items-center gap-1">صورة <ImageIcon className="w-2 h-2" /></span>}
                    </div>
                 </div>
              </div>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -5,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
   Loader2, 
   Search,
@@ -19,6 +21,7 @@ import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@
 import { collectionGroup, updateDoc, doc, collection, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { sendAutomatedMessage, formatExamResultMessage } from '@/lib/whatsapp-utils';
+import Image from 'next/image';
 
 export default function AdminGradingPage() {
   const firestore = useFirestore();
@@ -135,10 +138,7 @@ function AttemptDetails({ attempt, studentInfo, onRelease }: any) {
     setIsSending(true);
     try {
       const msg = formatExamResultMessage(studentInfo.name, examData.title, attempt.score, attempt.pointsAchieved, attempt.totalPoints);
-      
-      // إرسال للطالب
       await sendAutomatedMessage(studentInfo.studentPhoneNumber, msg, config as any);
-      // إرسال لولي الأمر بعد تأخير بسيط
       setTimeout(async () => {
         await sendAutomatedMessage(studentInfo.parentPhoneNumber, msg, config as any);
         setIsSending(false);
@@ -205,6 +205,11 @@ function AnswerRow({ index, answer, attempt }: any) {
        </div>
        
        <div className="space-y-4">
+          {question?.imageUrl && (
+            <div className="relative w-full h-40 rounded-xl overflow-hidden border border-white/10 mb-4 bg-muted">
+              <Image src={question.imageUrl} alt="Q Image" fill className="object-contain" unoptimized />
+            </div>
+          )}
           <p className="font-bold text-lg leading-relaxed">{question?.questionText || 'جاري التحميل...'}</p>
           <div className="bg-background/40 p-6 rounded-2xl border border-dashed border-primary/10">
              <p className="text-[10px] text-primary font-black mb-2 flex items-center gap-2 justify-end">إجابة الطالب <CheckCircle className="w-3 h-3" /></p>

@@ -24,6 +24,7 @@ import { collection, addDoc, doc, getDocs, query, orderBy, where } from 'firebas
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function TakeExamPage() {
   const { examId } = useParams();
@@ -39,7 +40,6 @@ export default function TakeExamPage() {
   const [finishedResult, setFinishedResult] = useState<any>(null);
   const [isBlocked, setIsBlocked] = useState(false);
 
-  // 🛡️ نظام الحماية الفولاذي (تعتيم فوري عند فقدان التركيز لمنع لقطات الشاشة)
   useEffect(() => {
     if (finishedResult) return;
     const triggerProtection = () => setIsBlocked(true);
@@ -148,8 +148,25 @@ export default function TakeExamPage() {
       </div>
       <main className="container mx-auto p-4 max-w-3xl pt-10">
         <Card className="bg-card border-primary/10 rounded-[2.5rem] p-10 text-right space-y-8">
-           <Badge variant="outline" className="text-primary font-black">سؤال {activeQuestionIndex + 1} من {questions.length}</Badge>
+           <div className="flex justify-between items-center">
+              <Badge variant="outline" className="text-primary font-black">سؤال {activeQuestionIndex + 1} من {questions.length}</Badge>
+              <Badge variant="secondary" className="font-bold">{currentQ.points} درجة</Badge>
+           </div>
+
+           {currentQ.imageUrl && (
+             <div className="relative w-full aspect-video rounded-2xl overflow-hidden border-2 border-primary/5 bg-muted">
+                <Image 
+                  src={currentQ.imageUrl} 
+                  alt="Question" 
+                  fill 
+                  className="object-contain p-2" 
+                  unoptimized 
+                />
+             </div>
+           )}
+
            <h2 className="text-2xl font-bold leading-relaxed">{currentQ.questionText}</h2>
+           
            {currentQ.questionType === 'MCQ' ? (
              <RadioGroup value={answers[currentQ.id]?.mcqOptionId} onValueChange={(v) => setAnswers({...answers, [currentQ.id]: {mcqOptionId: v}})} className="grid gap-4">
                 <MCQOptions courseId={courseId!} examId={examId as string} qId={currentQ.id} selected={answers[currentQ.id]?.mcqOptionId} onSelect={(id:string) => setAnswers({...answers, [currentQ.id]: {mcqOptionId: id}})} />
