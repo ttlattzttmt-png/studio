@@ -7,10 +7,6 @@ import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@
 import { collection, doc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 
-/**
- * @fileOverview صفحة سجل درجات الطالب - تعرض كافة المحاولات السابقة وحالتها
- * تم إصلاح أخطاء التعريفات (cn, useDoc) لضمان استقرار الصفحة.
- */
 export default function StudentExamsPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,9 +13,9 @@ import {
   Trophy,
   ShieldAlert,
   CheckCircle2,
-  AlertCircle,
   XCircle,
-  Circle
+  ChevronRight,
+  ChevronLeft
 } from 'lucide-react';
 import { useUser, useFirebase, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, addDoc, doc, getDocs, query, orderBy, where } from 'firebase/firestore';
@@ -23,9 +23,6 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
-/**
- * @fileOverview صفحة أداء الامتحان - تضمن ظهور الصور وحماية المحتوى وحل أخطاء التعريفات.
- */
 export default function TakeExamPage() {
   const { examId } = useParams();
   const { user } = useUser();
@@ -41,7 +38,7 @@ export default function TakeExamPage() {
   const [finishedResult, setFinishedResult] = useState<any>(null);
   const [isBlocked, setIsBlocked] = useState(false);
 
-  // 1. نظام الحماية اللحظي من لقطات الشاشة
+  // حماية المحتوى
   useEffect(() => {
     if (finishedResult) return;
     const triggerProtection = () => setIsBlocked(true);
@@ -58,7 +55,7 @@ export default function TakeExamPage() {
     };
   }, [finishedResult]);
 
-  // 2. البحث عن الكورس المرتبط بالامتحان لجلب الأسئلة
+  // جلب الكورس والامتحان
   useEffect(() => {
     const findCourse = async () => {
       if (!firestore || !examId) return;
@@ -77,7 +74,6 @@ export default function TakeExamPage() {
   const examRef = useMemoFirebase(() => (firestore && courseId && examId) ? doc(firestore, 'courses', courseId, 'content', examId as string) : null, [firestore, courseId, examId]);
   const { data: exam } = useDoc(examRef);
 
-  // 3. إدارة وقت الامتحان
   useEffect(() => { 
     if (exam?.durationMinutes && timeLeft === null) setTimeLeft(exam.durationMinutes * 60); 
   }, [exam, timeLeft]);
@@ -92,7 +88,6 @@ export default function TakeExamPage() {
   const questionsRef = useMemoFirebase(() => (firestore && courseId && examId) ? query(collection(firestore, 'courses', courseId, 'content', examId as string, 'questions'), orderBy('orderIndex', 'asc')) : null, [firestore, courseId, examId]);
   const { data: questions } = useCollection(questionsRef);
 
-  // 4. تسليم الإجابات وحساب الدرجة
   const handleSubmit = async () => {
     if (isSubmitting || !questions || !user || !firestore) return;
     setIsSubmitting(true);
@@ -163,7 +158,7 @@ export default function TakeExamPage() {
   };
 
   if (isBlocked) return (
-    <div className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center text-center p-8 select-none">
+    <div className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center text-center p-8">
       <ShieldAlert className="w-20 h-20 text-primary mb-6 animate-pulse" />
       <h2 className="text-3xl font-black text-white">🚨 محتوى محمي</h2>
       <p className="text-primary font-bold mt-2">يمنع منعاً باتاً تصوير الشاشة أو الخروج من الصفحة أثناء الامتحان.</p>
@@ -185,11 +180,11 @@ export default function TakeExamPage() {
            <div className="grid grid-cols-2 gap-6">
               <div className="p-8 bg-secondary/30 rounded-3xl border border-white/5">
                 <p className="text-5xl font-black text-primary">{finishedResult.score}%</p>
-                <p className="text-[10px] font-bold text-muted-foreground mt-2 uppercase">النسبة</p>
+                <p className="text-[10px] font-bold text-muted-foreground mt-2">النسبة</p>
               </div>
               <div className="p-8 bg-secondary/30 rounded-3xl border border-white/5">
                 <p className="text-5xl font-black text-accent">{finishedResult.points}/{finishedResult.total}</p>
-                <p className="text-[10px] font-bold text-muted-foreground mt-2 uppercase">النقاط</p>
+                <p className="text-[10px] font-bold text-muted-foreground mt-2">النقاط</p>
               </div>
            </div>
            <Link href="/student/dashboard" className="block">
@@ -204,72 +199,107 @@ export default function TakeExamPage() {
   if (!exam || !currentQ) return <div className="flex justify-center py-40"><Loader2 className="w-12 animate-spin text-primary" /></div>;
 
   return (
-    <div className="min-h-screen bg-background pb-24 select-none text-right">
-      <div className="sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b w-full flex items-center justify-between p-4">
-          <div className="text-lg font-bold bg-primary/10 px-4 py-2 rounded-xl text-primary flex items-center gap-2">
-            <Clock className="w-4 h-4" /> {timeLeft !== null ? `${Math.floor(timeLeft/60)}:${(timeLeft%60).toString().padStart(2,'0')}` : '--:--'}
+    <div className="min-h-screen bg-background pb-24 text-right">
+      {/* الهيدر العلوي */}
+      <div className="sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b w-full flex items-center justify-between p-4 px-6">
+          <div className="flex items-center gap-4">
+             <div className="text-lg font-bold bg-primary/10 px-4 py-2 rounded-xl text-primary flex items-center gap-2">
+               <Clock className="w-4 h-4" /> {timeLeft !== null ? `${Math.floor(timeLeft/60)}:${(timeLeft%60).toString().padStart(2,'0')}` : '--:--'}
+             </div>
           </div>
           <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-primary font-black px-8 h-12 rounded-xl shadow-lg">إنهاء وتسليم</Button>
       </div>
 
-      <main className="container mx-auto p-4 max-w-3xl pt-10">
-        <Card className="bg-card border-primary/10 rounded-[2.5rem] p-6 md:p-10 space-y-8">
-           <div className="flex justify-between items-center flex-row-reverse">
-              <Badge variant="outline" className="text-primary font-black">سؤال {activeQuestionIndex + 1} من {questions.length}</Badge>
-              <Badge variant="secondary" className="font-bold">{currentQ.points} درجة</Badge>
-           </div>
+      <main className="container mx-auto p-4 max-w-4xl pt-10">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* خارطة الأسئلة (مؤشر التقدم) */}
+          <div className="lg:col-span-1 order-2 lg:order-1">
+             <Card className="bg-card border-primary/10 p-6 rounded-3xl">
+                <h3 className="font-black text-sm mb-4 border-b pb-2">خارطة الأسئلة</h3>
+                <div className="grid grid-cols-4 gap-2">
+                   {questions.map((q, i) => (
+                      <button 
+                        key={q.id}
+                        onClick={() => setActiveQuestionIndex(i)}
+                        className={cn(
+                          "w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs transition-all",
+                          activeQuestionIndex === i ? "ring-2 ring-primary bg-primary text-primary-foreground shadow-lg" : 
+                          answers[q.id] ? "bg-accent/20 text-accent border border-accent/30" : "bg-secondary/50 text-muted-foreground"
+                        )}
+                      >
+                        {i + 1}
+                      </button>
+                   ))}
+                </div>
+                <div className="mt-6 space-y-2 text-[10px] font-bold">
+                   <div className="flex items-center gap-2 justify-end"><span className="w-3 h-3 bg-accent/20 rounded-sm" /> تم الحل</div>
+                   <div className="flex items-center gap-2 justify-end"><span className="w-3 h-3 bg-primary rounded-sm" /> السؤال الحالي</div>
+                </div>
+             </Card>
+          </div>
 
-           {/* إظهار صورة السؤال للطالب - تم الإصلاح باستخدام img مباشر */}
-           {currentQ.imageUrl && (
-             <div className="w-full rounded-2xl overflow-hidden border-2 border-primary/10 bg-black/20 mb-8 shadow-2xl relative">
-                <img 
-                  src={currentQ.imageUrl} 
-                  alt="السؤال المصور" 
-                  className="w-full h-auto max-h-[500px] object-contain block mx-auto"
-                />
-             </div>
-           )}
+          {/* السؤال الحالي */}
+          <div className="lg:col-span-3 order-1 lg:order-2 space-y-6">
+            <Card className="bg-card border-primary/10 rounded-[2.5rem] p-6 md:p-10 shadow-xl overflow-hidden relative">
+               <div className="flex justify-between items-center flex-row-reverse mb-8">
+                  <Badge variant="outline" className="text-primary font-black border-primary/20">سؤال {activeQuestionIndex + 1} من {questions.length}</Badge>
+                  <Badge variant="secondary" className="font-bold">{currentQ.points} درجة</Badge>
+               </div>
 
-           <h2 className="text-2xl font-bold leading-relaxed border-r-4 border-primary pr-4">{currentQ.questionText}</h2>
-           
-           {currentQ.questionType === 'MCQ' ? (
-             <div className="grid gap-4 mt-6">
-                <MCQOptions 
-                  courseId={courseId!} 
-                  examId={examId as string} 
-                  qId={currentQ.id} 
-                  selected={answers[currentQ.id]?.mcqOptionId} 
-                  onSelect={(id:string) => setAnswers({...answers, [currentQ.id]: {mcqOptionId: id}})} 
-                />
-             </div>
-           ) : (
-             <Textarea 
-               placeholder="أدخل إجابتك المقالية هنا بصيغة هندسية دقيقة..." 
-               className="min-h-[200px] bg-background/50 rounded-2xl p-6 text-lg border-primary/10 mt-6 text-right" 
-               value={answers[currentQ.id]?.essayText || ''} 
-               onChange={(e) => setAnswers({...answers, [currentQ.id]: {essayText: e.target.value}})} 
-             />
-           )}
+               {/* إظهار صورة السؤال المرفوعة */}
+               {currentQ.imageUrl && (
+                 <div className="w-full rounded-2xl overflow-hidden border-2 border-primary/10 bg-black/40 mb-8 shadow-2xl relative">
+                    <img 
+                      src={currentQ.imageUrl} 
+                      alt="السؤال المصور" 
+                      className="w-full h-auto max-h-[600px] object-contain block mx-auto p-2"
+                      onError={(e) => (e.currentTarget.style.display = 'none')}
+                    />
+                 </div>
+               )}
 
-           <div className="flex justify-between pt-12 gap-4">
-              <Button 
-                variant="outline" 
-                disabled={activeQuestionIndex === 0} 
-                onClick={() => setActiveQuestionIndex(p => p - 1)} 
-                className="h-14 flex-1 rounded-2xl font-black text-lg"
-              >
-                السؤال السابق
-              </Button>
-              <Button 
-                variant="outline" 
-                disabled={activeQuestionIndex === questions.length - 1} 
-                onClick={() => setActiveQuestionIndex(p => p + 1)} 
-                className="h-14 flex-1 rounded-2xl font-black text-lg"
-              >
-                السؤال التالي
-              </Button>
-           </div>
-        </Card>
+               <h2 className="text-2xl font-bold leading-relaxed border-r-4 border-primary pr-4 mb-10">{currentQ.questionText}</h2>
+               
+               {currentQ.questionType === 'MCQ' ? (
+                 <div className="grid gap-4">
+                    <MCQOptions 
+                      courseId={courseId!} 
+                      examId={examId as string} 
+                      qId={currentQ.id} 
+                      selected={answers[currentQ.id]?.mcqOptionId} 
+                      onSelect={(id:string) => setAnswers({...answers, [currentQ.id]: {mcqOptionId: id}})} 
+                    />
+                 </div>
+               ) : (
+                 <Textarea 
+                   placeholder="اكتب إجابتك هنا..." 
+                   className="min-h-[250px] bg-background/50 rounded-2xl p-6 text-lg border-primary/10 text-right resize-none focus:border-primary transition-all" 
+                   value={answers[currentQ.id]?.essayText || ''} 
+                   onChange={(e) => setAnswers({...answers, [currentQ.id]: {essayText: e.target.value}})} 
+                 />
+               )}
+
+               <div className="flex justify-between pt-12 gap-4">
+                  <Button 
+                    variant="outline" 
+                    disabled={activeQuestionIndex === 0} 
+                    onClick={() => setActiveQuestionIndex(p => p - 1)} 
+                    className="h-14 flex-1 rounded-2xl font-black text-lg gap-2"
+                  >
+                    السؤال السابق <ChevronLeft className="w-5 h-5" />
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    disabled={activeQuestionIndex === questions.length - 1} 
+                    onClick={() => setActiveQuestionIndex(p => p + 1)} 
+                    className="h-14 flex-1 rounded-2xl font-black text-lg gap-2"
+                  >
+                    السؤال التالي <ChevronRight className="w-5 h-5" />
+                  </Button>
+               </div>
+            </Card>
+          </div>
+        </div>
       </main>
     </div>
   );
@@ -289,7 +319,7 @@ function MCQOptions({ courseId, examId, qId, selected, onSelect }: any) {
           key={o.id} 
           onClick={() => onSelect(o.id)} 
           className={cn(
-            "flex flex-row-reverse items-center gap-4 p-5 md:p-6 border-2 rounded-3xl cursor-pointer transition-all active:scale-[0.98]", 
+            "flex flex-row-reverse items-center gap-4 p-6 border-2 rounded-3xl cursor-pointer transition-all active:scale-[0.98]", 
             selected === o.id ? "border-primary bg-primary/5 shadow-xl" : "border-white/5 hover:bg-white/5"
           )}
         >
@@ -299,7 +329,7 @@ function MCQOptions({ courseId, examId, qId, selected, onSelect }: any) {
            )}>
              {selected === o.id && <div className="w-3.5 h-3.5 bg-primary rounded-full shadow-lg" />}
            </div>
-           <Label className="flex-grow font-black text-lg md:text-xl cursor-pointer text-right leading-snug">{o.optionText}</Label>
+           <Label className="flex-grow font-black text-xl cursor-pointer text-right leading-snug">{o.optionText}</Label>
         </div>
       ))}
     </div>
