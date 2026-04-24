@@ -219,20 +219,20 @@ function AnswerRow({ index, answer, attempt }: any) {
        </div>
        
        <div className="space-y-4">
-          {/* عرض صورة السؤال للمصحح لضمان السياق */}
+          {/* إظهار صورة السؤال للمصحح لضمان دقة التقييم */}
           {question?.imageUrl && (
-            <div className="w-full rounded-xl overflow-hidden border-2 border-primary/5 bg-muted mb-4 shadow-inner">
+            <div className="w-full rounded-xl overflow-hidden border-2 border-primary/10 bg-black/10 mb-4 shadow-inner relative max-h-[300px]">
               <img 
                 src={question.imageUrl} 
-                alt="Question Reference" 
+                alt="السؤال المرجعي" 
                 className="w-full h-auto max-h-[300px] object-contain block mx-auto"
               />
             </div>
           )}
           
-          <p className="font-bold text-lg leading-relaxed border-r-4 border-primary/20 pr-3">{question?.questionText || 'جاري تحميل نص السؤال...'}</p>
+          <p className="font-bold text-lg leading-relaxed border-r-4 border-primary pr-3">{question?.questionText || 'جاري تحميل نص السؤال...'}</p>
           
-          <div className="bg-background/40 p-6 rounded-2xl border border-dashed border-primary/10">
+          <div className="bg-background/40 p-6 rounded-2xl border border-dashed border-primary/20">
              <p className="text-[10px] text-primary font-black mb-2 flex items-center gap-2 justify-end">إجابة الطالب <CheckCircle className="w-3 h-3" /></p>
              <p className="font-black text-base">
                 {answer.questionType === 'MCQ' 
@@ -249,7 +249,7 @@ function AnswerRow({ index, answer, attempt }: any) {
                 type="number" 
                 value={answer.scoreAchieved} 
                 onChange={(e) => handleUpdate({scoreAchieved: Number(e.target.value)})} 
-                className="w-28 text-center font-black h-12 rounded-xl bg-background border-primary/10 shadow-inner" 
+                className="w-28 text-center font-black h-12 rounded-xl bg-background border-primary/20 shadow-inner" 
              />
           </div>
           <div className="flex gap-2 mt-auto">
@@ -257,16 +257,16 @@ function AnswerRow({ index, answer, attempt }: any) {
             <Button variant="outline" onClick={() => handleUpdate({isCorrect: false, scoreAchieved: 0})} className="h-12 px-6 rounded-xl text-destructive border-destructive/20 hover:bg-destructive/10 font-black">إجابة خاطئة ✗</Button>
           </div>
           <div className="mr-auto text-left flex flex-col items-end">
-             <p className="text-[10px] font-bold text-muted-foreground uppercase">الدرجة الكلية</p>
-             <p className="text-xl font-black text-primary">{answer.maxPoints}</p>
+             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">الدرجة الكلية</p>
+             <p className="text-2xl font-black text-primary">{answer.maxPoints}</p>
           </div>
        </div>
 
        <div className="pt-4">
-          <Label className="text-[10px] font-black opacity-50 mb-1.5 block">ملاحظات المعلم للطالب (تظهر له في صفحة النتائج)</Label>
+          <Label className="text-[10px] font-black opacity-50 mb-1.5 block">ملاحظات المعلم (تظهر للطالب):</Label>
           <Textarea 
             placeholder="اكتب ملاحظاتك التقنية أو التشجيعية هنا..." 
-            className="bg-background/50 border-white/5 h-20 text-xs rounded-xl shadow-inner text-right" 
+            className="bg-background/50 border-primary/5 h-20 text-xs rounded-xl shadow-inner text-right" 
             value={answer.teacherNote || ''}
             onChange={(e) => handleUpdate({teacherNote: e.target.value})}
           />

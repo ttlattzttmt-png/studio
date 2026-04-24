@@ -15,7 +15,8 @@ import {
   ShieldAlert,
   CheckCircle2,
   AlertCircle,
-  XCircle
+  XCircle,
+  Image as ImageIcon
 } from 'lucide-react';
 import { useUser, useFirebase, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, addDoc, doc, getDocs, query, orderBy, where } from 'firebase/firestore';
@@ -203,18 +204,23 @@ export default function TakeExamPage() {
               <Badge variant="secondary" className="font-bold">{currentQ.points} درجة</Badge>
            </div>
 
-           {/* حل مشكلة ظهور الصور بشكل نهائي */}
+           {/* حل مشكلة ظهور الصور بشكل نهائي للطالب */}
            {currentQ.imageUrl && (
-             <div className="w-full rounded-2xl overflow-hidden border-2 border-primary/5 bg-muted mb-6 shadow-inner">
+             <div className="w-full rounded-2xl overflow-hidden border-2 border-primary/10 bg-black/20 mb-8 shadow-2xl relative min-h-[200px]">
                 <img 
                   src={currentQ.imageUrl} 
-                  alt="سؤال مصور" 
-                  className="w-full h-auto max-h-[500px] object-contain block mx-auto animate-in fade-in duration-700" 
+                  alt="السؤال المصور" 
+                  className="w-full h-auto max-h-[600px] object-contain block mx-auto transition-all duration-700" 
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    toast({ variant: "destructive", title: "خطأ في تحميل الصورة", description: "رابط الصورة غير صالح أو محمي." });
+                  }}
                 />
              </div>
            )}
 
-           <h2 className="text-2xl font-bold leading-relaxed">{currentQ.questionText}</h2>
+           <h2 className="text-2xl font-bold leading-relaxed border-r-4 border-primary pr-4">{currentQ.questionText}</h2>
            
            {currentQ.questionType === 'MCQ' ? (
              <div className="grid gap-4 mt-6">
@@ -235,22 +241,22 @@ export default function TakeExamPage() {
              />
            )}
 
-           <div className="flex justify-between pt-8">
+           <div className="flex justify-between pt-12">
               <Button 
                 variant="outline" 
                 disabled={activeQuestionIndex === 0} 
                 onClick={() => setActiveQuestionIndex(p => p - 1)} 
-                className="h-12 w-32 rounded-xl font-bold"
+                className="h-14 w-40 rounded-2xl font-black text-lg"
               >
-                السابق
+                السؤال السابق
               </Button>
               <Button 
                 variant="outline" 
                 disabled={activeQuestionIndex === questions.length - 1} 
                 onClick={() => setActiveQuestionIndex(p => p + 1)} 
-                className="h-12 w-32 rounded-xl font-bold"
+                className="h-14 w-40 rounded-2xl font-black text-lg"
               >
-                التالي
+                السؤال التالي
               </Button>
            </div>
         </Card>
@@ -266,22 +272,26 @@ function MCQOptions({ courseId, examId, qId, selected, onSelect }: any) {
   , [firestore, qId, courseId, examId]);
   const { data: options } = useCollection(optionsRef);
 
-  return options?.map(o => (
-    <div 
-      key={o.id} 
-      onClick={() => onSelect(o.id)} 
-      className={cn(
-        "flex flex-row-reverse items-center gap-4 p-5 border-2 rounded-2xl cursor-pointer transition-all", 
-        selected === o.id ? "border-primary bg-primary/5 shadow-inner" : "border-white/5 hover:bg-white/5"
-      )}
-    >
-       <div className={cn(
-         "w-6 h-6 rounded-full border-2 flex items-center justify-center", 
-         selected === o.id ? "border-primary" : "border-muted"
-       )}>
-         {selected === o.id && <div className="w-3 h-3 bg-primary rounded-full" />}
-       </div>
-       <Label className="flex-grow font-bold text-lg cursor-pointer text-right">{o.optionText}</Label>
+  return (
+    <div className="grid gap-4">
+      {options?.map(o => (
+        <div 
+          key={o.id} 
+          onClick={() => onSelect(o.id)} 
+          className={cn(
+            "flex flex-row-reverse items-center gap-4 p-6 border-2 rounded-3xl cursor-pointer transition-all active:scale-[0.98]", 
+            selected === o.id ? "border-primary bg-primary/5 shadow-xl" : "border-white/5 hover:bg-white/5"
+          )}
+        >
+           <div className={cn(
+             "w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0", 
+             selected === o.id ? "border-primary" : "border-muted"
+           )}>
+             {selected === o.id && <div className="w-3.5 h-3.5 bg-primary rounded-full shadow-lg" />}
+           </div>
+           <Label className="flex-grow font-black text-xl cursor-pointer text-right leading-snug">{o.optionText}</Label>
+        </div>
+      ))}
     </div>
-  ));
+  );
 }

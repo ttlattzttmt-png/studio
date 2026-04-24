@@ -60,7 +60,6 @@ export default function AdminExams() {
     isVisible: true 
   });
 
-  // التأكد من استيراد وجلب إعدادات الواتساب بشكل صحيح
   const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'admin_config', 'whatsapp') : null), [firestore]);
   const { data: whatsappConfig } = useDoc(configRef);
 
@@ -142,7 +141,7 @@ export default function AdminExams() {
         }
 
         if (i < attempts.length - 1) {
-          await new Promise(r => setTimeout(r, 7000)); // تأخير لحماية الرقم
+          await new Promise(r => setTimeout(r, 7000));
         }
       }
 
@@ -369,6 +368,11 @@ function QuestionManager({ exam }: { exam: any }) {
               value={newQuestion.imageUrl} 
               onChange={(e) => setNewQuestion({...newQuestion, imageUrl: e.target.value})} 
             />
+            {newQuestion.imageUrl && (
+              <div className="mt-2 w-full max-h-40 rounded-xl border overflow-hidden bg-muted">
+                <img src={newQuestion.imageUrl} alt="Preview" className="w-full h-full object-contain" />
+              </div>
+            )}
           </div>
 
           {newQuestion.type === 'MCQ' && (
