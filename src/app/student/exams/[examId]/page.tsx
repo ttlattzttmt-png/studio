@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,8 @@ import {
   CheckCircle2,
   ChevronRight,
   ChevronLeft,
-  SendHorizontal
+  SendHorizontal,
+  Lock
 } from 'lucide-react';
 import { useUser, useFirebase, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, addDoc, doc, getDoc, getDocs, query, orderBy, where } from 'firebase/firestore';
@@ -71,30 +72,39 @@ export default function TakeExamPage() {
     findCourse();
   }, [firestore, examId]);
 
+  // التحقق من وجود محاولات سابقة (لمنع الدخول المتكرر)
+  const previousAttemptsRef = useMemoFirebase(() => {
+    if (!firestore || !user || !examId) return null;
+    return query(
+      collection(firestore, 'students', user.uid, 'quiz_attempts'),
+      where('courseContentId', '==', examId)
+    );
+  }, [firestore, user, examId]);
+
+  const { data: previousAttempts, isLoading: isCheckingAttempts } = useCollection(previousAttemptsRef);
+
   const examRef = useMemoFirebase(() => (firestore && courseId && examId) ? doc(firestore, 'courses', courseId, 'content', examId as string) : null, [firestore, courseId, examId]);
-  const { data: exam } = useDoc(examRef);
+  const { data: exam, isLoading: isExamLoading } = useDoc(examRef);
 
   useEffect(() => { 
     if (exam?.durationMinutes && timeLeft === null) setTimeLeft(exam.durationMinutes * 60); 
   }, [exam, timeLeft]);
 
   useEffect(() => {
-    if (timeLeft === 0 && !finishedResult) handleSubmit();
+    if (timeLeft === 0 && !finishedResult && !previousAttempts?.length) handleSubmit();
     if (timeLeft === null || timeLeft <= 0) return;
     const timer = setInterval(() => setTimeLeft(p => p! - 1), 1000);
     return () => clearInterval(timer);
-  }, [timeLeft, finishedResult]);
+  }, [timeLeft, finishedResult, previousAttempts]);
 
   const questionsRef = useMemoFirebase(() => (firestore && courseId && examId) ? query(collection(firestore, 'courses', courseId, 'content', examId as string, 'questions'), orderBy('orderIndex', 'asc')) : null, [firestore, courseId, examId]);
-  const { data: questions } = useCollection(questionsRef);
+  const { data: questions, isLoading: isQuestionsLoading } = useCollection(questionsRef);
 
   const handleSubmit = async () => {
     if (isSubmitting || !questions || !user || !firestore) return;
     
-    // تم الغاء رسالة تاكيد التسليم بناء على طلب المستخدم
     setIsSubmitting(true);
     try {
-      // إصلاح: جلب بيانات الطالب بشكل مباشر بالمعرف (ID) لتجنب خطأ الصلاحيات
       const studentRef = doc(firestore, 'students', user.uid);
       const studentSnap = await getDoc(studentRef);
       const studentData = studentSnap.exists() ? studentSnap.data() : null;
@@ -163,7 +173,7 @@ export default function TakeExamPage() {
       toast({ 
         variant: "destructive", 
         title: "خطأ في التسليم", 
-        description: "عذراً، حدث خطأ تقني أثناء حفظ إجاباتك. يرجى المحاولة مرة أخرى." 
+        description: "عذراً، حدث خطأ تقني أثناء حفظ إجاباتك." 
       });
     } finally { 
       setIsSubmitting(false); 
@@ -177,6 +187,39 @@ export default function TakeExamPage() {
       <p className="text-primary font-bold mt-2">يمنع تصوير الشاشة أو الخروج من الصفحة لضمان نزاهة الامتحان.</p>
     </div>
   );
+
+  // شاشة المنع إذا كان الطالب قد امتحن بالفعل
+  if (previousAttempts && previousAttempts.length > 0 && !finishedResult) {
+    const lastAttempt = previousAttempts[0];
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
+        <Card className="w-full max-w-lg bg-card border-primary/20 rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-500">
+          <div className="h-4 bg-orange-500" />
+          <CardContent className="p-10 space-y-8">
+            <div className="w-24 h-24 rounded-full bg-orange-500/10 flex items-center justify-center mx-auto text-orange-500">
+              <Lock className="w-12 h-12" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-3xl font-black">الاختبار مكتمل</h1>
+              <p className="text-muted-foreground font-bold">بشمهندس، لقد استنفدت محاولتك في هذا الاختبار مسبقاً.</p>
+            </div>
+            
+            <div className="p-6 bg-secondary/30 rounded-3xl border border-white/5 space-y-2">
+               <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">نتيجتك السابقة</p>
+               <p className="text-5xl font-black text-primary">{lastAttempt.score}%</p>
+               <p className="text-xs font-bold opacity-60">تم التسليم بتاريخ: {new Date(lastAttempt.submittedAt).toLocaleDateString('ar-EG')}</p>
+            </div>
+
+            <Link href="/student/dashboard" className="block">
+              <Button className="w-full h-16 bg-primary text-primary-foreground font-black rounded-2xl text-xl shadow-xl shadow-primary/20">
+                العودة للوحة التحكم
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (finishedResult) return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 text-right overflow-y-auto pb-20">
@@ -222,7 +265,7 @@ export default function TakeExamPage() {
            )}
 
            <Link href="/student/dashboard" className="block">
-             <Button className="w-full h-16 bg-primary text-primary-foreground font-black rounded-2xl text-xl shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform">
+             <Button className="w-full h-16 bg-primary text-primary-foreground font-black rounded-2xl text-xl shadow-xl shadow-primary/20">
                العودة للوحة التحكم
              </Button>
            </Link>
@@ -232,10 +275,10 @@ export default function TakeExamPage() {
   );
 
   const currentQ = questions?.[activeQuestionIndex];
-  if (!exam || !currentQ) return (
+  if (isCheckingAttempts || isExamLoading || isQuestionsLoading || !currentQ) return (
     <div className="flex flex-col items-center justify-center min-h-screen gap-4">
       <Loader2 className="w-12 h-12 animate-spin text-primary" />
-      <p className="font-bold text-muted-foreground animate-pulse">جاري تحميل بيانات الامتحان...</p>
+      <p className="font-bold text-muted-foreground animate-pulse">جاري تحضير أسئلة الامتحان...</p>
     </div>
   );
 
@@ -252,8 +295,7 @@ export default function TakeExamPage() {
             className="bg-primary hover:bg-primary/90 font-black px-6 md:px-10 h-12 rounded-xl shadow-lg shadow-primary/10 gap-2"
           >
             {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <SendHorizontal className="w-4 h-4" />}
-            <span className="hidden md:inline">إنهاء وتسليم</span>
-            <span className="md:hidden">تسليم</span>
+            <span>إنهاء وتسليم</span>
           </Button>
       </div>
 
