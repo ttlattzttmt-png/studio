@@ -1,8 +1,7 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,7 +15,7 @@ import {
   CheckCircle2,
   AlertCircle,
   XCircle,
-  Image as ImageIcon
+  Circle
 } from 'lucide-react';
 import { useUser, useFirebase, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, addDoc, doc, getDocs, query, orderBy, where } from 'firebase/firestore';
@@ -24,11 +23,15 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
+/**
+ * صفحة أداء الامتحان - تضمن ظهور الصور وحماية المحتوى
+ */
 export default function TakeExamPage() {
   const { examId } = useParams();
   const { user } = useUser();
   const { firestore } = useFirebase();
   const { toast } = useToast();
+  const router = useRouter();
 
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
@@ -38,7 +41,7 @@ export default function TakeExamPage() {
   const [finishedResult, setFinishedResult] = useState<any>(null);
   const [isBlocked, setIsBlocked] = useState(false);
 
-  // حماية الامتحان من لقطات الشاشة والهروب من الصفحة
+  // 1. نظام الحماية اللحظي من لقطات الشاشة
   useEffect(() => {
     if (finishedResult) return;
     const triggerProtection = () => setIsBlocked(true);
@@ -55,14 +58,17 @@ export default function TakeExamPage() {
     };
   }, [finishedResult]);
 
-  // العثور على الكورس المرتبط بالامتحان (ضروري لجلب الأسئلة)
+  // 2. البحث عن الكورس المرتبط بالامتحان لجلب الأسئلة
   useEffect(() => {
     const findCourse = async () => {
       if (!firestore || !examId) return;
       const snap = await getDocs(collection(firestore, 'courses'));
       for (const d of snap.docs) {
         const cSnap = await getDocs(query(collection(firestore, 'courses', d.id, 'content'), where('__name__', '==', examId)));
-        if (!cSnap.empty) { setCourseId(d.id); break; }
+        if (!cSnap.empty) { 
+          setCourseId(d.id); 
+          break; 
+        }
       }
     };
     findCourse();
@@ -71,8 +77,11 @@ export default function TakeExamPage() {
   const examRef = useMemoFirebase(() => (firestore && courseId && examId) ? doc(firestore, 'courses', courseId, 'content', examId as string) : null, [firestore, courseId, examId]);
   const { data: exam } = useDoc(examRef);
 
-  // إدارة وقت الامتحان
-  useEffect(() => { if (exam?.durationMinutes && timeLeft === null) setTimeLeft(exam.durationMinutes * 60); }, [exam, timeLeft]);
+  // 3. إدارة وقت الامتحان
+  useEffect(() => { 
+    if (exam?.durationMinutes && timeLeft === null) setTimeLeft(exam.durationMinutes * 60); 
+  }, [exam, timeLeft]);
+
   useEffect(() => {
     if (timeLeft === 0 && !finishedResult) handleSubmit();
     if (timeLeft === null || timeLeft <= 0) return;
@@ -83,6 +92,7 @@ export default function TakeExamPage() {
   const questionsRef = useMemoFirebase(() => (firestore && courseId && examId) ? query(collection(firestore, 'courses', courseId, 'content', examId as string, 'questions'), orderBy('orderIndex', 'asc')) : null, [firestore, courseId, examId]);
   const { data: questions } = useCollection(questionsRef);
 
+  // 4. تسليم الإجابات وحساب الدرجة
   const handleSubmit = async () => {
     if (isSubmitting || !questions || !user || !firestore) return;
     setIsSubmitting(true);
@@ -137,8 +147,13 @@ export default function TakeExamPage() {
         await addDoc(collection(firestore, 'students', user.uid, 'quiz_attempts', attRef.id, 'answers'), a);
       }
 
-      setFinishedResult({ score: finalPercent, points: scoreAchieved, total: totalPoints, isSuccess: finalPercent >= (exam?.passMarkPercentage || 50) });
-      toast({ title: "تم تسليم الامتحان بنجاح" });
+      setFinishedResult({ 
+        score: finalPercent, 
+        points: scoreAchieved, 
+        total: totalPoints, 
+        isSuccess: finalPercent >= (exam?.passMarkPercentage || 50) 
+      });
+      toast({ title: "تم تسليم الامتحان بنجاح ✓" });
     } catch (e) { 
       console.error(e);
       toast({ variant: "destructive", title: "خطأ في التسليم" });
@@ -198,23 +213,24 @@ export default function TakeExamPage() {
       </div>
 
       <main className="container mx-auto p-4 max-w-3xl pt-10">
-        <Card className="bg-card border-primary/10 rounded-[2.5rem] p-10 space-y-8">
+        <Card className="bg-card border-primary/10 rounded-[2.5rem] p-6 md:p-10 space-y-8">
            <div className="flex justify-between items-center flex-row-reverse">
               <Badge variant="outline" className="text-primary font-black">سؤال {activeQuestionIndex + 1} من {questions.length}</Badge>
               <Badge variant="secondary" className="font-bold">{currentQ.points} درجة</Badge>
            </div>
 
-           {/* حل مشكلة ظهور الصور بشكل نهائي للطالب */}
+           {/* حل مشكلة ظهور الصور بشكل نهائي للطالب باستخدام img مباشر */}
            {currentQ.imageUrl && (
-             <div className="w-full rounded-2xl overflow-hidden border-2 border-primary/10 bg-black/20 mb-8 shadow-2xl relative min-h-[200px]">
+             <div className="w-full rounded-2xl overflow-hidden border-2 border-primary/10 bg-black/20 mb-8 shadow-2xl relative">
                 <img 
                   src={currentQ.imageUrl} 
                   alt="السؤال المصور" 
-                  className="w-full h-auto max-h-[600px] object-contain block mx-auto transition-all duration-700" 
+                  className="w-full h-auto max-h-[500px] object-contain block mx-auto transition-all"
+                  loading="eager"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    toast({ variant: "destructive", title: "خطأ في تحميل الصورة", description: "رابط الصورة غير صالح أو محمي." });
+                    console.error("Image load failed:", currentQ.imageUrl);
+                    // في حالة الفشل، نحاول إظهار بديل أو تنبيه
                   }}
                 />
              </div>
@@ -241,12 +257,12 @@ export default function TakeExamPage() {
              />
            )}
 
-           <div className="flex justify-between pt-12">
+           <div className="flex justify-between pt-12 gap-4">
               <Button 
                 variant="outline" 
                 disabled={activeQuestionIndex === 0} 
                 onClick={() => setActiveQuestionIndex(p => p - 1)} 
-                className="h-14 w-40 rounded-2xl font-black text-lg"
+                className="h-14 flex-1 rounded-2xl font-black text-lg"
               >
                 السؤال السابق
               </Button>
@@ -254,7 +270,7 @@ export default function TakeExamPage() {
                 variant="outline" 
                 disabled={activeQuestionIndex === questions.length - 1} 
                 onClick={() => setActiveQuestionIndex(p => p + 1)} 
-                className="h-14 w-40 rounded-2xl font-black text-lg"
+                className="h-14 flex-1 rounded-2xl font-black text-lg"
               >
                 السؤال التالي
               </Button>
@@ -279,7 +295,7 @@ function MCQOptions({ courseId, examId, qId, selected, onSelect }: any) {
           key={o.id} 
           onClick={() => onSelect(o.id)} 
           className={cn(
-            "flex flex-row-reverse items-center gap-4 p-6 border-2 rounded-3xl cursor-pointer transition-all active:scale-[0.98]", 
+            "flex flex-row-reverse items-center gap-4 p-5 md:p-6 border-2 rounded-3xl cursor-pointer transition-all active:scale-[0.98]", 
             selected === o.id ? "border-primary bg-primary/5 shadow-xl" : "border-white/5 hover:bg-white/5"
           )}
         >
@@ -289,7 +305,7 @@ function MCQOptions({ courseId, examId, qId, selected, onSelect }: any) {
            )}>
              {selected === o.id && <div className="w-3.5 h-3.5 bg-primary rounded-full shadow-lg" />}
            </div>
-           <Label className="flex-grow font-black text-xl cursor-pointer text-right leading-snug">{o.optionText}</Label>
+           <Label className="flex-grow font-black text-lg md:text-xl cursor-pointer text-right leading-snug">{o.optionText}</Label>
         </div>
       ))}
     </div>
