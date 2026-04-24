@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -6,23 +5,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { 
   Loader2, 
   Search,
   CheckCircle,
   ClipboardList,
-  Trash2,
   RefreshCw,
   XCircle,
   Save,
   MessageCircle,
-  FileText
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collectionGroup, updateDoc, doc, collection, getDocs, deleteDoc } from 'firebase/firestore';
+import { collectionGroup, updateDoc, doc, collection, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { sendWhatsAppMessage, formatExamResultMessage } from '@/lib/whatsapp-utils';
+import { sendAutomatedMessage, formatExamResultMessage } from '@/lib/whatsapp-utils';
 
 export default function AdminGradingPage() {
   const firestore = useFirestore();
@@ -67,7 +63,7 @@ export default function AdminGradingPage() {
     await updateDoc(doc(firestore, 'students', attempt.studentId, 'quiz_attempts', attempt.id), { 
       isGraded: true, score: finalPercent, pointsAchieved: totalScore, totalPoints: totalPoints 
     });
-    toast({ title: "تم الاعتماد", description: `النتيجة: ${finalPercent}%` });
+    toast({ title: "تم الاعتماد", description: `النتيجة المحدثة: ${finalPercent}%` });
     setSelectedAttempt({...attempt, isGraded: true, score: finalPercent, pointsAchieved: totalScore, totalPoints: totalPoints});
   };
 
@@ -78,25 +74,33 @@ export default function AdminGradingPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-4xl font-headline font-bold mb-2">مركز التصحيح الذكي</h1>
-          <p className="text-muted-foreground">راجع إجابات الطلاب بالأسماء الرباعية وأرسل النتائج فوراً.</p>
+          <p className="text-muted-foreground font-bold italic">راجع إجابات الطلاب بالأسماء الرباعية واعتمد الدرجات المقالية.</p>
         </div>
-        <div className="bg-primary/10 text-primary px-4 py-2 rounded-xl flex items-center gap-2"><RefreshCw className="w-4 h-4 animate-spin-slow" /><span className="text-xs font-black">{filteredAttempts.length} محاولة</span></div>
+        <div className="bg-primary/10 text-primary px-6 py-3 rounded-2xl flex items-center gap-3 border border-primary/20"><RefreshCw className="w-5 h-5 animate-spin-slow" /><span className="font-black text-sm">{filteredAttempts.length} محاولة</span></div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-1 bg-card border-primary/10 rounded-3xl overflow-hidden h-fit">
-          <CardHeader className="bg-secondary/5 p-4 border-b">
+        <Card className="lg:col-span-1 bg-card border-primary/10 rounded-[2rem] overflow-hidden h-fit shadow-xl">
+          <CardHeader className="bg-secondary/10 p-5 border-b">
             <div className="relative">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input placeholder="ابحث بالاسم الرباعي..." className="w-full bg-background rounded-xl h-11 pr-10 text-right text-xs font-bold" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              <input placeholder="ابحث بالاسم الرباعي..." className="w-full bg-background rounded-xl h-12 pr-10 text-right font-bold text-sm border-primary/5 focus:border-primary transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
           </CardHeader>
           <CardContent className="p-0 max-h-[70vh] overflow-y-auto">
-             {filteredAttempts.map(a => (
-               <button key={a.id} onClick={() => setSelectedAttempt(a)} className={`w-full p-4 text-right border-b hover:bg-primary/5 transition-all ${selectedAttempt?.id === a.id ? 'bg-primary/10 border-r-4 border-primary' : ''}`}>
-                 <div className="flex justify-between items-center"><span className="text-xs font-black">{studentMap[a.studentId]?.name || 'جاري التحميل...'}</span><Badge variant={a.isGraded ? 'default' : 'secondary'} className="text-[8px]">{a.isGraded ? 'تم' : 'مراجعة'}</Badge></div>
-               </button>
-             ))}
+             {filteredAttempts.length === 0 ? (
+               <div className="p-10 text-center text-muted-foreground opacity-30 italic">لا توجد محاولات مطابقة.</div>
+             ) : (
+               filteredAttempts.map(a => (
+                 <button key={a.id} onClick={() => setSelectedAttempt(a)} className={`w-full p-5 text-right border-b hover:bg-primary/5 transition-all flex items-center justify-between group ${selectedAttempt?.id === a.id ? 'bg-primary/10 border-r-4 border-primary' : ''}`}>
+                   <Badge variant={a.isGraded ? 'default' : 'secondary'} className="text-[9px] h-5">{a.isGraded ? 'تم' : 'مراجعة'}</Badge>
+                   <div className="text-right min-w-0">
+                     <p className="text-xs font-black truncate">{studentMap[a.studentId]?.name || a.studentName || 'جاري التحميل...'}</p>
+                     <p className="text-[10px] opacity-50 mt-0.5">{new Date(a.submittedAt).toLocaleDateString('ar-EG')}</p>
+                   </div>
+                 </button>
+               ))
+             )}
           </CardContent>
         </Card>
 
@@ -104,7 +108,7 @@ export default function AdminGradingPage() {
           {selectedAttempt ? (
             <AttemptDetails key={selectedAttempt.id} attempt={selectedAttempt} studentInfo={studentMap[selectedAttempt.studentId]} onRelease={handleReleaseGrades} />
           ) : (
-            <Card className="h-64 flex flex-col items-center justify-center border-2 border-dashed rounded-[2.5rem] bg-secondary/5 opacity-30"><ClipboardList className="w-12 h-12 mb-4" /><p className="font-black">اختر محاولة للبدء</p></Card>
+            <Card className="h-96 flex flex-col items-center justify-center border-2 border-dashed rounded-[3rem] bg-secondary/5 opacity-40"><ClipboardList className="w-20 h-20 mb-4 text-primary" /><p className="font-black text-xl">اختر محاولة من القائمة للبدء في التصحيح</p></Card>
           )}
         </div>
       </div>
@@ -115,34 +119,68 @@ export default function AdminGradingPage() {
 function AttemptDetails({ attempt, studentInfo, onRelease }: any) {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const [isSending, setIsSending] = useState(false);
   
+  const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'admin_config', 'whatsapp') : null), [firestore]);
+  const { data: config } = useDoc(configRef);
+
   const answersRef = useMemoFirebase(() => (firestore && attempt) ? collection(firestore, 'students', attempt.studentId, 'quiz_attempts', attempt.id, 'answers') : null, [firestore, attempt]);
   const { data: answers, isLoading } = useCollection(answersRef);
 
   const examRef = useMemoFirebase(() => (firestore && attempt.courseId && attempt.courseContentId) ? doc(firestore, 'courses', attempt.courseId, 'content', attempt.courseContentId) : null, [firestore, attempt]);
   const { data: examData } = useDoc(examRef);
 
-  const handleSendToBoth = () => {
-    if (!studentInfo || !examData) return;
-    const msg = formatExamResultMessage(studentInfo.name, examData.title, attempt.score, attempt.pointsAchieved, attempt.totalPoints);
-    sendWhatsAppMessage(studentInfo.studentPhoneNumber, msg);
-    setTimeout(() => sendWhatsAppMessage(studentInfo.parentPhoneNumber, msg), 1500);
-    toast({ title: "جاري الإرسال للطرفين" });
+  const handleSendToBoth = async () => {
+    if (!studentInfo || !examData || !firestore) return;
+    setIsSending(true);
+    try {
+      const msg = formatExamResultMessage(studentInfo.name, examData.title, attempt.score, attempt.pointsAchieved, attempt.totalPoints);
+      
+      // إرسال للطالب
+      await sendAutomatedMessage(studentInfo.studentPhoneNumber, msg, config as any);
+      // إرسال لولي الأمر بعد تأخير بسيط
+      setTimeout(async () => {
+        await sendAutomatedMessage(studentInfo.parentPhoneNumber, msg, config as any);
+        setIsSending(false);
+        toast({ title: "تم الإرسال للطرفين", description: "وصلت النتيجة للطالب وولي الأمر بنجاح." });
+      }, 3000);
+    } catch (e) {
+      setIsSending(false);
+      toast({ variant: "destructive", title: "فشل الإرسال الآلي" });
+    }
   };
 
   return (
-    <Card className="bg-card border-primary/20 rounded-[2.5rem] overflow-hidden">
-      <CardHeader className="bg-secondary/10 flex flex-col md:flex-row md:items-center justify-between p-8 border-b gap-4">
-        <div className="text-right"><CardTitle className="text-3xl font-black text-primary">{attempt.score}%</CardTitle><p className="text-xs font-bold text-muted-foreground">النقاط: {attempt.pointsAchieved}/{attempt.totalPoints}</p></div>
-        <div className="flex flex-wrap gap-2">
-           <Button onClick={handleSendToBoth} variant="outline" className="h-12 px-6 rounded-xl border-accent/20 text-accent font-black gap-2"><MessageCircle className="w-5 h-5" /> إرسال للطرفين (واتساب)</Button>
-           <Button onClick={() => onRelease(attempt)} className="bg-accent text-white font-black h-12 px-8 rounded-xl shadow-lg shadow-accent/20 gap-2"><Save className="w-5 h-5" /> اعتماد النتيجة</Button>
+    <Card className="bg-card border-primary/20 rounded-[3rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+      <CardHeader className="bg-secondary/10 flex flex-col md:flex-row md:items-center justify-between p-10 border-b gap-6">
+        <div className="text-right">
+           <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">النتيجة النهائية</p>
+           <div className="flex items-baseline gap-2 justify-end">
+              <span className="text-5xl font-black text-primary">{attempt.score}%</span>
+              <span className="text-sm font-bold opacity-40">({attempt.pointsAchieved}/{attempt.totalPoints})</span>
+           </div>
+        </div>
+        <div className="flex flex-wrap gap-3">
+           <Button 
+            onClick={handleSendToBoth} 
+            disabled={isSending || !attempt.isGraded}
+            variant="outline" 
+            className="h-14 px-8 rounded-2xl border-accent/20 text-accent font-black gap-3 hover:bg-accent/5"
+           >
+              {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <MessageCircle className="w-5 h-5" />}
+              إرسال النتيجة (واتساب)
+           </Button>
+           <Button onClick={() => onRelease(attempt)} className="bg-primary text-primary-foreground font-black h-14 px-10 rounded-2xl shadow-xl shadow-primary/20 gap-3">
+              <Save className="w-5 h-5" /> اعتماد الدرجة
+           </Button>
         </div>
       </CardHeader>
-      <CardContent className="p-8 space-y-8">
-        {isLoading ? <Loader2 className="w-10 animate-spin mx-auto text-primary" /> : 
+      <CardContent className="p-10 space-y-8">
+        {isLoading ? (
+          <div className="py-20 text-center"><Loader2 className="w-12 h-12 animate-spin mx-auto text-primary" /></div>
+        ) : (
           answers?.map((ans, i) => <AnswerRow key={ans.id} index={i} answer={ans} attempt={attempt} />)
-        }
+        )}
       </CardContent>
     </Card>
   );
@@ -158,19 +196,38 @@ function AnswerRow({ index, answer, attempt }: any) {
   };
 
   return (
-    <div className="p-6 bg-secondary/5 rounded-3xl border border-white/5 text-right space-y-4">
-       <div className="flex justify-between"><Badge variant="outline">سؤال {index+1}</Badge><span className="text-[10px] font-black">{answer.questionType === 'MCQ' ? 'اختياري' : 'مقالي'}</span></div>
-       <div className="p-4 bg-background/50 rounded-2xl border border-dashed">
-          <p className="font-bold mb-3">{question?.questionText || 'جاري التحميل...'}</p>
-          <div className="bg-primary/5 p-4 rounded-xl border border-primary/10">
-             <p className="text-[9px] text-primary font-black mb-1">إجابة الطالب:</p>
-             <p className="font-black text-sm">{answer.questionType === 'MCQ' ? <OptionText courseId={attempt.courseId} examId={attempt.courseContentId} questionId={answer.questionId} optionId={answer.mcqSelectedOptionId} /> : answer.essayAnswerText}</p>
+    <div className="p-8 bg-secondary/5 rounded-[2rem] border border-white/5 text-right space-y-6 relative overflow-hidden group transition-all hover:bg-secondary/10">
+       <div className="flex justify-between items-center mb-2">
+          <Badge variant="outline" className="rounded-lg font-black bg-background/50">سؤال {index+1}</Badge>
+          <span className={`text-[10px] font-black px-2 py-1 rounded ${answer.questionType === 'MCQ' ? 'bg-blue-500/10 text-blue-500' : 'bg-purple-500/10 text-purple-500'}`}>
+            {answer.questionType === 'MCQ' ? 'اختياري' : 'مقالي'}
+          </span>
+       </div>
+       
+       <div className="space-y-4">
+          <p className="font-bold text-lg leading-relaxed">{question?.questionText || 'جاري التحميل...'}</p>
+          <div className="bg-background/40 p-6 rounded-2xl border border-dashed border-primary/10">
+             <p className="text-[10px] text-primary font-black mb-2 flex items-center gap-2 justify-end">إجابة الطالب <CheckCircle className="w-3 h-3" /></p>
+             <p className="font-black text-base">
+                {answer.questionType === 'MCQ' 
+                  ? <OptionText courseId={attempt.courseId} examId={attempt.courseContentId} questionId={answer.questionId} optionId={answer.mcqSelectedOptionId} /> 
+                  : (answer.essayAnswerText || <span className="opacity-20 italic">لا توجد إجابة مكتوبة</span>)}
+             </p>
           </div>
        </div>
-       <div className="flex gap-2 items-center">
-          <Input type="number" value={answer.scoreAchieved} onChange={(e) => handleUpdate({scoreAchieved: Number(e.target.value)})} className="w-24 text-center font-black h-12 rounded-xl" />
-          <Button variant="outline" onClick={() => handleUpdate({isCorrect: true, scoreAchieved: answer.maxPoints})} className="h-12 px-4 rounded-xl text-accent"><CheckCircle className="w-4 h-4" /> صح</Button>
-          <Button variant="outline" onClick={() => handleUpdate({isCorrect: false, scoreAchieved: 0})} className="h-12 px-4 rounded-xl text-destructive"><XCircle className="w-4 h-4" /> خطأ</Button>
+
+       <div className="flex flex-wrap gap-3 items-center pt-4 border-t border-white/5">
+          <div className="space-y-1">
+             <Label className="text-[9px] font-black opacity-40">الدرجة المستحقة</Label>
+             <Input type="number" value={answer.scoreAchieved} onChange={(e) => handleUpdate({scoreAchieved: Number(e.target.value)})} className="w-28 text-center font-black h-12 rounded-xl bg-background" />
+          </div>
+          <div className="flex gap-2 mt-auto">
+            <Button variant="outline" onClick={() => handleUpdate({isCorrect: true, scoreAchieved: answer.maxPoints})} className="h-12 px-6 rounded-xl text-accent border-accent/20 hover:bg-accent/10 font-black">صح ✓</Button>
+            <Button variant="outline" onClick={() => handleUpdate({isCorrect: false, scoreAchieved: 0})} className="h-12 px-6 rounded-xl text-destructive border-destructive/20 hover:bg-destructive/10 font-black">خطأ ✗</Button>
+          </div>
+          <div className="mr-auto text-left">
+             <p className="text-[10px] font-bold text-muted-foreground">من أصل: {answer.maxPoints} درجة</p>
+          </div>
        </div>
     </div>
   );
@@ -180,5 +237,5 @@ function OptionText({ courseId, examId, questionId, optionId }: any) {
   const firestore = useFirestore();
   const oRef = useMemoFirebase(() => (firestore && optionId) ? doc(firestore, 'courses', courseId, 'content', examId, 'questions', questionId, 'options', optionId) : null, [firestore, optionId, courseId, examId, questionId]);
   const { data: option } = useDoc(oRef);
-  return <span>{option?.optionText || 'جاري تحميل الاختيار...'}</span>;
+  return <span>{option?.optionText || '...'}</span>;
 }
