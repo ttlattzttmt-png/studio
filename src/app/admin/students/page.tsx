@@ -31,7 +31,7 @@ import {
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, doc, query, orderBy, deleteDoc, collectionGroup } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { sendWhatsAppMessage } from '@/lib/whatsapp-utils';
+import { sendAutomatedMessage } from '@/lib/whatsapp-utils';
 
 export default function AdminStudents() {
   const firestore = useFirestore();
@@ -40,6 +40,9 @@ export default function AdminStudents() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   
+  const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'admin_config', 'whatsapp') : null), [firestore]);
+  const { data: whatsappConfig } = useDoc(configRef);
+
   const studentsRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(collection(firestore, 'students'), orderBy('registrationDate', 'desc'));
@@ -63,6 +66,11 @@ export default function AdminStudents() {
       (s.studentPhoneNumber && s.studentPhoneNumber.includes(searchTerm))
     );
   }, [students, searchTerm]);
+
+  const handleQuickMessage = async (phoneNumber: string, name: string) => {
+    const msg = `مرحباً يا بشمهندس ${name.split(' ')[0]}.. كيف يمكننا مساعدتك اليوم؟`;
+    await sendAutomatedMessage(phoneNumber, msg, whatsappConfig as any);
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20 text-right">
@@ -109,7 +117,7 @@ export default function AdminStudents() {
                     <div className="flex items-center gap-2 justify-end">
                       <span className="font-mono text-xs">{s.studentPhoneNumber}</span>
                       <Button 
-                        onClick={() => sendWhatsAppMessage(s.studentPhoneNumber, `مرحباً يا بشمهندس ${s.name.split(' ')[0]}..`)} 
+                        onClick={() => handleQuickMessage(s.studentPhoneNumber, s.name)} 
                         variant="ghost" 
                         size="icon" 
                         className="h-7 w-7 text-accent"
@@ -148,14 +156,14 @@ export default function AdminStudents() {
                       <p className="text-[10px] font-bold text-primary mb-1">هاتف الطالب</p>
                       <div className="flex items-center justify-between flex-row-reverse">
                         <p className="font-black text-sm" dir="ltr">{selectedStudent.studentPhoneNumber}</p>
-                        <Button onClick={() => sendWhatsAppMessage(selectedStudent.studentPhoneNumber, "")} variant="ghost" size="icon" className="h-6 w-6 text-accent"><MessageCircle className="w-4 h-4" /></Button>
+                        <Button onClick={() => sendAutomatedMessage(selectedStudent.studentPhoneNumber, "", whatsappConfig as any)} variant="ghost" size="icon" className="h-6 w-6 text-accent"><MessageCircle className="w-4 h-4" /></Button>
                       </div>
                    </div>
                    <div className="p-4 bg-secondary/20 rounded-2xl border border-white/5 space-y-2">
                       <p className="text-[10px] font-bold text-primary mb-1">هاتف ولي الأمر</p>
                       <div className="flex items-center justify-between flex-row-reverse">
                         <p className="font-black text-sm" dir="ltr">{selectedStudent.parentPhoneNumber}</p>
-                        <Button onClick={() => sendWhatsAppMessage(selectedStudent.parentPhoneNumber, "")} variant="ghost" size="icon" className="h-6 w-6 text-accent"><MessageCircle className="w-4 h-4" /></Button>
+                        <Button onClick={() => sendAutomatedMessage(selectedStudent.parentPhoneNumber, "", whatsappConfig as any)} variant="ghost" size="icon" className="h-6 w-6 text-accent"><MessageCircle className="w-4 h-4" /></Button>
                       </div>
                    </div>
                    <div className="p-4 bg-secondary/20 rounded-2xl border border-white/5">
