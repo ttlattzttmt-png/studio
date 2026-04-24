@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Progress } from '@/components/ui/progress';
 import { 
   Loader2, 
   Search,
@@ -16,10 +17,12 @@ import {
   RefreshCw,
   Save,
   MessageCircle,
+  Zap,
+  Clock,
   AlertCircle
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collectionGroup, updateDoc, doc, collection, getDocs } from 'firebase/firestore';
+import { collectionGroup, updateDoc, doc, collection, getDocs, query, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { sendAutomatedMessage, formatExamResultMessage } from '@/lib/whatsapp-utils';
 import { cn } from '@/lib/utils';
@@ -30,6 +33,10 @@ export default function AdminGradingPage() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
+  
+  // حالة البث الجماعي
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [broadcastProgress, setBroadcastProgress] = useState({ current: 0, total: 0 });
 
   const studentsRef = useMemoFirebase(() => (firestore ? collection(firestore, 'students') : null), [firestore]);
   const { data: allStudents } = useCollection(studentsRef);
@@ -54,6 +61,57 @@ export default function AdminGradingPage() {
       .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
   }, [rawAttempts, searchTerm, studentMap]);
 
+  const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'admin_config', 'whatsapp') : null), [firestore]);
+  const { data: whatsappConfig } = useDoc(configRef);
+
+  // وظيفة البث الآلي لكافة الطلاب المختارين
+  const handleBatchBroadcast = async () => {
+    if (!filteredAttempts || filteredAttempts.length === 0 || !firestore) return;
+    
+    const gradedAttempts = filteredAttempts.filter(a => a.isGraded);
+    if (gradedAttempts.length === 0) {
+      toast({ variant: "destructive", title: "لا توجد نتائج جاهزة", description: "يرجى تصحيح واعتماد بعض الامتحانات أولاً." });
+      return;
+    }
+
+    if (!confirm(`هل أنت متأكد من بدء بث النتائج لـ ${gradedAttempts.length} طالب؟ سيصل إشعار لكل طالب وولي أمره.`)) return;
+
+    setIsBroadcasting(true);
+    setBroadcastProgress({ current: 0, total: gradedAttempts.length });
+
+    for (let i = 0; i < gradedAttempts.length; i++) {
+      const att = gradedAttempts[i];
+      const student = studentMap[att.studentId];
+      if (!student) continue;
+
+      setBroadcastProgress(p => ({ ...p, current: i + 1 }));
+
+      try {
+        // جلب اسم الامتحان
+        const examSnap = await getDocs(query(collectionGroup(firestore, 'content'), where('__name__', '==', att.courseContentId)));
+        const examTitle = examSnap.docs[0]?.data()?.title || 'امتحان المنصة';
+
+        const msg = formatExamResultMessage(student.name, examTitle, att.score, att.pointsAchieved, att.totalPoints);
+        
+        // إرسال للطالب
+        await sendAutomatedMessage(student.studentPhoneNumber, msg, whatsappConfig as any);
+        
+        // تأخير بسيط لمنع الحظر
+        await new Promise(r => setTimeout(r, 4000));
+
+        // إرسال لولي الأمر
+        await sendAutomatedMessage(student.parentPhoneNumber, msg, whatsappConfig as any);
+        
+        await new Promise(r => setTimeout(r, 4000));
+      } catch (e) {
+        console.error("Broadcast Error:", e);
+      }
+    }
+
+    setIsBroadcasting(false);
+    toast({ title: "اكتمل البث الآلي", description: "تم إرسال كافة الدرجات بنجاح." });
+  };
+
   const handleReleaseGrades = async (attempt: any) => {
     if (!firestore) return;
     const answersRef = collection(firestore, 'students', attempt.studentId, 'quiz_attempts', attempt.id, 'answers');
@@ -76,16 +134,41 @@ export default function AdminGradingPage() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20 text-right">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-4xl font-headline font-bold mb-2">مركز التصحيح الذكي</h1>
-          <p className="text-muted-foreground font-bold italic">راجع إجابات الطلاب بالأسماء الرباعية واعتمد الدرجات المقالية والمصورة.</p>
+          <h1 className="text-4xl font-headline font-bold mb-2">مركز التصحيح والتحكم</h1>
+          <p className="text-muted-foreground font-bold italic">اعتمد الدرجات وبث النتائج فوراً لأولياء الأمور والطلاب بضغطة زر.</p>
         </div>
-        <div className="bg-primary/10 text-primary px-6 py-3 rounded-2xl flex items-center gap-3 border border-primary/20">
-          <RefreshCw className="w-5 h-5 animate-spin-slow" />
-          <span className="font-black text-sm">{filteredAttempts.length} محاولة</span>
+        <div className="flex flex-wrap gap-3">
+          <Button 
+            onClick={handleBatchBroadcast} 
+            disabled={isBroadcasting || filteredAttempts.length === 0}
+            className="h-14 px-8 bg-accent text-white font-black rounded-2xl shadow-xl shadow-accent/20 gap-3 text-lg animate-pulse"
+          >
+            {isBroadcasting ? <Loader2 className="w-6 h-6 animate-spin" /> : <Zap className="w-6 h-6" />}
+            بث نتائج الامتحان آلياً 🚀
+          </Button>
+          <div className="bg-primary/10 text-primary px-6 py-3 rounded-2xl flex items-center gap-3 border border-primary/20">
+            <RefreshCw className="w-5 h-5 animate-spin-slow" />
+            <span className="font-black text-sm">{filteredAttempts.length} محاولة</span>
+          </div>
         </div>
       </div>
+
+      {isBroadcasting && (
+        <Card className="p-8 bg-accent/5 border-accent/20 rounded-3xl animate-in slide-in-from-top duration-500">
+          <div className="space-y-4">
+             <div className="flex justify-between items-center text-accent font-black">
+                <span>جاري بث الرسائل الآلية: {broadcastProgress.current} من {broadcastProgress.total}</span>
+                <span>{Math.round((broadcastProgress.current/broadcastProgress.total)*100)}%</span>
+             </div>
+             <Progress value={(broadcastProgress.current/broadcastProgress.total)*100} className="h-3 bg-secondary" />
+             <p className="text-xs text-muted-foreground flex items-center gap-2 justify-center">
+                <Clock className="w-4 h-4 animate-spin" /> نظام الحماية نشط.. ننتظر قليلاً بين كل رسالة لضمان الأمان.
+             </p>
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <Card className="lg:col-span-1 bg-card border-primary/10 rounded-[2rem] overflow-hidden h-fit shadow-xl">
@@ -219,13 +302,12 @@ function AnswerRow({ index, answer, attempt }: any) {
        </div>
        
        <div className="space-y-4">
-          {/* إظهار الصورة للمصحح لضمان دقة التقييم */}
           {question?.imageUrl && (
-            <div className="w-full rounded-xl overflow-hidden border-2 border-primary/10 bg-black/10 mb-4 shadow-inner relative h-auto">
+            <div className="w-full rounded-2xl overflow-hidden border-2 border-primary/10 bg-black/10 mb-6 shadow-inner relative h-auto">
               <img 
                 src={question.imageUrl} 
                 alt="السؤال المرجعي" 
-                className="w-full h-auto max-h-[400px] object-contain block mx-auto"
+                className="w-full h-auto max-h-[500px] object-contain block mx-auto"
               />
             </div>
           )}

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -179,7 +179,6 @@ export default function TakeExamPage() {
            </div>
         </Card>
 
-        {/* خارطة الأسئلة في الأسفل */}
         <Card className="bg-card border-primary/10 p-8 rounded-[2rem] shadow-lg">
             <h3 className="font-black text-sm mb-6 border-b pb-3 flex items-center gap-2 justify-end">خارطة تقدمك في الامتحان</h3>
             <div className="flex flex-wrap gap-3 justify-center">
