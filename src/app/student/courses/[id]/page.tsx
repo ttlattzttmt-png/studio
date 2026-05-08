@@ -30,7 +30,6 @@ import {
   usePlayer, 
   MediaBuffering, 
   CaptionButton, 
-  CastButton, 
   Controls, 
   ErrorDialog, 
   FullscreenButton, 
@@ -53,168 +52,8 @@ import {
 } from '@vidstack/react';
 import './player.css';
 
-export default function CourseViewer() {
-  const { id } = useParams();
-  const { user, isUserLoading } = useUser();
-  const firestore = useFirestore();
-  const { toast } = useToast();
-  
-  const [activeContent, setActiveContent] = useState<any>(null);
-
-  const courseRef = useMemoFirebase(() => (firestore && id) ? doc(firestore, 'courses', id as string) : null, [firestore, id]);
-  const { data: course, isLoading: isCourseLoading } = useDoc(courseRef);
-
-  const studentRef = useMemoFirebase(() => (firestore && user) ? doc(firestore, 'students', user.uid) : null, [firestore, user]);
-  const { data: studentProfile } = useDoc(studentRef);
-
-  const enrollmentRef = useMemoFirebase(() => (firestore && user && id) ? doc(firestore, 'students', user.uid, 'enrollments', id as string) : null, [firestore, user, id]);
-  const { data: enrollment, isLoading: isEnrollmentLoading } = useDoc(enrollmentRef);
-  
-  const contentRef = useMemoFirebase(() => (firestore && id) ? query(collection(firestore, 'courses', id as string, 'content'), orderBy('orderIndex', 'asc')) : null, [firestore, id]);
-  const { data: contents, isLoading: isContentLoading } = useCollection(contentRef);
-
-  const progressRef = useMemoFirebase(() => (firestore && user) ? collection(firestore, 'students', user.uid, 'video_progress') : null, [firestore, user]);
-  const { data: watchedVideos } = useCollection(progressRef);
-
-  const visibleContents = useMemo(() => {
-    return contents?.filter(c => c.isVisible !== false) || [];
-  }, [contents]);
-
-  useEffect(() => { 
-    if (visibleContents.length > 0 && !activeContent) {
-      setActiveContent(visibleContents[0]);
-    }
-  }, [visibleContents, activeContent]);
-
-  const markAsWatched = async (contentId: string) => {
-    if (!firestore || !user || !id || !studentProfile) return;
-    try {
-      const videoLogRef = doc(firestore, 'students', user.uid, 'video_progress', contentId);
-      await setDoc(videoLogRef, { 
-        studentId: user.uid, 
-        studentName: studentProfile.name, 
-        courseId: id, 
-        courseContentId: contentId, 
-        isCompleted: true, 
-        lastWatchedAt: serverTimestamp() 
-      }, { merge: true });
-      
-      const watchedSnap = await getDocs(query(collection(firestore, 'students', user.uid, 'video_progress'), where('courseId', '==', id)));
-      const newPercent = Math.min(100, Math.round((watchedSnap.size / (visibleContents.length || 1)) * 100));
-
-      await updateDoc(doc(firestore, 'students', user.uid, 'enrollments', id as string), { 
-        progressPercentage: newPercent, 
-        studentName: studentProfile.name, 
-        lastActivityDate: new Date().toISOString() 
-      });
-      toast({ title: "عاش يا بشمهندس!", description: `وصلت لنسبة إنجاز ${newPercent}% في هذا الكورس.` });
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  if (isUserLoading || isCourseLoading || isEnrollmentLoading || isContentLoading) return <div className="flex justify-center py-40"><Loader2 className="w-12 animate-spin text-primary" /></div>;
-
-  const hasAccess = (enrollment && enrollment.status === 'active') || course?.price === 0;
-
-  if (!hasAccess) return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6 bg-background">
-      <Lock className="w-16 h-16 text-primary/40" />
-      <h2 className="text-3xl font-black text-white">هذا الكورس يتطلب تفعيل</h2>
-      <Link href="/student/redeem"><ShadButton className="bg-primary h-14 px-10 rounded-2xl font-black shadow-lg">تفعيل الكود الآن</ShadButton></Link>
-    </div>
-  );
-
-  return (
-    <div className="min-h-screen flex flex-col bg-background text-right overflow-x-hidden">
-      <Navbar />
-      <main className="flex-grow pt-24 pb-20 container mx-auto px-4">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
-            {activeContent?.contentType === 'Video' ? (
-              <div className="space-y-6">
-                <div className="relative group">
-                  <VideoPlayer src={activeContent.youtubeLink} />
-                </div>
-
-                <Card className="bg-card border-primary/20 shadow-2xl p-8 rounded-[2rem] relative overflow-hidden text-right">
-                  <div className="absolute top-0 right-0 w-2 h-full bg-primary" />
-                  <div className="flex flex-col md:flex-row-reverse justify-between items-center gap-6">
-                    <div className="text-right flex-grow">
-                      <h1 className="text-2xl md:text-4xl font-black text-primary leading-tight">{activeContent.title}</h1>
-                      <div className="flex items-center gap-3 justify-end opacity-70">
-                         <Badge className="bg-primary/20 text-primary text-[10px] md:text-xs font-black">حصة فيديو مؤمنة</Badge>
-                         <p className="text-[10px] md:text-sm text-muted-foreground font-bold flex items-center gap-2">
-                           <Clock className="w-4 h-4" /> تم النشر: {activeContent.createdAt?.seconds ? new Date(activeContent.createdAt.seconds * 1000).toLocaleDateString('ar-EG') : 'الآن'}
-                         </p>
-                      </div>
-                    </div>
-                    <ShadButton 
-                      onClick={() => markAsWatched(activeContent.id)} 
-                      disabled={watchedVideos?.some(v => v.courseContentId === activeContent.id)} 
-                      className="w-full md:w-auto h-14 px-8 rounded-xl font-black bg-primary text-primary-foreground shadow-xl"
-                    >
-                      {watchedVideos?.some(v => v.courseContentId === activeContent.id) ? (
-                        <span className="flex items-center gap-2"><CheckCircle className="w-5 h-5" /> تم تأكيد الحضور</span>
-                      ) : "تأكيد حضور الحصة"}
-                    </ShadButton>
-                  </div>
-                </Card>
-              </div>
-            ) : activeContent ? (
-              <Card className="bg-gradient-to-br from-primary/10 via-card to-background border-2 border-dashed border-primary/20 p-20 text-center space-y-8 rounded-[3rem]">
-                  <FileQuestion className="w-20 h-20 text-primary mx-auto" />
-                  <h2 className="text-4xl font-black">{activeContent.title}</h2>
-                  <Link href={`/student/exams/${activeContent.id}`}>
-                    <ShadButton size="lg" className="h-16 px-12 bg-primary text-primary-foreground font-black rounded-2xl text-xl shadow-xl">
-                      ابدأ الاختبار الآن ✍️
-                    </ShadButton>
-                  </Link>
-              </Card>
-            ) : null}
-          </div>
-
-          <div className="lg:col-span-1">
-            <Card className="bg-card border-primary/10 overflow-hidden shadow-2xl rounded-[2.5rem] sticky top-24">
-              <CardHeader className="border-b bg-secondary/5 py-6 px-8 flex flex-row-reverse items-center justify-between">
-                <CardTitle className="text-xl font-black flex items-center gap-3 justify-end text-primary">
-                  قائمة الدروس <Monitor className="w-5 h-5" />
-                </CardTitle>
-                <Badge variant="outline" className="border-primary/30 text-primary">{enrollment?.progressPercentage || 0}%</Badge>
-              </CardHeader>
-              <CardContent className="p-0 max-h-[60vh] overflow-y-auto">
-                {visibleContents.map((item, idx) => (
-                  <button 
-                    key={item.id} 
-                    onClick={() => setActiveContent(item)} 
-                    className={cn(
-                      "w-full p-6 text-right flex flex-row-reverse items-center gap-4 transition-all border-b border-white/5", 
-                      activeContent?.id === item.id ? "bg-primary/10" : "hover:bg-white/5"
-                    )}
-                  >
-                    <div className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-black", 
-                      watchedVideos?.some(v => v.courseContentId === item.id) ? "bg-accent text-white" : "bg-secondary"
-                    )}>
-                      {watchedVideos?.some(v => v.courseContentId === item.id) ? <CheckCircle className="w-5 h-5" /> : idx+1}
-                    </div>
-                    <p className={cn("font-bold truncate", activeContent?.id === item.id ? "text-primary" : "text-white/80")}>
-                      {item.title}
-                    </p>
-                  </button>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </main>
-      <Footer />
-    </div>
-  );
-}
-
 // ================================================================
-// THE CODE YOU PROVIDED
+// Player
 // ================================================================
 
 const SEEK_TIME = 10;
@@ -350,18 +189,6 @@ export function VideoPlayer({ src, className, poster, ...rest }: VideoPlayerProp
               <Tooltip.Root side="top">
                 <Tooltip.Trigger
                   render={
-                    <CastButton className="media-button--cast" render={<Button />}>
-                      <CastEnterIcon className="media-icon media-icon--cast-enter" />
-                      <CastExitIcon className="media-icon media-icon--cast-exit" />
-                    </CastButton>
-                  }
-                />
-                <Tooltip.Popup className="media-surface media-tooltip" />
-              </Tooltip.Root>
-
-              <Tooltip.Root side="top">
-                <Tooltip.Trigger
-                  render={
                     <PipButton className="media-button--pip" render={<Button />}>
                       <PipEnterIcon className="media-icon media-icon--pip-enter" />
                       <PipExitIcon className="media-icon media-icon--pip-exit" />
@@ -474,14 +301,6 @@ function CaptionsOnIcon(props: ComponentProps<'svg'>): ReactNode {
   return <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" aria-hidden="true" viewBox="0 0 18 18" {...props}><path fill="currentColor" d="M15 2a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H3a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3zM4 11a1 1 0 1 0 0 2h5a1 1 0 1 0 0-2zm8 0a1 1 0 1 0 0 2h2a1 1 0 1 0 0-2zM4 8a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2zm4 0a1 1 0 0 0 0 2h3a1 1 0 1 0 0-2zm6 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2"/></svg>;
 }
 
-function CastEnterIcon(props: ComponentProps<'svg'>): ReactNode {
-  return <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" aria-hidden="true" viewBox="0 0 18 18" {...props}><path fill="currentColor" d="M.75 13.25c1.38 0 2.5 1.085 2.5 2.5V16H.5v-2.75z"/><path fill="currentColor" d="M.75 10.25c3.04 0 5.5 2.46 5.5 5.5V16h-2v-.25c0-1.96-1.567-3.5-3.5-3.5H.5v-2z"/><path fill="currentColor" d="M.75 7.25a8.5 8.5 0 0 1 8.5 8.5V16h-2v-.25c0-3.611-2.91-6.5-6.5-6.5H.5v-2z"/><path fill="currentColor" d="M17.5 14.25c0 .963-.787 1.75-1.75 1.75h-5.5v-2h5.25V4h-13v2.25h-2v-2.5C.5 2.787 1.287 2 2.25 2h13.5c.963 0 1.75.787 1.75 1.75z"/></svg>;
-}
-
-function CastExitIcon(props: ComponentProps<'svg'>): ReactNode {
-  return <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" aria-hidden="true" viewBox="0 0 18 18" {...props}><path fill="currentColor" d="M.75 13.25c1.38 0 2.5 1.085 2.5 2.5V16H.5v-2.75z"/><path fill="currentColor" d="M.75 10.25c3.04 0 5.5 2.46 5.5 5.5V16h-2v-.25c0-1.96-1.567-3.5-3.5-3.5H.5v-2z"/><path fill="currentColor" d="M.75 7.25a8.5 8.5 0 0 1 8.5 8.5V16h-2v-.25c0-3.611-2.91-6.5-6.5-6.5H.5v-2z"/><path fill="currentColor" d="M17.5 14.25c0 .963-.787 1.75-1.75 1.75h-5.5v-2h5.25V4h-13v2.25h-2v-2.5C.5 2.787 1.287 2 2.25 2h13.5c.963 0 1.75.787 1.75 1.75z"/><path fill="currentColor" d="M4 5.5v1.164c2.143-.021 5.979 3.836 5.979 5.979H14V5.5z"/></svg>;
-}
-
 function FullscreenEnterIcon(props: ComponentProps<'svg'>): ReactNode {
   return <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" aria-hidden="true" viewBox="0 0 18 18" {...props}><path fill="currentColor" d="M9.57 3.617A1 1 0 0 0 8.646 3H4c-.552 0-1 .449-1 1v4.646a.996.996 0 0 0 1.001 1 1 1 0 0 0 .706-.293l4.647-4.647a1 1 0 0 0 .216-1.089m4.812 4.812a1 1 0 0 0-1.089.217l-4.647 4.647a.998.998 0 0 0 .708 1.706H14c.552 0 1-.449 1-1V9.353a1 1 0 0 0-.618-.924"/></svg>;
 }
@@ -528,4 +347,171 @@ function VolumeLowIcon(props: ComponentProps<'svg'>): ReactNode {
 
 function VolumeOffIcon(props: ComponentProps<'svg'>): ReactNode {
   return <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" aria-hidden="true" viewBox="0 0 18 18" {...props}><path fill="currentColor" d="M.714 6.008h3.072l4.071-3.857c.5-.376 1.143 0 1.143.601V15.28c0 .602-.643.903-1.143.602l-4.071-3.858H.714c-.428 0-.714-.3-.714-.752V6.76c0-.451.286-.752.714-.752M14.5 7.586l-1.768-1.768a1 1 0 1 0-1.414 1.414L13.085 9l-1.767 1.768a1 1 0 0 0 1.414 1.414l1.768-1.768 1.768 1.768a1 1 0 0 0 1.414-1.414L15.914 9l1.768-1.768a1 1 0 0 0-1.414-1.414z"/></svg>;
+}
+
+export default function CourseViewer() {
+  const { id } = useParams();
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  
+  const [activeContent, setActiveContent] = useState<any>(null);
+
+  const courseRef = useMemoFirebase(() => (firestore && id) ? doc(firestore, 'courses', id as string) : null, [firestore, id]);
+  const { data: course, isLoading: isCourseLoading } = useDoc(courseRef);
+
+  const studentRef = useMemoFirebase(() => (firestore && user) ? doc(firestore, 'students', user.uid) : null, [firestore, user]);
+  const { data: studentProfile } = useDoc(studentRef);
+
+  const enrollmentRef = useMemoFirebase(() => (firestore && user && id) ? doc(firestore, 'students', user.uid, 'enrollments', id as string) : null, [firestore, user, id]);
+  const { data: enrollment, isLoading: isEnrollmentLoading } = useDoc(enrollmentRef);
+  
+  const contentRef = useMemoFirebase(() => (firestore && id) ? query(collection(firestore, 'courses', id as string, 'content'), orderBy('orderIndex', 'asc')) : null, [firestore, id]);
+  const { data: contents, isLoading: isContentLoading } = useCollection(contentRef);
+
+  const progressRef = useMemoFirebase(() => (firestore && user) ? collection(firestore, 'students', user.uid, 'video_progress') : null, [firestore, user]);
+  const { data: watchedVideos } = useCollection(progressRef);
+
+  const visibleContents = useMemo(() => {
+    return contents?.filter(c => c.isVisible !== false) || [];
+  }, [contents]);
+
+  useEffect(() => { 
+    if (visibleContents.length > 0 && !activeContent) {
+      setActiveContent(visibleContents[0]);
+    }
+  }, [visibleContents, activeContent]);
+
+  const markAsWatched = async (contentId: string) => {
+    if (!firestore || !user || !id || !studentProfile) return;
+    try {
+      const videoLogRef = doc(firestore, 'students', user.uid, 'video_progress', contentId);
+      await setDoc(videoLogRef, { 
+        studentId: user.uid, 
+        studentName: studentProfile.name, 
+        courseId: id, 
+        courseContentId: contentId, 
+        isCompleted: true, 
+        lastWatchedAt: serverTimestamp() 
+      }, { merge: true });
+      
+      const watchedSnap = await getDocs(query(collection(firestore, 'students', user.uid, 'video_progress'), where('courseId', '==', id)));
+      const newPercent = Math.min(100, Math.round((watchedSnap.size / (visibleContents.length || 1)) * 100));
+
+      await updateDoc(doc(firestore, 'students', user.uid, 'enrollments', id as string), { 
+        progressPercentage: newPercent, 
+        studentName: studentProfile.name, 
+        lastActivityDate: new Date().toISOString() 
+      });
+      toast({ title: "عاش يا بشمهندس!", description: `وصلت لنسبة إنجاز ${newPercent}% في هذا الكورس.` });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  if (isUserLoading || isCourseLoading || isEnrollmentLoading || isContentLoading) return <div className="flex justify-center py-40"><Loader2 className="w-12 animate-spin text-primary" /></div>;
+
+  const hasAccess = (enrollment && enrollment.status === 'active') || course?.price === 0;
+
+  if (!hasAccess) return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6 bg-background">
+      <Lock className="w-16 h-16 text-primary/40" />
+      <h2 className="text-3xl font-black text-white">هذا الكورس يتطلب تفعيل</h2>
+      <Link href="/student/redeem"><ShadButton className="bg-primary h-14 px-10 rounded-2xl font-black shadow-lg">تفعيل الكود الآن</ShadButton></Link>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen flex flex-col bg-background text-right overflow-x-hidden">
+      <Navbar />
+      <main className="flex-grow pt-24 pb-20 container mx-auto px-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-6">
+            {activeContent?.contentType === 'Video' ? (
+              <div className="space-y-6">
+                <div className="relative group">
+                   <VideoPlayer src={activeContent.youtubeLink} />
+                   
+                   {/* العلامة المائية العائمة */}
+                   <div className="absolute inset-0 pointer-events-none z-50 overflow-hidden">
+                      <div className="absolute animate-bounce duration-[10s] opacity-20 text-[10px] font-black text-white whitespace-nowrap bg-black/40 px-2 py-1 rounded" style={{ top: '20%', left: '30%' }}>
+                         {studentProfile?.name} - {studentProfile?.studentPhoneNumber}
+                      </div>
+                   </div>
+                </div>
+
+                <Card className="bg-card border-primary/20 shadow-2xl p-8 rounded-[2rem] relative overflow-hidden text-right">
+                  <div className="absolute top-0 right-0 w-2 h-full bg-primary" />
+                  <div className="flex flex-col md:flex-row-reverse justify-between items-center gap-6">
+                    <div className="text-right flex-grow">
+                      <h1 className="text-2xl md:text-4xl font-black text-primary leading-tight">{activeContent.title}</h1>
+                      <div className="flex items-center gap-3 justify-end opacity-70">
+                         <Badge className="bg-primary/20 text-primary text-[10px] md:text-xs font-black">حصة فيديو مؤمنة</Badge>
+                         <p className="text-[10px] md:text-sm text-muted-foreground font-bold flex items-center gap-2">
+                           <Clock className="w-4 h-4" /> تم النشر: {activeContent.createdAt?.seconds ? new Date(activeContent.createdAt.seconds * 1000).toLocaleDateString('ar-EG') : 'الآن'}
+                         </p>
+                      </div>
+                    </div>
+                    <ShadButton 
+                      onClick={() => markAsWatched(activeContent.id)} 
+                      disabled={watchedVideos?.some(v => v.courseContentId === activeContent.id)} 
+                      className="w-full md:w-auto h-14 px-8 rounded-xl font-black bg-primary text-primary-foreground shadow-xl"
+                    >
+                      {watchedVideos?.some(v => v.courseContentId === activeContent.id) ? (
+                        <span className="flex items-center gap-2"><CheckCircle className="w-5 h-5" /> تم تأكيد الحضور</span>
+                      ) : "تأكيد حضور الحصة"}
+                    </ShadButton>
+                  </div>
+                </Card>
+              </div>
+            ) : activeContent ? (
+              <Card className="bg-gradient-to-br from-primary/10 via-card to-background border-2 border-dashed border-primary/20 p-20 text-center space-y-8 rounded-[3rem]">
+                  <FileQuestion className="w-20 h-20 text-primary mx-auto" />
+                  <h2 className="text-4xl font-black">{activeContent.title}</h2>
+                  <Link href={`/student/exams/${activeContent.id}`}>
+                    <ShadButton size="lg" className="h-16 px-12 bg-primary text-primary-foreground font-black rounded-2xl text-xl shadow-xl">
+                      ابدأ الاختبار الآن ✍️
+                    </ShadButton>
+                  </Link>
+              </Card>
+            ) : null}
+          </div>
+
+          <div className="lg:col-span-1">
+            <Card className="bg-card border-primary/10 overflow-hidden shadow-2xl rounded-[2.5rem] sticky top-24">
+              <CardHeader className="border-b bg-secondary/5 py-6 px-8 flex flex-row-reverse items-center justify-between">
+                <CardTitle className="text-xl font-black flex items-center gap-3 justify-end text-primary">
+                  قائمة الدروس <Monitor className="w-5 h-5" />
+                </CardTitle>
+                <Badge variant="outline" className="border-primary/30 text-primary">{enrollment?.progressPercentage || 0}%</Badge>
+              </CardHeader>
+              <CardContent className="p-0 max-h-[60vh] overflow-y-auto">
+                {visibleContents.map((item, idx) => (
+                  <button 
+                    key={item.id} 
+                    onClick={() => setActiveContent(item)} 
+                    className={cn(
+                      "w-full p-6 text-right flex flex-row-reverse items-center gap-4 transition-all border-b border-white/5", 
+                      activeContent?.id === item.id ? "bg-primary/10" : "hover:bg-white/5"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-black", 
+                      watchedVideos?.some(v => v.courseContentId === item.id) ? "bg-accent text-white" : "bg-secondary"
+                    )}>
+                      {watchedVideos?.some(v => v.courseContentId === item.id) ? <CheckCircle className="w-5 h-5" /> : idx+1}
+                    </div>
+                    <p className={cn("font-bold truncate", activeContent?.id === item.id ? "text-primary" : "text-white/80")}>
+                      {item.title}
+                    </p>
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
 }
