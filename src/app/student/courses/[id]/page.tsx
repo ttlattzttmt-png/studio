@@ -76,7 +76,7 @@ export default function CourseViewer() {
 
   const isFree = course?.price === 0;
 
-  // حماية الفيديوهات
+  // حماية الفيديوهات عند محاولة تسجيل الشاشة أو الخروج من التبويب
   useEffect(() => {
     const handleBlur = () => setIsVideoBlocked(true);
     const handleFocus = () => setTimeout(() => setIsVideoBlocked(false), 500);
@@ -88,6 +88,7 @@ export default function CourseViewer() {
     };
   }, []);
 
+  // وظيفة إرسال الأوامر ليوتيوب
   const sendCommand = (func: string, args: any[] = []) => {
     if (playerRef.current?.contentWindow) {
       playerRef.current.contentWindow.postMessage(JSON.stringify({ 
@@ -111,11 +112,13 @@ export default function CourseViewer() {
   const handleSeek = (value: number[]) => {
     if (!duration || duration <= 0) return;
     setIsDragging(true);
-    const seekTo = (value[0] / 100) * duration;
-    setCurrentTime(seekTo);
+    const targetPercent = value[0];
+    const seekTo = (targetPercent / 100) * duration;
+    setCurrentTime(seekTo); // تحديث فوري للواجهة (Optimistic)
     sendCommand('seekTo', [seekTo, true]);
-    // إرجاع حالة السحب بعد فترة وجيزة للسماح للمزامنة بالعودة
-    setTimeout(() => setIsDragging(false), 200);
+    
+    // إعادة السماح بالتحديث التلقائي بعد قليل
+    setTimeout(() => setIsDragging(false), 300);
   };
 
   const changeSpeed = (rate: number) => {
@@ -140,10 +143,10 @@ export default function CourseViewer() {
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
   }, []);
 
-  // محرك المزامنة اللحظي المحدث - V8 Stability Engine
+  // محرك المزامنة القسري (Active Polling Engine V9)
   useEffect(() => {
+    // نطلب الحالة من يوتيوب بشكل متكرر لضمان التزامن حتى لو فشلت الأحداث
     const syncTimer = setInterval(() => {
-      // نطلب من يوتيوب إرسال الحالة الحالية والوقت
       sendCommand('listening');
     }, 500);
 
@@ -152,6 +155,7 @@ export default function CourseViewer() {
         if (typeof event.data !== 'string') return;
         const data = JSON.parse(event.data);
         
+        // استلام بيانات الوقت والمدة والحالة من يوتيوب
         if (data.event === 'infoDelivery' && data.info) {
           if (data.info.currentTime !== undefined && !isDragging) {
             setCurrentTime(data.info.currentTime);
@@ -164,9 +168,9 @@ export default function CourseViewer() {
           }
         }
         
+        // تحديث حالة التشغيل عند التغير
         if (data.event === 'onStateChange') {
           setIsPlaying(data.info === 1);
-          if (data.info === 1) sendCommand('listening');
         }
       } catch (e) {}
     };
@@ -185,6 +189,7 @@ export default function CourseViewer() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // تفعيل الكورسات المجانية تلقائياً
   useEffect(() => {
     if (isFree && !enrollment && user && id && studentProfile && !isEnrollmentLoading && course && firestore) {
       const enRef = doc(firestore, 'students', user.uid, 'enrollments', id as string);
@@ -262,7 +267,7 @@ export default function CourseViewer() {
                     isFullscreen ? "fixed inset-0 w-full h-full z-[9999] rounded-none flex items-center justify-center" : "rounded-[2.5rem] border-[4px] border-card aspect-video"
                   )}
                 >
-                    {/* طبقة حماية تمنع التفاعل مع اليوتيوب وتسمح بالتفاعل مع عناصرنا فقط */}
+                    {/* درع الحماية - يمنع التفاعل المباشر مع iframe يوتيوب */}
                     <div className="absolute inset-0 z-40 bg-transparent" onContextMenu={e => e.preventDefault()} />
                     
                     {isVideoBlocked && (
@@ -280,9 +285,9 @@ export default function CourseViewer() {
                       allow="autoplay; encrypted-media"
                     />
 
-                    {/* واجهة التحكم المخصصة - V8 UI */}
-                    <div className="absolute bottom-0 left-0 right-0 z-[60] bg-gradient-to-t from-black via-black/40 to-transparent p-4 md:p-8 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <div className="space-y-6">
+                    {/* واجهة تحكم البشمهندس الذهبية - تظهر عند تحريك الماوس فوق المشغل */}
+                    <div className="absolute bottom-0 left-0 right-0 z-[60] bg-gradient-to-t from-black via-black/60 to-transparent p-6 md:p-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                      <div className="space-y-6 pointer-events-auto">
                         <div className="flex flex-row-reverse items-center gap-6">
                            <span className="text-xs text-white font-black min-w-[120px] text-left tabular-nums" dir="ltr">
                              {formatTime(currentTime)} / {formatTime(duration)}
@@ -293,30 +298,30 @@ export default function CourseViewer() {
                               max={100} 
                               step={0.1}
                               onValueChange={handleSeek}
-                              className="cursor-pointer relative z-[70] pointer-events-auto"
+                              className="cursor-pointer"
                              />
                            </div>
                         </div>
                         
-                        <div className="flex items-center justify-between flex-row-reverse px-2 pb-2">
+                        <div className="flex items-center justify-between flex-row-reverse">
                           <div className="flex items-center gap-10 flex-row-reverse">
-                            <button onClick={togglePlay} className="text-white hover:text-primary transition-all active:scale-90 relative z-[70] pointer-events-auto">
+                            <button onClick={togglePlay} className="text-white hover:text-primary transition-all active:scale-90">
                               {isPlaying ? <Pause className="w-12 h-12 fill-current" /> : <Play className="w-12 h-12 fill-current" />}
                             </button>
                             
                             <button onClick={() => {
                               if(isMuted) { sendCommand('unMute'); setIsMuted(false); }
                               else { sendCommand('mute'); setIsMuted(true); }
-                            }} className="text-white hover:text-primary relative z-[70] pointer-events-auto">
+                            }} className="text-white hover:text-primary transition-all">
                               {isMuted ? <VolumeX className="w-8 h-8" /> : <Volume2 className="w-8 h-8" />}
                             </button>
                           </div>
 
-                          <div className="flex items-center gap-6 relative">
+                          <div className="flex items-center gap-6">
                              <div className="relative">
                                 <button 
                                   onClick={() => setShowSpeedMenu(!showSpeedMenu)} 
-                                  className="text-white/90 hover:text-primary flex items-center gap-2 text-sm font-black bg-white/10 px-6 py-3 rounded-2xl border border-white/10 relative z-[70] pointer-events-auto"
+                                  className="text-white/90 hover:text-primary flex items-center gap-2 text-sm font-black bg-white/10 px-6 py-3 rounded-2xl border border-white/10"
                                 >
                                   <Gauge className="w-4 h-4" />
                                   <span>{playbackRate}x</span>
@@ -329,7 +334,7 @@ export default function CourseViewer() {
                                          key={rate} 
                                          onClick={() => changeSpeed(rate)}
                                          className={cn(
-                                           "w-full text-right px-6 py-4 text-xs font-black hover:bg-primary hover:text-primary-foreground transition-all pointer-events-auto",
+                                           "w-full text-right px-6 py-4 text-xs font-black hover:bg-primary hover:text-primary-foreground transition-all",
                                            playbackRate === rate ? "bg-primary/20 text-primary" : "text-white"
                                          )}
                                        >
@@ -340,7 +345,7 @@ export default function CourseViewer() {
                                 )}
                              </div>
 
-                             <button onClick={toggleFullScreen} className="text-white hover:text-primary transition-all p-2 relative z-[70] pointer-events-auto">
+                             <button onClick={toggleFullScreen} className="text-white hover:text-primary transition-all p-2">
                                 <Maximize className="w-8 h-8" />
                              </button>
                           </div>
