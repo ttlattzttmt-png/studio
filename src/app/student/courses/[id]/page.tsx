@@ -14,17 +14,20 @@ import {
   Layout,
   Clock,
   Star,
-  Activity,
-  MonitorPlay,
-  PlayCircle,
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  Maximize,
   ShieldCheck,
   Zap,
   EyeOff
 } from 'lucide-react';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -36,6 +39,14 @@ export default function CourseViewer() {
   const { toast } = useToast();
   const [activeContent, setActiveContent] = useState<any>(null);
   const [isVideoBlocked, setIsVideoBlocked] = useState(false);
+
+  // مراجع وبيانات المشغل الخاص
+  const playerRef = useRef<HTMLIFrameElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(100);
+  const [isMuted, setIsMuted] = useState(false);
 
   const courseRef = useMemoFirebase(() => (firestore && id) ? doc(firestore, 'courses', id as string) : null, [firestore, id]);
   const { data: course, isLoading: isCourseLoading } = useDoc(courseRef);
@@ -58,7 +69,7 @@ export default function CourseViewer() {
 
   const isFree = course?.price === 0;
 
-  // حماية الفيديوهات من التسجيل أو فتح روابط خارجية
+  // حماية الفيديوهات من التسجيل أو الخروج
   useEffect(() => {
     const handleBlur = () => setIsVideoBlocked(true);
     const handleFocus = () => setTimeout(() => setIsVideoBlocked(false), 1000);
@@ -73,6 +84,58 @@ export default function CourseViewer() {
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('contextmenu', preventContext);
     };
+  }, []);
+
+  // التحكم في مشغل يوتيوب برمجياً
+  const sendPlayerCommand = (command: string, args: any[] = []) => {
+    if (playerRef.current?.contentWindow) {
+      playerRef.current.contentWindow.postMessage(JSON.stringify({
+        event: 'command',
+        func: command,
+        args: args
+      }), '*');
+    }
+  };
+
+  const togglePlay = () => {
+    if (isPlaying) {
+      sendPlayerCommand('pauseVideo');
+    } else {
+      sendPlayerCommand('playVideo');
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  const handleSeek = (value: number[]) => {
+    const seekTo = value[0];
+    sendPlayerCommand('seekTo', [seekTo, true]);
+    setCurrentTime(seekTo);
+  };
+
+  const toggleMute = () => {
+    if (isMuted) {
+      sendPlayerCommand('unMute');
+      sendPlayerCommand('setVolume', [volume]);
+    } else {
+      sendPlayerCommand('mute');
+    }
+    setIsMuted(!isMuted);
+  };
+
+  // استقبال رسائل حالة المشغل من يوتيوب
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.event === 'initialDelivery') {
+          // جلب مدة الفيديو عند التحميل
+          // ملاحظة: يوتيوب يرسل بيانات الحالة فقط إذا كان enablejsapi=1
+        }
+      } catch (e) {}
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, []);
 
   useEffect(() => {
@@ -121,46 +184,75 @@ export default function CourseViewer() {
           <div className="lg:col-span-2 space-y-6">
             {activeContent?.contentType === 'Video' ? (
               <div className="space-y-6 animate-in fade-in duration-700">
-                {/* مشغل فيديو البشمهندس المطور والمؤمن */}
-                <div className="relative bg-black rounded-[2.5rem] overflow-hidden border-[6px] border-card shadow-2xl group">
-                    <div className="aspect-video w-full relative">
-                      {/* طبقة حماية تمنع النقر على الشعار أو المشاركة */}
-                      <div className="absolute inset-0 z-20 pointer-events-auto bg-transparent" onContextMenu={(e) => e.preventDefault()}>
-                         <div className="absolute top-0 left-0 w-full h-20 bg-gradient-to-b from-black/60 to-transparent pointer-events-none" />
-                         <div className="absolute bottom-0 right-0 w-40 h-20 bg-transparent pointer-events-auto" /> {/* تغطية شعار يوتيوب */}
+                {/* مشغل فيديو البشمهندس الخاص والآمن */}
+                <div className="relative bg-black rounded-[2rem] overflow-hidden border-[4px] border-card shadow-2xl aspect-video group">
+                    {/* طبقة حماية تمنع التفاعل مع المشغل الأصلي */}
+                    <div className="absolute inset-0 z-20 cursor-default bg-transparent" />
+                    
+                    {/* واجهة التعتيم الذكية */}
+                    {isVideoBlocked && (
+                      <div className="absolute inset-0 z-[100] bg-black/95 backdrop-blur-3xl flex flex-col items-center justify-center text-center p-8">
+                         <EyeOff className="w-16 h-16 text-primary mb-4 animate-pulse" />
+                         <h3 className="text-2xl font-black text-white">المحتوى محمي</h3>
+                         <p className="text-primary font-bold mt-2">يرجى العودة للصفحة لمواصلة المشاهدة بأمان.</p>
                       </div>
+                    )}
 
-                      <iframe 
-                        src={`https://www.youtube.com/embed/${getYouTubeId(activeContent.youtubeLink)}?rel=0&modestbranding=1&autoplay=1&showinfo=0&controls=1&disablekb=1&fs=1`} 
-                        className="w-full h-full relative z-10"
-                        allowFullScreen 
-                        allow="autoplay; encrypted-media"
-                      />
-                      
-                      {/* واجهة التعتيم عند الخروج من الصفحة */}
-                      {isVideoBlocked && (
-                        <div className="absolute inset-0 z-[100] bg-black/95 backdrop-blur-3xl flex flex-col items-center justify-center text-center p-8">
-                           <EyeOff className="w-16 h-16 text-primary mb-4 animate-pulse" />
-                           <h3 className="text-2xl font-black text-white">المحتوى محمي</h3>
-                           <p className="text-primary font-bold mt-2">يرجى العودة لصفحة المنصة لمواصلة المشاهدة بأمان.</p>
+                    <iframe 
+                      ref={playerRef}
+                      src={`https://www.youtube.com/embed/${getYouTubeId(activeContent.youtubeLink)}?rel=0&modestbranding=1&enablejsapi=1&origin=${typeof window !== 'undefined' ? window.location.origin : ''}&controls=0&disablekb=1&fs=0&iv_load_policy=3&showinfo=0`} 
+                      className="w-full h-full relative z-10 pointer-events-none scale-[1.01]"
+                      allow="autoplay; encrypted-media"
+                    />
+
+                    {/* شريط التحكم المخصص للمنصة */}
+                    <div className="absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/90 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <div className="space-y-4">
+                        <Slider 
+                          value={[currentTime]} 
+                          max={100} 
+                          step={0.1}
+                          onValueChange={handleSeek}
+                          className="cursor-pointer"
+                        />
+                        
+                        <div className="flex items-center justify-between flex-row-reverse px-2">
+                          <div className="flex items-center gap-4 flex-row-reverse">
+                            <button onClick={togglePlay} className="text-white hover:text-primary transition-colors">
+                              {isPlaying ? <Pause className="w-8 h-8 fill-current" /> : <Play className="w-8 h-8 fill-current" />}
+                            </button>
+                            
+                            <div className="flex items-center gap-2 flex-row-reverse group/vol">
+                              <button onClick={toggleMute} className="text-white">
+                                {isMuted ? <VolumeX /> : <Volume2 />}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-4">
+                             <div className="text-white/70 font-mono text-xs flex items-center gap-1">
+                               <span>Secure Mode</span>
+                               <ShieldCheck className="w-3 h-3 text-primary" />
+                             </div>
+                             <button className="text-white hover:text-primary"><Maximize className="w-5 h-5" /></button>
+                          </div>
                         </div>
-                      )}
+                      </div>
                     </div>
                     
-                    <div className="absolute bottom-4 left-6 z-30 bg-primary/20 backdrop-blur-md px-4 py-1.5 rounded-full text-[10px] font-black border border-primary/30 pointer-events-none flex items-center gap-2">
-                       <ShieldCheck className="w-3 h-3 text-primary" />
-                       Al-Bashmohandes Secure Stream
+                    <div className="absolute top-4 left-6 z-30 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black border border-white/10 pointer-events-none flex items-center gap-2 text-white">
+                       Al-Bashmohandes Player
                     </div>
                 </div>
 
-                <Card className="bg-card/50 backdrop-blur-xl p-8 rounded-[2.5rem] border-primary/10 shadow-lg relative overflow-hidden">
+                <Card className="bg-card/50 backdrop-blur-xl p-8 rounded-[2rem] border-primary/10 shadow-lg relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-1 h-full bg-primary/20" />
                   <div className="flex flex-col md:flex-row-reverse justify-between items-center gap-6">
                     <div className="text-right flex-grow space-y-1">
                       <h1 className="text-2xl font-black text-primary">{activeContent.title}</h1>
                       <div className="flex items-center gap-3 justify-end text-[10px] text-muted-foreground font-bold">
-                         <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> تم الرفع: {new Date(activeContent.createdAt?.seconds * 1000).toLocaleDateString('ar-EG')}</span>
-                         <span className="flex items-center gap-1"><Zap className="w-3 h-3 text-accent" /> دقة عالية 1080p</span>
+                         <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> تم الرفع: {activeContent.createdAt?.seconds ? new Date(activeContent.createdAt.seconds * 1000).toLocaleDateString('ar-EG') : 'قيد المعالجة'}</span>
+                         <span className="flex items-center gap-1"><Zap className="w-3 h-3 text-accent" /> دقة آمنة HD</span>
                       </div>
                     </div>
                     <Button 
@@ -183,10 +275,6 @@ export default function CourseViewer() {
                   <div className="space-y-2">
                     <h2 className="text-4xl font-black text-foreground">{activeContent.title}</h2>
                     <p className="text-muted-foreground font-bold italic">جاهز لاختبار معلوماتك يا بشمهندس؟</p>
-                  </div>
-                  <div className="flex justify-center gap-8 text-[10px] font-black uppercase tracking-widest text-primary/60">
-                     <span className="flex items-center gap-2 bg-secondary/50 px-4 py-2 rounded-xl"><Clock className="w-4 h-4" /> 30 دقيقة</span>
-                     <span className="flex items-center gap-2 bg-secondary/50 px-4 py-2 rounded-xl"><Star className="w-4 h-4" /> محاولة واحدة</span>
                   </div>
                   <Link href={`/student/exams/${activeContent.id}`} className="block pt-6">
                     <Button size="lg" className="h-20 px-20 bg-primary text-primary-foreground font-black rounded-3xl text-2xl shadow-2xl shadow-primary/20 hover:scale-[1.02] transition-transform">
@@ -228,7 +316,7 @@ export default function CourseViewer() {
                         {item.title}
                       </p>
                       <p className="text-[10px] text-muted-foreground font-black mt-0.5">
-                        {item.contentType === 'Video' ? 'شرح فيديو' : 'اختبار إلكتروني'}
+                        {item.contentType === 'Video' ? 'شرح فيديو آمن' : 'اختبار إلكتروني'}
                       </p>
                     </div>
                   </button>
