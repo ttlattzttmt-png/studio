@@ -40,8 +40,8 @@ import videojs from 'video.js';
 import 'video.js/dist/video-js.css';
 
 /**
- * @fileOverview مشغل النخبة V4.0 Pro - Al-Bashmohandes Elite Engine (Powered by Video.js)
- * الحل العالمي المتكامل للمزامنة والتحكم والأمان مع دعم الاختفاء التلقائي وتوافق الموبايل.
+ * @fileOverview مشغل النخبة V5.0 Ultra - Powered by Video.js
+ * الإصدار الأكثر استقراراً واحترافية للمنصة، مع حل مشاكل المزامنة والتكبير نهائياً.
  */
 
 export default function CourseViewer() {
@@ -94,27 +94,24 @@ export default function CourseViewer() {
   useEffect(() => {
     if (!videoRef.current || !activeContent || activeContent.contentType !== 'Video') return;
 
-    // استيراد التقنية الخاصة بيوتيوب بشكل ديناميكي لضمان عملها في المتصفح فقط
     const initPlayer = async () => {
       try {
         await import('videojs-youtube');
         
         if (!videoRef.current) return;
 
-        // تنظيف أي مشغل سابق
         if (playerRef.current) {
           playerRef.current.dispose();
           playerRef.current = null;
         }
 
-        // إنشاء عنصر الفيديو الأساسي
         const videoElement = document.createElement('video-js');
         videoElement.className = 'vjs-big-play-centered vjs-fluid';
         videoRef.current.appendChild(videoElement);
 
         const player = videojs(videoElement, {
           autoplay: false,
-          controls: false, // سنستخدم واجهة البشمهندس المخصصة
+          controls: false,
           responsive: true,
           fluid: true,
           techOrder: ['youtube'],
@@ -133,13 +130,21 @@ export default function CourseViewer() {
 
         playerRef.current = player;
 
-        // ربط الأحداث بمزامنة الحالة في React
         player.on('play', () => { setIsPlaying(true); resetControlsTimer(); });
         player.on('pause', () => { setIsPlaying(false); setShowControls(true); });
         player.on('timeupdate', () => setCurrentTime(player.currentTime()));
         player.on('durationchange', () => setDuration(player.duration()));
         player.on('volumechange', () => setIsMuted(player.muted()));
         player.on('ratechange', () => setPlaybackRate(player.playbackRate()));
+
+        // محرك مزامنة إضافي لضمان تحديث العداد حتى لو فشل الحدث
+        const syncInterval = setInterval(() => {
+          if (player && !player.paused()) {
+            setCurrentTime(player.currentTime());
+          }
+        }, 500);
+
+        player.on('dispose', () => clearInterval(syncInterval));
 
       } catch (err) {
         console.error("Video.js Initialization Error:", err);
@@ -156,7 +161,6 @@ export default function CourseViewer() {
     };
   }, [activeContent]);
 
-  // نظام الاختفاء التلقائي للأدوات
   const resetControlsTimer = useCallback(() => {
     setShowControls(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
@@ -172,7 +176,6 @@ export default function CourseViewer() {
     return () => { if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current); };
   }, [resetControlsTimer]);
 
-  // العلامة المائية الذكية العشوائية
   useEffect(() => {
     if (!isPlaying) return;
     const interval = setInterval(() => {
@@ -183,7 +186,6 @@ export default function CourseViewer() {
     return () => clearInterval(interval);
   }, [isPlaying]);
 
-  // حماية المحتوى من التسجيل أو الخروج
   useEffect(() => {
     const handleBlur = () => setIsVideoBlocked(true);
     const handleFocus = () => setTimeout(() => setIsVideoBlocked(false), 500);
@@ -195,7 +197,6 @@ export default function CourseViewer() {
     };
   }, []);
 
-  // وظائف التحكم في المشغل
   const togglePlay = () => {
     if (!playerRef.current) return;
     if (playerRef.current.paused()) {
@@ -218,6 +219,7 @@ export default function CourseViewer() {
     const targetPercent = value[0];
     const seekTo = (targetPercent / 100) * duration;
     playerRef.current.currentTime(seekTo);
+    setCurrentTime(seekTo);
     resetControlsTimer();
   };
 
@@ -249,7 +251,6 @@ export default function CourseViewer() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // معالجة الاشتراك المجاني آلياً
   useEffect(() => {
     if (isFree && !enrollment && user && id && studentProfile && !isEnrollmentLoading && course && firestore) {
       const enRef = doc(firestore, 'students', user.uid, 'enrollments', id as string);
@@ -320,7 +321,6 @@ export default function CourseViewer() {
             {activeContent?.contentType === 'Video' ? (
               <div className="space-y-6 animate-in fade-in duration-700">
                 
-                {/* حاوية مشغل النخبة V4.0 Pro (Powered by Video.js) */}
                 <div 
                   className={cn(
                     "relative bg-black overflow-hidden shadow-2xl transition-all duration-500 group select-none",
@@ -330,10 +330,8 @@ export default function CourseViewer() {
                   onTouchStart={resetControlsTimer}
                   onContextMenu={e => e.preventDefault()}
                 >
-                    {/* طبقة حماية تمنع التفاعل المباشر مع الفيديو لضمان عمل الواجهة المخصصة */}
                     <div className="absolute inset-0 z-40 bg-transparent" />
                     
-                    {/* العلامة المائية الفاخرة المتحركة */}
                     <div 
                       className="absolute z-[45] pointer-events-none transition-all opacity-20 text-[8px] md:text-xs font-black text-white bg-black/40 px-3 py-1.5 rounded-full border border-white/10 whitespace-nowrap"
                       style={{ top: watermarkPos.top, left: watermarkPos.left, transitionDuration: '3000ms' }}
@@ -341,7 +339,6 @@ export default function CourseViewer() {
                       {studentProfile?.name} | {studentProfile?.studentPhoneNumber}
                     </div>
 
-                    {/* حماية الخصوصية والتعتيم */}
                     {isVideoBlocked && (
                       <div className="absolute inset-0 z-[100] bg-black/98 backdrop-blur-3xl flex flex-col items-center justify-center text-center p-8">
                          <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6 border border-primary/20">
@@ -352,17 +349,14 @@ export default function CourseViewer() {
                       </div>
                     )}
 
-                    {/* محرك Video.js مدمج هنا */}
                     <div ref={videoRef} className="w-full h-full" />
 
-                    {/* واجهة تحكم البشمهندس الذهبية V4 (تظهر وتختفي تلقائياً) */}
                     <div className={cn(
                       "absolute bottom-0 left-0 right-0 z-[60] bg-gradient-to-t from-black via-black/80 to-transparent p-4 md:p-14 transition-all duration-700",
                       showControls ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10 pointer-events-none"
                     )}>
                       <div className="space-y-4 md:space-y-10">
                         
-                        {/* شريط التقدم التفاعلي المتزامن 100% */}
                         <div className="flex flex-row-reverse items-center gap-4 md:gap-8">
                            <span className="text-[10px] md:text-sm text-white font-black min-w-[80px] md:min-w-[140px] text-left tabular-nums tracking-widest" dir="ltr">
                              {formatTime(currentTime)} / {formatTime(duration)}
@@ -378,7 +372,6 @@ export default function CourseViewer() {
                            </div>
                         </div>
                         
-                        {/* أزرار التحكم الملكية */}
                         <div className="flex items-center justify-between flex-row-reverse">
                           <div className="flex items-center gap-6 md:gap-16 flex-row-reverse">
                             <button onClick={() => skipSeconds(-10)} className="text-white/70 hover:text-primary transition-all active:scale-90"><Rewind className="w-6 h-6 md:w-10 md:h-10" /></button>
@@ -401,7 +394,6 @@ export default function CourseViewer() {
                           </div>
 
                           <div className="flex items-center gap-5 md:gap-10">
-                             {/* قائمة السرعة المدمجة */}
                              <div className="relative">
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); setShowSpeedMenu(!showSpeedMenu); }} 
@@ -439,10 +431,9 @@ export default function CourseViewer() {
                       </div>
                     </div>
                     
-                    {/* شعار محرك النخبة Elite Engine Powered by Video.js */}
                     <div className="absolute top-4 left-4 md:top-10 md:left-12 z-40 bg-black/50 backdrop-blur-3xl px-5 py-2 md:px-8 md:py-3.5 rounded-full text-[9px] md:text-xs font-black border border-white/10 flex items-center gap-3 md:gap-4 text-white/95 pointer-events-none shadow-2xl">
                        <Zap className="w-4 h-4 md:w-5 md:h-5 text-primary animate-pulse" /> 
-                       <span className="tracking-widest uppercase">Elite Video.js Engine V4</span>
+                       <span className="tracking-widest uppercase">Elite Video.js Engine V5</span>
                     </div>
                 </div>
 
@@ -538,17 +529,14 @@ export default function CourseViewer() {
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,215,0,0.2); border-radius: 12px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,215,0,0.4); }
-        /* حماية الموبايل - منع السحب لأسفل */
         body { overscroll-behavior-y: contain; }
-
-        /* Video.js Custom Theming */
         .video-js {
           width: 100% !important;
           height: 100% !important;
           background-color: black;
         }
         .vjs-youtube .vjs-poster { display: none !important; }
-        .vjs-control-bar { display: none !important; } /* سنستخدم واجهتنا الخاصة */
+        .vjs-control-bar { display: none !important; }
         .vjs-big-play-button { display: none !important; }
       `}</style>
     </div>
