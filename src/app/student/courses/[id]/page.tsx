@@ -40,6 +40,7 @@ export default function CourseViewer() {
   
   const [activeContent, setActiveContent] = useState<any>(null);
   const [isVideoBlocked, setIsVideoBlocked] = useState(false);
+  const [origin, setOrigin] = useState('');
 
   // مراجع المشغل
   const playerContainerRef = useRef<HTMLDivElement>(null);
@@ -54,6 +55,12 @@ export default function CourseViewer() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setOrigin(window.location.origin);
+    }
+  }, []);
 
   const courseRef = useMemoFirebase(() => (firestore && id) ? doc(firestore, 'courses', id as string) : null, [firestore, id]);
   const { data: course, isLoading: isCourseLoading } = useDoc(courseRef);
@@ -76,7 +83,7 @@ export default function CourseViewer() {
 
   const isFree = course?.price === 0;
 
-  // حماية الفيديوهات عند محاولة تسجيل الشاشة أو الخروج من التبويب
+  // حماية الفيديوهات
   useEffect(() => {
     const handleBlur = () => setIsVideoBlocked(true);
     const handleFocus = () => setTimeout(() => setIsVideoBlocked(false), 500);
@@ -114,11 +121,11 @@ export default function CourseViewer() {
     setIsDragging(true);
     const targetPercent = value[0];
     const seekTo = (targetPercent / 100) * duration;
-    setCurrentTime(seekTo); // تحديث فوري للواجهة (Optimistic)
+    setCurrentTime(seekTo);
     sendCommand('seekTo', [seekTo, true]);
     
-    // إعادة السماح بالتحديث التلقائي بعد قليل
-    setTimeout(() => setIsDragging(false), 300);
+    // تأخير بسيط لإعادة المزامنة بعد السحب
+    setTimeout(() => setIsDragging(false), 500);
   };
 
   const changeSpeed = (rate: number) => {
@@ -143,36 +150,46 @@ export default function CourseViewer() {
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
   }, []);
 
-  // محرك المزامنة القسري (Active Polling Engine V9)
+  // محرك المزامنة القسري المتطور (Active Polling Engine V10)
   useEffect(() => {
-    // نطلب الحالة من يوتيوب بشكل متكرر لضمان التزامن حتى لو فشلت الأحداث
+    if (!activeContent || !origin) return;
+
+    // مستشعر الوقت: يسحب الحالة من يوتيوب كل 250 ملي ثانية
     const syncTimer = setInterval(() => {
       sendCommand('listening');
-    }, 500);
+    }, 250);
 
     const handleMessage = (event: MessageEvent) => {
+      // التأكد من أن الرسالة من يوتيوب
+      if (!event.origin.includes('youtube.com')) return;
+
       try {
-        if (typeof event.data !== 'string') return;
         const data = JSON.parse(event.data);
         
-        // استلام بيانات الوقت والمدة والحالة من يوتيوب
+        // استلام بيانات الوقت والمدة والحالة
         if (data.event === 'infoDelivery' && data.info) {
-          if (data.info.currentTime !== undefined && !isDragging) {
-            setCurrentTime(data.info.currentTime);
+          const info = data.info;
+          
+          if (info.duration !== undefined && info.duration > 0) {
+            setDuration(info.duration);
           }
-          if (data.info.duration !== undefined && data.info.duration > 0) {
-            setDuration(data.info.duration);
+          
+          if (info.currentTime !== undefined && !isDragging) {
+            setCurrentTime(info.currentTime);
           }
-          if (data.info.playerState !== undefined) {
-            setIsPlaying(data.info.playerState === 1);
+          
+          if (info.playerState !== undefined) {
+            setIsPlaying(info.playerState === 1); // 1 = playing
           }
         }
         
-        // تحديث حالة التشغيل عند التغير
+        // التجاوب مع أحداث تغيير الحالة المباشرة
         if (data.event === 'onStateChange') {
           setIsPlaying(data.info === 1);
         }
-      } catch (e) {}
+      } catch (e) {
+        // تجاهل أخطاء البارسينج
+      }
     };
 
     window.addEventListener('message', handleMessage);
@@ -180,7 +197,7 @@ export default function CourseViewer() {
       clearInterval(syncTimer);
       window.removeEventListener('message', handleMessage);
     };
-  }, [activeContent, isDragging]);
+  }, [activeContent, isDragging, origin]);
 
   const formatTime = (seconds: number) => {
     if (isNaN(seconds) || seconds < 0) return '0:00';
@@ -189,7 +206,7 @@ export default function CourseViewer() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // تفعيل الكورسات المجانية تلقائياً
+  // تفعيل الكورسات المجانية
   useEffect(() => {
     if (isFree && !enrollment && user && id && studentProfile && !isEnrollmentLoading && course && firestore) {
       const enRef = doc(firestore, 'students', user.uid, 'enrollments', id as string);
@@ -267,7 +284,7 @@ export default function CourseViewer() {
                     isFullscreen ? "fixed inset-0 w-full h-full z-[9999] rounded-none flex items-center justify-center" : "rounded-[2.5rem] border-[4px] border-card aspect-video"
                   )}
                 >
-                    {/* درع الحماية - يمنع التفاعل المباشر مع iframe يوتيوب */}
+                    {/* درع الحماية الفولاذي */}
                     <div className="absolute inset-0 z-40 bg-transparent" onContextMenu={e => e.preventDefault()} />
                     
                     {isVideoBlocked && (
@@ -278,18 +295,21 @@ export default function CourseViewer() {
                       </div>
                     )}
 
-                    <iframe 
-                      ref={playerRef}
-                      src={`https://www.youtube.com/embed/${getYouTubeId(activeContent.youtubeLink)}?enablejsapi=1&rel=0&modestbranding=1&controls=0&disablekb=1&fs=0&iv_load_policy=3&showinfo=0&vq=hd1080&origin=${typeof window !== 'undefined' ? window.location.origin : ''}`} 
-                      className="w-full h-full relative z-10 pointer-events-none"
-                      allow="autoplay; encrypted-media"
-                    />
+                    {origin && (
+                      <iframe 
+                        ref={playerRef}
+                        src={`https://www.youtube.com/embed/${getYouTubeId(activeContent.youtubeLink)}?enablejsapi=1&rel=0&modestbranding=1&controls=0&disablekb=1&fs=0&iv_load_policy=3&showinfo=0&vq=hd1080&widgetid=1&origin=${origin}`} 
+                        className="w-full h-full relative z-10 pointer-events-none"
+                        allow="autoplay; encrypted-media"
+                      />
+                    )}
 
-                    {/* واجهة تحكم البشمهندس الذهبية - تظهر عند تحريك الماوس فوق المشغل */}
-                    <div className="absolute bottom-0 left-0 right-0 z-[60] bg-gradient-to-t from-black via-black/60 to-transparent p-6 md:p-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                    {/* واجهة تحكم البشمهندس الذهبية (ثابتة ومؤمنة) */}
+                    <div className="absolute bottom-0 left-0 right-0 z-[60] bg-gradient-to-t from-black via-black/80 to-transparent p-6 md:p-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
                       <div className="space-y-6 pointer-events-auto">
+                        
                         <div className="flex flex-row-reverse items-center gap-6">
-                           <span className="text-xs text-white font-black min-w-[120px] text-left tabular-nums" dir="ltr">
+                           <span className="text-sm text-white font-black min-w-[120px] text-left tabular-nums" dir="ltr">
                              {formatTime(currentTime)} / {formatTime(duration)}
                            </span>
                            <div className="flex-grow pt-2">
