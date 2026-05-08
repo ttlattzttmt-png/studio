@@ -49,7 +49,7 @@ import {
   VolumeSlider, 
   type RenderProp 
 } from '@vidstack/react';
-import { Video, videoFeatures } from '@vidstack/react/video';
+import { Video, videoFeatures } from '@vidstack/react'; // Corrected import path
 import './player.css';
 
 export default function CourseViewer() {
@@ -59,7 +59,6 @@ export default function CourseViewer() {
   const { toast } = useToast();
   
   const [activeContent, setActiveContent] = useState<any>(null);
-  const [isBlocked, setIsBlocked] = useState(false);
 
   const courseRef = useMemoFirebase(() => (firestore && id) ? doc(firestore, 'courses', id as string) : null, [firestore, id]);
   const { data: course, isLoading: isCourseLoading } = useDoc(courseRef);
@@ -85,18 +84,6 @@ export default function CourseViewer() {
       setActiveContent(visibleContents[0]);
     }
   }, [visibleContents, activeContent]);
-
-  // Content Protection
-  useEffect(() => {
-    const handleBlur = () => setIsBlocked(true);
-    const handleFocus = () => setTimeout(() => setIsBlocked(false), 1500);
-    window.addEventListener('blur', handleBlur);
-    window.addEventListener('focus', handleFocus);
-    return () => {
-      window.removeEventListener('blur', handleBlur);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, []);
 
   const markAsWatched = async (contentId: string) => {
     if (!firestore || !user || !id || !studentProfile) return;
@@ -136,20 +123,13 @@ export default function CourseViewer() {
   return (
     <div className="min-h-screen flex flex-col bg-background text-right overflow-x-hidden">
       <Navbar />
-      {isBlocked && (
-        <div className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-3xl flex flex-col items-center justify-center text-center p-6">
-          <Lock className="w-20 h-20 text-primary mb-4 animate-pulse" />
-          <h2 className="text-3xl font-black text-white">المحتوى محمي</h2>
-          <p className="text-muted-foreground mt-2">يرجى العودة لتبويب الدراسة لمواصلة المشاهدة.</p>
-        </div>
-      )}
       <main className="flex-grow pt-24 pb-20 container mx-auto px-4">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
             {activeContent?.contentType === 'Video' ? (
               <div className="space-y-6">
                 <div className="relative group">
-                  {/* Your exact VideoPlayer component */}
+                  {/* The exact VideoPlayer component provided by the user */}
                   <VideoPlayer src={activeContent.youtubeLink} />
                 </div>
 
