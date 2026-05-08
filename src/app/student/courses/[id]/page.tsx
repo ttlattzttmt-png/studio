@@ -83,7 +83,7 @@ export default function CourseViewer() {
 
   const isFree = course?.price === 0;
 
-  // حماية الفيديوهات
+  // حماية الفيديوهات عند الخروج من الصفحة
   useEffect(() => {
     const handleBlur = () => setIsVideoBlocked(true);
     const handleFocus = () => setTimeout(() => setIsVideoBlocked(false), 500);
@@ -124,7 +124,7 @@ export default function CourseViewer() {
     setCurrentTime(seekTo);
     sendCommand('seekTo', [seekTo, true]);
     
-    // تأخير بسيط لإعادة المزامنة بعد السحب
+    // تأخير بسيط لإعادة المزامنة بعد السحب لمنع القفز
     setTimeout(() => setIsDragging(false), 500);
   };
 
@@ -150,11 +150,11 @@ export default function CourseViewer() {
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
   }, []);
 
-  // محرك المزامنة القسري المتطور (Active Polling Engine V10)
+  // محرك المزامنة القسري المتطور (V11)
   useEffect(() => {
     if (!activeContent || !origin) return;
 
-    // مستشعر الوقت: يسحب الحالة من يوتيوب كل 250 ملي ثانية
+    // مستشعر الوقت: يسحب الحالة من يوتيوب كل 250 ملي ثانية إجبارياً
     const syncTimer = setInterval(() => {
       sendCommand('listening');
     }, 250);
@@ -166,7 +166,7 @@ export default function CourseViewer() {
       try {
         const data = JSON.parse(event.data);
         
-        // استلام بيانات الوقت والمدة والحالة
+        // استلام بيانات الوقت والمدة والحالة عبر حدث infoDelivery
         if (data.event === 'infoDelivery' && data.info) {
           const info = data.info;
           
@@ -187,9 +187,7 @@ export default function CourseViewer() {
         if (data.event === 'onStateChange') {
           setIsPlaying(data.info === 1);
         }
-      } catch (e) {
-        // تجاهل أخطاء البارسينج
-      }
+      } catch (e) {}
     };
 
     window.addEventListener('message', handleMessage);
@@ -206,7 +204,7 @@ export default function CourseViewer() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // تفعيل الكورسات المجانية
+  // تفعيل الكورسات المجانية تلقائياً
   useEffect(() => {
     if (isFree && !enrollment && user && id && studentProfile && !isEnrollmentLoading && course && firestore) {
       const enRef = doc(firestore, 'students', user.uid, 'enrollments', id as string);
@@ -284,7 +282,7 @@ export default function CourseViewer() {
                     isFullscreen ? "fixed inset-0 w-full h-full z-[9999] rounded-none flex items-center justify-center" : "rounded-[2.5rem] border-[4px] border-card aspect-video"
                   )}
                 >
-                    {/* درع الحماية الفولاذي */}
+                    {/* طبقة حماية شفافة تمنع التفاعل المباشر مع مشغل يوتيوب */}
                     <div className="absolute inset-0 z-40 bg-transparent" onContextMenu={e => e.preventDefault()} />
                     
                     {isVideoBlocked && (
@@ -304,7 +302,7 @@ export default function CourseViewer() {
                       />
                     )}
 
-                    {/* واجهة تحكم البشمهندس الذهبية (ثابتة ومؤمنة) */}
+                    {/* واجهة تحكم البشمهندس الذهبية - تظهر عند الحوم بالماوس */}
                     <div className="absolute bottom-0 left-0 right-0 z-[60] bg-gradient-to-t from-black via-black/80 to-transparent p-6 md:p-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
                       <div className="space-y-6 pointer-events-auto">
                         
