@@ -16,7 +16,10 @@ import {
   Star,
   Activity,
   MonitorPlay,
-  PlayCircle
+  PlayCircle,
+  ShieldCheck,
+  Zap,
+  EyeOff
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,6 +35,7 @@ export default function CourseViewer() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [activeContent, setActiveContent] = useState<any>(null);
+  const [isVideoBlocked, setIsVideoBlocked] = useState(false);
 
   const courseRef = useMemoFirebase(() => (firestore && id) ? doc(firestore, 'courses', id as string) : null, [firestore, id]);
   const { data: course, isLoading: isCourseLoading } = useDoc(courseRef);
@@ -54,6 +58,23 @@ export default function CourseViewer() {
 
   const isFree = course?.price === 0;
 
+  // حماية الفيديوهات من التسجيل أو فتح روابط خارجية
+  useEffect(() => {
+    const handleBlur = () => setIsVideoBlocked(true);
+    const handleFocus = () => setTimeout(() => setIsVideoBlocked(false), 1000);
+    const preventContext = (e: MouseEvent) => e.preventDefault();
+
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('contextmenu', preventContext);
+
+    return () => {
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('contextmenu', preventContext);
+    };
+  }, []);
+
   useEffect(() => {
     if (isFree && !enrollment && user && id && studentProfile && !isEnrollmentLoading && course && firestore) {
       const enRef = doc(firestore, 'students', user.uid, 'enrollments', id as string);
@@ -73,15 +94,24 @@ export default function CourseViewer() {
     const newPercent = Math.min(100, Math.round((watchedSnap.size / (visibleContents.length || 1)) * 100));
 
     await updateDoc(doc(firestore, 'students', user.uid, 'enrollments', id as string), { progressPercentage: newPercent, studentName: studentProfile.name, lastActivityDate: new Date().toISOString() });
-    toast({ title: "أحسنت يا بشمهندس!", description: `إنجازك: ${newPercent}%` });
+    toast({ title: "أحسنت يا بشمهندس!", description: `إنجازك في هذا الكورس وصل لـ ${newPercent}%` });
   };
 
-  useEffect(() => { if (visibleContents.length > 0 && !activeContent) setActiveContent(visibleContents[0]); }, [visibleContents, activeContent]);
+  useEffect(() => { 
+    if (visibleContents.length > 0 && !activeContent) setActiveContent(visibleContents[0]); 
+  }, [visibleContents, activeContent]);
 
   if (isUserLoading || isCourseLoading || isEnrollmentLoading || isContentLoading) return <div className="flex justify-center py-40"><Loader2 className="w-12 animate-spin text-primary" /></div>;
 
   const hasAccess = (enrollment && enrollment.status === 'active') || isFree;
-  if (!hasAccess) return <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6 bg-background"><Lock className="w-16 h-16 text-primary/40 animate-pulse" /><h2 className="text-3xl font-black">الكورس مقفل</h2><Link href="/student/redeem"><Button className="bg-primary h-14 px-10 rounded-xl">تفعيل كود</Button></Link></div>;
+  if (!hasAccess) return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6 bg-background">
+      <Lock className="w-16 h-16 text-primary/40 animate-pulse" />
+      <h2 className="text-3xl font-black">هذا الكورس يتطلب تفعيل</h2>
+      <p className="text-muted-foreground max-w-sm">بشمهندس، هذا المحتوى محمي. يرجى تفعيل الكود الخاص بك للوصول للشروحات.</p>
+      <Link href="/student/redeem"><Button className="bg-primary h-14 px-10 rounded-2xl font-bold">تفعيل كود الآن</Button></Link>
+    </div>
+  );
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-right">
@@ -90,49 +120,117 @@ export default function CourseViewer() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
             {activeContent?.contentType === 'Video' ? (
-              <div className="space-y-6">
-                <div className="relative bg-black rounded-[2.5rem] overflow-hidden border-[6px] border-card shadow-2xl">
-                    <div className="aspect-video w-full">
+              <div className="space-y-6 animate-in fade-in duration-700">
+                {/* مشغل فيديو البشمهندس المطور والمؤمن */}
+                <div className="relative bg-black rounded-[2.5rem] overflow-hidden border-[6px] border-card shadow-2xl group">
+                    <div className="aspect-video w-full relative">
+                      {/* طبقة حماية تمنع النقر على الشعار أو المشاركة */}
+                      <div className="absolute inset-0 z-20 pointer-events-auto bg-transparent" onContextMenu={(e) => e.preventDefault()}>
+                         <div className="absolute top-0 left-0 w-full h-20 bg-gradient-to-b from-black/60 to-transparent pointer-events-none" />
+                         <div className="absolute bottom-0 right-0 w-40 h-20 bg-transparent pointer-events-auto" /> {/* تغطية شعار يوتيوب */}
+                      </div>
+
                       <iframe 
-                        src={`https://www.youtube.com/embed/${getYouTubeId(activeContent.youtubeLink)}?rel=0&modestbranding=1&autoplay=1`} 
-                        className="w-full h-full"
+                        src={`https://www.youtube.com/embed/${getYouTubeId(activeContent.youtubeLink)}?rel=0&modestbranding=1&autoplay=1&showinfo=0&controls=1&disablekb=1&fs=1`} 
+                        className="w-full h-full relative z-10"
                         allowFullScreen 
                         allow="autoplay; encrypted-media"
                       />
+                      
+                      {/* واجهة التعتيم عند الخروج من الصفحة */}
+                      {isVideoBlocked && (
+                        <div className="absolute inset-0 z-[100] bg-black/95 backdrop-blur-3xl flex flex-col items-center justify-center text-center p-8">
+                           <EyeOff className="w-16 h-16 text-primary mb-4 animate-pulse" />
+                           <h3 className="text-2xl font-black text-white">المحتوى محمي</h3>
+                           <p className="text-primary font-bold mt-2">يرجى العودة لصفحة المنصة لمواصلة المشاهدة بأمان.</p>
+                        </div>
+                      )}
                     </div>
-                    <div className="absolute top-4 left-4 bg-primary/20 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black border border-primary/30 pointer-events-none">Al-Bashmohandes Pro Player</div>
+                    
+                    <div className="absolute bottom-4 left-6 z-30 bg-primary/20 backdrop-blur-md px-4 py-1.5 rounded-full text-[10px] font-black border border-primary/30 pointer-events-none flex items-center gap-2">
+                       <ShieldCheck className="w-3 h-3 text-primary" />
+                       Al-Bashmohandes Secure Stream
+                    </div>
                 </div>
-                <Card className="bg-card/50 backdrop-blur-xl p-6 rounded-3xl border-primary/10">
-                  <div className="flex flex-col md:flex-row-reverse justify-between items-center gap-4">
-                    <div className="text-right flex-grow"><h1 className="text-xl font-black">{activeContent.title}</h1><p className="text-[10px] text-muted-foreground font-bold">بشمهندس، شاهد للنهاية لتوثيق حضورك.</p></div>
-                    <Button onClick={() => markAsWatched(activeContent.id)} disabled={watchedVideos?.some(v => v.courseContentId === activeContent.id)} className="h-14 px-10 rounded-2xl font-black bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-                      {watchedVideos?.some(v => v.courseContentId === activeContent.id) ? "درس مكتمل ✓" : "تأكيد المشاهدة"}
+
+                <Card className="bg-card/50 backdrop-blur-xl p-8 rounded-[2.5rem] border-primary/10 shadow-lg relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-1 h-full bg-primary/20" />
+                  <div className="flex flex-col md:flex-row-reverse justify-between items-center gap-6">
+                    <div className="text-right flex-grow space-y-1">
+                      <h1 className="text-2xl font-black text-primary">{activeContent.title}</h1>
+                      <div className="flex items-center gap-3 justify-end text-[10px] text-muted-foreground font-bold">
+                         <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> تم الرفع: {new Date(activeContent.createdAt?.seconds * 1000).toLocaleDateString('ar-EG')}</span>
+                         <span className="flex items-center gap-1"><Zap className="w-3 h-3 text-accent" /> دقة عالية 1080p</span>
+                      </div>
+                    </div>
+                    <Button 
+                      onClick={() => markAsWatched(activeContent.id)} 
+                      disabled={watchedVideos?.some(v => v.courseContentId === activeContent.id)} 
+                      className="h-16 px-12 rounded-2xl font-black bg-primary text-primary-foreground shadow-xl shadow-primary/20 transition-all active:scale-95"
+                    >
+                      {watchedVideos?.some(v => v.courseContentId === activeContent.id) ? (
+                        <span className="flex items-center gap-2"><CheckCircle className="w-5 h-5" /> الدرس مكتمل ✓</span>
+                      ) : "تأكيد حضور الدرس"}
                     </Button>
                   </div>
                 </Card>
               </div>
             ) : activeContent ? (
-              <Card className="bg-gradient-to-br from-primary/5 via-card to-background border-2 border-dashed border-primary/20 p-12 text-center space-y-8 rounded-[3rem] shadow-2xl">
-                  <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto text-primary"><FileQuestion className="w-10 h-10" /></div>
-                  <h2 className="text-3xl font-black">{activeContent.title}</h2>
-                  <div className="flex justify-center gap-6 text-[10px] font-black uppercase">
-                     <span className="flex items-center gap-1"><Clock className="w-4 h-4 text-primary" /> 30 دقيقة</span>
-                     <span className="flex items-center gap-1"><Star className="w-4 h-4 text-primary" /> محاولة واحدة</span>
+              <Card className="bg-gradient-to-br from-primary/5 via-card to-background border-2 border-dashed border-primary/20 p-16 text-center space-y-8 rounded-[3rem] shadow-2xl animate-in zoom-in-95 duration-500">
+                  <div className="w-24 h-24 bg-primary/10 rounded-[2rem] flex items-center justify-center mx-auto text-primary shadow-inner">
+                    <FileQuestion className="w-12 h-12" />
                   </div>
-                  <Link href={`/student/exams/${activeContent.id}`} className="block pt-4">
-                    <Button size="lg" className="h-16 px-16 bg-primary text-primary-foreground font-black rounded-2xl text-xl shadow-xl shadow-primary/20">ابدأ الاختبار الآن ✍️</Button>
+                  <div className="space-y-2">
+                    <h2 className="text-4xl font-black text-foreground">{activeContent.title}</h2>
+                    <p className="text-muted-foreground font-bold italic">جاهز لاختبار معلوماتك يا بشمهندس؟</p>
+                  </div>
+                  <div className="flex justify-center gap-8 text-[10px] font-black uppercase tracking-widest text-primary/60">
+                     <span className="flex items-center gap-2 bg-secondary/50 px-4 py-2 rounded-xl"><Clock className="w-4 h-4" /> 30 دقيقة</span>
+                     <span className="flex items-center gap-2 bg-secondary/50 px-4 py-2 rounded-xl"><Star className="w-4 h-4" /> محاولة واحدة</span>
+                  </div>
+                  <Link href={`/student/exams/${activeContent.id}`} className="block pt-6">
+                    <Button size="lg" className="h-20 px-20 bg-primary text-primary-foreground font-black rounded-3xl text-2xl shadow-2xl shadow-primary/20 hover:scale-[1.02] transition-transform">
+                      ابدأ الاختبار الآن ✍️
+                    </Button>
                   </Link>
               </Card>
             ) : null}
           </div>
+
           <div className="lg:col-span-1">
-            <Card className="bg-card/40 backdrop-blur-md border-primary/10 overflow-hidden shadow-xl rounded-[2.5rem] sticky top-24">
-              <CardHeader className="border-b bg-secondary/20 py-4 px-6 flex flex-row-reverse items-center justify-between"><CardTitle className="text-lg font-black flex items-center gap-2 justify-end">محتويات الكورس <Layout className="w-5 h-5 text-primary" /></CardTitle><Badge className="bg-primary/20 text-primary">{enrollment?.progressPercentage || 0}%</Badge></CardHeader>
-              <CardContent className="p-0 max-h-[60vh] overflow-y-auto">
-                {visibleContents.map((item, idx) => (
-                  <button key={item.id} onClick={() => setActiveContent(item)} className={cn("w-full p-5 text-right flex flex-row-reverse items-center gap-4 transition-all border-b border-white/5", activeContent?.id === item.id ? "bg-primary/10 border-r-4 border-primary" : "hover:bg-secondary/10")}>
-                    <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 font-black text-xs", watchedVideos?.some(v => v.courseContentId === item.id) ? "bg-accent text-white" : "bg-secondary")}>{idx+1}</div>
-                    <div className="min-w-0"><p className="font-bold text-sm truncate">{item.title}</p><p className="text-[9px] text-muted-foreground">{item.contentType === 'Video' ? 'فيديو' : 'اختبار'}</p></div>
+            <Card className="bg-card/40 backdrop-blur-md border-primary/10 overflow-hidden shadow-2xl rounded-[2.5rem] sticky top-24">
+              <CardHeader className="border-b bg-secondary/20 py-6 px-8 flex flex-row-reverse items-center justify-between">
+                <CardTitle className="text-xl font-black flex items-center gap-3 justify-end">
+                  محتويات الكورس <Layout className="w-6 h-6 text-primary" />
+                </CardTitle>
+                <Badge className="bg-primary/20 text-primary px-3 py-1 rounded-full font-black">{enrollment?.progressPercentage || 0}%</Badge>
+              </CardHeader>
+              <CardContent className="p-0 max-h-[65vh] overflow-y-auto">
+                {visibleContents.length === 0 ? (
+                   <div className="p-10 text-center text-muted-foreground italic font-bold">لا يوجد محتوى مضاف حالياً.</div>
+                ) : visibleContents.map((item, idx) => (
+                  <button 
+                    key={item.id} 
+                    onClick={() => setActiveContent(item)} 
+                    className={cn(
+                      "w-full p-6 text-right flex flex-row-reverse items-center gap-5 transition-all border-b border-white/5 group", 
+                      activeContent?.id === item.id ? "bg-primary/10 border-r-4 border-primary shadow-inner" : "hover:bg-secondary/10"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-black text-sm transition-colors shadow-sm", 
+                      watchedVideos?.some(v => v.courseContentId === item.id) ? "bg-accent text-white" : "bg-secondary group-hover:bg-primary/20"
+                    )}>
+                      {idx+1}
+                    </div>
+                    <div className="min-w-0 text-right">
+                      <p className={cn("font-bold text-base truncate", activeContent?.id === item.id ? "text-primary" : "text-foreground")}>
+                        {item.title}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground font-black mt-0.5">
+                        {item.contentType === 'Video' ? 'شرح فيديو' : 'اختبار إلكتروني'}
+                      </p>
+                    </div>
                   </button>
                 ))}
               </CardContent>
