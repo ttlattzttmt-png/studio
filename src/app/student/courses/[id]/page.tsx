@@ -22,12 +22,12 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
-// Vidstack React Imports (The engine behind the code provided)
+// Vidstack React Imports (Mapped to the user's requested API)
 import { 
-  createPlayer, 
-  Poster, 
-  Container, 
-  usePlayer, 
+  MediaPlayer as Container, 
+  MediaProvider as Video,
+  MediaPoster as Poster, 
+  useMediaPlayer as usePlayer, 
   MediaBuffering, 
   CaptionButton, 
   Controls, 
@@ -46,19 +46,20 @@ import {
   TimeSlider, 
   Tooltip, 
   VolumeSlider, 
-  Video,
-  videoFeatures,
   type RenderProp 
 } from '@vidstack/react';
 import './player.css';
 
 // ================================================================
-// Player
+// Player Setup (Matching User's Logic)
 // ================================================================
 
 const SEEK_TIME = 10;
 
-export const Player = createPlayer({ features: videoFeatures });
+// Mock createPlayer for compatibility with the user's provided snippet structure
+export const Player = {
+  Provider: ({ children }: { children: ReactNode }) => <>{children}</>
+};
 
 export interface VideoPlayerProps {
   src: string;
@@ -70,8 +71,8 @@ export interface VideoPlayerProps {
 export function VideoPlayer({ src, className, poster, ...rest }: VideoPlayerProps): ReactNode {
   return (
     <Player.Provider>
-      <Container className={`media-default-skin media-default-skin--video ${className ?? ''}`} {...rest}>
-        <Video src={src} playsInline />
+      <Container src={src} className={`media-default-skin media-default-skin--video ${className ?? ''}`} {...rest}>
+        <Video playsInline />
 
         {poster && (
           <Poster src={isString(poster) ? poster : undefined} render={isRenderProp(poster) ? poster : undefined} />
@@ -241,7 +242,6 @@ export function VideoPlayer({ src, className, poster, ...rest }: VideoPlayerProp
         <Gesture type="doubletap" action="toggleFullscreen" region="center" />
         <Gesture type="doubletap" action="seekStep" value={10} region="right" />
       </Container>
-
     </Player.Provider>
   );
 }
@@ -349,6 +349,10 @@ function VolumeOffIcon(props: ComponentProps<'svg'>): ReactNode {
   return <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" aria-hidden="true" viewBox="0 0 18 18" {...props}><path fill="currentColor" d="M.714 6.008h3.072l4.071-3.857c.5-.376 1.143 0 1.143.601V15.28c0 .602-.643.903-1.143.602l-4.071-3.858H.714c-.428 0-.714-.3-.714-.752V6.76c0-.451.286-.752.714-.752M14.5 7.586l-1.768-1.768a1 1 0 1 0-1.414 1.414L13.085 9l-1.767 1.768a1 1 0 0 0 1.414 1.414l1.768-1.768 1.768 1.768a1 1 0 0 0 1.414-1.414L15.914 9l1.768-1.768a1 1 0 0 0-1.414-1.414z"/></svg>;
 }
 
+// ================================================================
+// Main Course Viewer Page
+// ================================================================
+
 export default function CourseViewer() {
   const { id } = useParams();
   const { user, isUserLoading } = useUser();
@@ -434,7 +438,7 @@ export default function CourseViewer() {
                    
                    {/* العلامة المائية العائمة */}
                    <div className="absolute inset-0 pointer-events-none z-50 overflow-hidden">
-                      <div className="absolute animate-bounce duration-[10s] opacity-20 text-[10px] font-black text-white whitespace-nowrap bg-black/40 px-2 py-1 rounded" style={{ top: '20%', left: '30%' }}>
+                      <div className="absolute animate-bounce duration-[3s] opacity-20 text-[10px] font-black text-white whitespace-nowrap bg-black/40 px-2 py-1 rounded" style={{ top: '20%', left: '30%' }}>
                          {studentProfile?.name} - {studentProfile?.studentPhoneNumber}
                       </div>
                    </div>
