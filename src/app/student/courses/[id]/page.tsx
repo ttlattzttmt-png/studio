@@ -35,7 +35,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
-// Video.js Imports
+// Video.js Core & Plugins
 import videojs from 'video.js';
 import 'video.js/dist/video-js.css';
 
@@ -90,58 +90,63 @@ export default function CourseViewer() {
 
   const isFree = course?.price === 0;
 
-  // تهيئة Video.js
+  // تهيئة Video.js مع YouTube Plugin
   useEffect(() => {
     if (!videoRef.current || !activeContent || activeContent.contentType !== 'Video') return;
 
-    // استيراد التقنية الخاصة بيوتيوب بشكل ديناميكي
-    import('videojs-youtube').then(() => {
-      if (!videoRef.current) return;
+    // استيراد التقنية الخاصة بيوتيوب بشكل ديناميكي لضمان عملها في المتصفح فقط
+    const initPlayer = async () => {
+      try {
+        await import('videojs-youtube');
+        
+        if (!videoRef.current) return;
 
-      // التأكد من تنظيف أي مشغل قديم
-      if (playerRef.current) {
-        playerRef.current.dispose();
-      }
-      videoRef.current.innerHTML = '';
-
-      // إنشاء عنصر فيديو داخلي
-      const videoElement = document.createElement('video-js');
-      videoElement.classList.add('vjs-big-play-centered');
-      videoRef.current.appendChild(videoElement);
-
-      const player = playerRef.current = videojs(videoElement, {
-        autoplay: false,
-        controls: false, // سنستخدم واجهتنا الخاصة
-        responsive: true,
-        fluid: true,
-        techOrder: ['youtube'],
-        sources: [{
-          type: 'video/youtube',
-          src: activeContent.youtubeLink
-        }],
-        youtube: { 
-          iv_load_policy: 3, 
-          modestbranding: 1, 
-          rel: 0, 
-          showinfo: 0,
-          origin: typeof window !== 'undefined' ? window.location.origin : ''
-        }
-      });
-
-      player.on('play', () => setIsPlaying(true));
-      player.on('pause', () => setIsPlaying(false));
-      player.on('timeupdate', () => setCurrentTime(player.currentTime()));
-      player.on('durationchange', () => setDuration(player.duration()));
-      player.on('volumechange', () => setIsMuted(player.muted()));
-      player.on('ratechange', () => setPlaybackRate(player.playbackRate()));
-
-      return () => {
-        if (player) {
-          player.dispose();
+        // تنظيف أي مشغل سابق
+        if (playerRef.current) {
+          playerRef.current.dispose();
           playerRef.current = null;
         }
-      };
-    });
+
+        // إنشاء عنصر الفيديو الأساسي
+        const videoElement = document.createElement('video-js');
+        videoElement.className = 'vjs-big-play-centered vjs-fluid';
+        videoRef.current.appendChild(videoElement);
+
+        const player = videojs(videoElement, {
+          autoplay: false,
+          controls: false, // سنستخدم واجهة البشمهندس المخصصة
+          responsive: true,
+          fluid: true,
+          techOrder: ['youtube'],
+          sources: [{
+            type: 'video/youtube',
+            src: activeContent.youtubeLink
+          }],
+          youtube: { 
+            iv_load_policy: 3, 
+            modestbranding: 1, 
+            rel: 0, 
+            showinfo: 0,
+            origin: typeof window !== 'undefined' ? window.location.origin : ''
+          }
+        });
+
+        playerRef.current = player;
+
+        // ربط الأحداث بمزامنة الحالة في React
+        player.on('play', () => { setIsPlaying(true); resetControlsTimer(); });
+        player.on('pause', () => { setIsPlaying(false); setShowControls(true); });
+        player.on('timeupdate', () => setCurrentTime(player.currentTime()));
+        player.on('durationchange', () => setDuration(player.duration()));
+        player.on('volumechange', () => setIsMuted(player.muted()));
+        player.on('ratechange', () => setPlaybackRate(player.playbackRate()));
+
+      } catch (err) {
+        console.error("Video.js Initialization Error:", err);
+      }
+    };
+
+    initPlayer();
 
     return () => {
       if (playerRef.current) {
@@ -151,13 +156,13 @@ export default function CourseViewer() {
     };
   }, [activeContent]);
 
-  // إخفاء الأدوات تلقائياً عند الخمول
+  // نظام الاختفاء التلقائي للأدوات
   const resetControlsTimer = useCallback(() => {
     setShowControls(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-    if (isPlaying) {
+    if (isPlaying && !showSpeedMenu) {
       controlsTimeoutRef.current = setTimeout(() => {
-        if (!showSpeedMenu) setShowControls(false);
+        setShowControls(false);
       }, 3500);
     }
   }, [isPlaying, showSpeedMenu]);
@@ -167,7 +172,7 @@ export default function CourseViewer() {
     return () => { if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current); };
   }, [resetControlsTimer]);
 
-  // علامة مائية ذكية عشوائية
+  // العلامة المائية الذكية العشوائية
   useEffect(() => {
     if (!isPlaying) return;
     const interval = setInterval(() => {
@@ -178,7 +183,7 @@ export default function CourseViewer() {
     return () => clearInterval(interval);
   }, [isPlaying]);
 
-  // حماية المحتوى من التسجيل
+  // حماية المحتوى من التسجيل أو الخروج
   useEffect(() => {
     const handleBlur = () => setIsVideoBlocked(true);
     const handleFocus = () => setTimeout(() => setIsVideoBlocked(false), 500);
@@ -190,6 +195,7 @@ export default function CourseViewer() {
     };
   }, []);
 
+  // وظائف التحكم في المشغل
   const togglePlay = () => {
     if (!playerRef.current) return;
     if (playerRef.current.paused()) {
@@ -243,6 +249,7 @@ export default function CourseViewer() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // معالجة الاشتراك المجاني آلياً
   useEffect(() => {
     if (isFree && !enrollment && user && id && studentProfile && !isEnrollmentLoading && course && firestore) {
       const enRef = doc(firestore, 'students', user.uid, 'enrollments', id as string);
@@ -313,7 +320,7 @@ export default function CourseViewer() {
             {activeContent?.contentType === 'Video' ? (
               <div className="space-y-6 animate-in fade-in duration-700">
                 
-                {/* حاوية مشغل النخبة V4.0 Pro (Video.js Optimized) */}
+                {/* حاوية مشغل النخبة V4.0 Pro (Powered by Video.js) */}
                 <div 
                   className={cn(
                     "relative bg-black overflow-hidden shadow-2xl transition-all duration-500 group select-none",
@@ -323,10 +330,10 @@ export default function CourseViewer() {
                   onTouchStart={resetControlsTimer}
                   onContextMenu={e => e.preventDefault()}
                 >
-                    {/* طبقة حماية Pointer-Events لمنع التفاعل المباشر مع الفيديو */}
+                    {/* طبقة حماية تمنع التفاعل المباشر مع الفيديو لضمان عمل الواجهة المخصصة */}
                     <div className="absolute inset-0 z-40 bg-transparent" />
                     
-                    {/* العلامة المائية الفاخرة */}
+                    {/* العلامة المائية الفاخرة المتحركة */}
                     <div 
                       className="absolute z-[45] pointer-events-none transition-all opacity-20 text-[8px] md:text-xs font-black text-white bg-black/40 px-3 py-1.5 rounded-full border border-white/10 whitespace-nowrap"
                       style={{ top: watermarkPos.top, left: watermarkPos.left, transitionDuration: '3000ms' }}
@@ -334,7 +341,7 @@ export default function CourseViewer() {
                       {studentProfile?.name} | {studentProfile?.studentPhoneNumber}
                     </div>
 
-                    {/* حماية الخصوصية */}
+                    {/* حماية الخصوصية والتعتيم */}
                     {isVideoBlocked && (
                       <div className="absolute inset-0 z-[100] bg-black/98 backdrop-blur-3xl flex flex-col items-center justify-center text-center p-8">
                          <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6 border border-primary/20">
@@ -345,17 +352,17 @@ export default function CourseViewer() {
                       </div>
                     )}
 
-                    {/* محرك Video.js */}
+                    {/* محرك Video.js مدمج هنا */}
                     <div ref={videoRef} className="w-full h-full" />
 
-                    {/* واجهة تحكم البشمهندس الذهبية V4 */}
+                    {/* واجهة تحكم البشمهندس الذهبية V4 (تظهر وتختفي تلقائياً) */}
                     <div className={cn(
                       "absolute bottom-0 left-0 right-0 z-[60] bg-gradient-to-t from-black via-black/80 to-transparent p-4 md:p-14 transition-all duration-700",
                       showControls ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10 pointer-events-none"
                     )}>
                       <div className="space-y-4 md:space-y-10">
                         
-                        {/* شريط التقدم التفاعلي المتزامن 100% مع Video.js */}
+                        {/* شريط التقدم التفاعلي المتزامن 100% */}
                         <div className="flex flex-row-reverse items-center gap-4 md:gap-8">
                            <span className="text-[10px] md:text-sm text-white font-black min-w-[80px] md:min-w-[140px] text-left tabular-nums tracking-widest" dir="ltr">
                              {formatTime(currentTime)} / {formatTime(duration)}
