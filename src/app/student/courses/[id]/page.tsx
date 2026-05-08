@@ -28,8 +28,8 @@ import {
   Poster, 
   Container, 
   usePlayer, 
-  BufferingIndicator, 
-  CaptionsButton, 
+  MediaBuffering, 
+  CaptionButton, 
   CastButton, 
   Controls, 
   ErrorDialog, 
@@ -37,7 +37,7 @@ import {
   Gesture, 
   Hotkey, 
   MuteButton, 
-  PiPButton, 
+  PipButton, 
   PlayButton, 
   PlaybackRateButton, 
   Popover, 
@@ -47,9 +47,10 @@ import {
   TimeSlider, 
   Tooltip, 
   VolumeSlider, 
+  Video,
+  videoFeatures,
   type RenderProp 
 } from '@vidstack/react';
-import { Video, videoFeatures } from '@vidstack/react'; // Corrected import path
 import './player.css';
 
 export default function CourseViewer() {
@@ -87,25 +88,29 @@ export default function CourseViewer() {
 
   const markAsWatched = async (contentId: string) => {
     if (!firestore || !user || !id || !studentProfile) return;
-    const videoLogRef = doc(firestore, 'students', user.uid, 'video_progress', contentId);
-    await setDoc(videoLogRef, { 
-      studentId: user.uid, 
-      studentName: studentProfile.name, 
-      courseId: id, 
-      courseContentId: contentId, 
-      isCompleted: true, 
-      lastWatchedAt: serverTimestamp() 
-    }, { merge: true });
-    
-    const watchedSnap = await getDocs(query(collection(firestore, 'students', user.uid, 'video_progress'), where('courseId', '==', id)));
-    const newPercent = Math.min(100, Math.round((watchedSnap.size / (visibleContents.length || 1)) * 100));
+    try {
+      const videoLogRef = doc(firestore, 'students', user.uid, 'video_progress', contentId);
+      await setDoc(videoLogRef, { 
+        studentId: user.uid, 
+        studentName: studentProfile.name, 
+        courseId: id, 
+        courseContentId: contentId, 
+        isCompleted: true, 
+        lastWatchedAt: serverTimestamp() 
+      }, { merge: true });
+      
+      const watchedSnap = await getDocs(query(collection(firestore, 'students', user.uid, 'video_progress'), where('courseId', '==', id)));
+      const newPercent = Math.min(100, Math.round((watchedSnap.size / (visibleContents.length || 1)) * 100));
 
-    await updateDoc(doc(firestore, 'students', user.uid, 'enrollments', id as string), { 
-      progressPercentage: newPercent, 
-      studentName: studentProfile.name, 
-      lastActivityDate: new Date().toISOString() 
-    });
-    toast({ title: "عاش يا بشمهندس!", description: `وصلت لنسبة إنجاز ${newPercent}% في هذا الكورس.` });
+      await updateDoc(doc(firestore, 'students', user.uid, 'enrollments', id as string), { 
+        progressPercentage: newPercent, 
+        studentName: studentProfile.name, 
+        lastActivityDate: new Date().toISOString() 
+      });
+      toast({ title: "عاش يا بشمهندس!", description: `وصلت لنسبة إنجاز ${newPercent}% في هذا الكورس.` });
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   if (isUserLoading || isCourseLoading || isEnrollmentLoading || isContentLoading) return <div className="flex justify-center py-40"><Loader2 className="w-12 animate-spin text-primary" /></div>;
@@ -129,11 +134,10 @@ export default function CourseViewer() {
             {activeContent?.contentType === 'Video' ? (
               <div className="space-y-6">
                 <div className="relative group">
-                  {/* The exact VideoPlayer component provided by the user */}
                   <VideoPlayer src={activeContent.youtubeLink} />
                 </div>
 
-                <Card className="bg-card border-primary/20 shadow-2xl p-8 rounded-[2rem] relative overflow-hidden">
+                <Card className="bg-card border-primary/20 shadow-2xl p-8 rounded-[2rem] relative overflow-hidden text-right">
                   <div className="absolute top-0 right-0 w-2 h-full bg-primary" />
                   <div className="flex flex-col md:flex-row-reverse justify-between items-center gap-6">
                     <div className="text-right flex-grow">
@@ -210,7 +214,7 @@ export default function CourseViewer() {
 }
 
 // ================================================================
-// THE CODE YOU PROVIDED (EXACTLY AS SENT)
+// THE CODE YOU PROVIDED
 // ================================================================
 
 const SEEK_TIME = 10;
@@ -234,7 +238,7 @@ export function VideoPlayer({ src, className, poster, ...rest }: VideoPlayerProp
           <Poster src={isString(poster) ? poster : undefined} render={isRenderProp(poster) ? poster : undefined} />
         )}
 
-        <BufferingIndicator
+        <MediaBuffering
           render={(props) => (
             <div {...props} className="media-buffering-indicator">
               <div className="media-surface">
@@ -334,10 +338,10 @@ export function VideoPlayer({ src, className, poster, ...rest }: VideoPlayerProp
               <Tooltip.Root side="top">
                 <Tooltip.Trigger
                   render={
-                    <CaptionsButton className="media-button--captions" render={<Button />}>
+                    <CaptionButton className="media-button--captions" render={<Button />}>
                       <CaptionsOffIcon className="media-icon media-icon--captions-off" />
                       <CaptionsOnIcon className="media-icon media-icon--captions-on" />
-                    </CaptionsButton>
+                    </CaptionButton>
                   }
                 />
                 <Tooltip.Popup className="media-surface media-tooltip" />
@@ -358,10 +362,10 @@ export function VideoPlayer({ src, className, poster, ...rest }: VideoPlayerProp
               <Tooltip.Root side="top">
                 <Tooltip.Trigger
                   render={
-                    <PiPButton className="media-button--pip" render={<Button />}>
+                    <PipButton className="media-button--pip" render={<Button />}>
                       <PipEnterIcon className="media-icon media-icon--pip-enter" />
                       <PipExitIcon className="media-icon media-icon--pip-exit" />
-                    </PiPButton>
+                    </PipButton>
                   }
                 />
                 <Tooltip.Popup className="media-surface media-tooltip" />
