@@ -21,7 +21,8 @@ import {
   ShieldCheck,
   Zap,
   EyeOff,
-  Gauge
+  Gauge,
+  Monitor
 } from 'lucide-react';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -150,7 +151,7 @@ export default function CourseViewer() {
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
   }, []);
 
-  // محرك المزامنة القسري المتطور (V11)
+  // محرك المزامنة القسري المتطور (V12)
   useEffect(() => {
     if (!activeContent || !origin) return;
 
