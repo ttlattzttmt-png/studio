@@ -37,6 +37,10 @@ export default function CourseViewer() {
     };
   }, []);
 
+  // جلب بروفايل الطالب لعرض بياناته في العلامة المائية
+  const studentRef = useMemoFirebase(() => (firestore && user) ? doc(firestore, 'students', user.uid) : null, [firestore, user]);
+  const { data: studentProfile } = useDoc(studentRef);
+
   const courseRef = useMemoFirebase(() => (firestore && id) ? doc(firestore, 'courses', id as string) : null, [firestore, id]);
   const { data: course, isLoading: isCourseLoading } = useDoc(courseRef);
 
@@ -111,7 +115,7 @@ export default function CourseViewer() {
                    />
                    <div className="absolute top-4 left-4 pointer-events-none opacity-20 group-hover:opacity-100 transition-opacity">
                       <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
-                        <p className="text-[10px] font-black text-white" dir="ltr">{user?.studentPhoneNumber || studentProfile?.name}</p>
+                        <p className="text-[10px] font-black text-white" dir="ltr">{studentProfile?.studentPhoneNumber || studentProfile?.name || user?.email}</p>
                       </div>
                    </div>
                 </div>
