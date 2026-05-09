@@ -9,18 +9,18 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { 
   ShieldCheck, 
-  Lock, 
+  PackageCheck, 
   Download, 
-  RefreshCw, 
+  Loader2, 
   Terminal, 
-  Mail, 
   Database, 
   Globe, 
-  Key,
-  FileCode,
-  PackageCheck
+  Zap,
+  Lock,
+  Mail
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { packageProject } from './actions';
 import { BrandConfig as CurrentConfig } from '@/lib/brand-config';
 import { firebaseConfig as CurrentFirebase } from '@/firebase/config';
 
@@ -28,52 +28,47 @@ export default function MasterRebranderPage() {
   const [isAuth, setIsAuth] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPass, setLoginPass] = useState('');
+  const [isPackaging, setIsPackaging] = useState(false);
   const { toast } = useToast();
 
-  // بيانات الهوية الجديدة
-  const [newConfig, setNewConfig] = useState({ ...CurrentConfig });
-  
-  // بيانات فايربيز الجديدة
-  const [newFirebase, setNewFirebase] = useState({ ...CurrentFirebase });
+  const [formData, setFormData] = useState({
+    ...CurrentConfig,
+    firebase: { ...CurrentFirebase }
+  });
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (loginEmail === 'master@admin.com' && loginPass === 'master2025') {
       setIsAuth(true);
-      toast({ title: "مرحباً يا ماستر", description: "النظام جاهز لتوليد نسخة جديدة 100%." });
+      toast({ title: "مرحباً يا ماستر", description: "مصنع النسخ جاهز للعمل." });
     } else {
       toast({ variant: "destructive", title: "خطأ", description: "بيانات دخول الماستر غير صحيحة." });
     }
   };
 
-  const downloadFile = (filename: string, content: string) => {
-    const blob = new Blob([content], { type: 'text/typescript' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  const handleDownloadFullProject = async () => {
+    setIsPackaging(true);
+    try {
+      const base64 = await packageProject(formData);
+      
+      // تحويل الـ base64 إلى ملف وتحميله
+      const link = document.createElement('a');
+      link.href = `data:application/zip;base64,${base64}`;
+      link.download = `${formData.shortName}_Final_Project.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
-  const handleGeneratePackage = () => {
-    // 1. توليد ملف brand-config.ts
-    const brandContent = `
-export const BrandConfig = ${JSON.stringify(newConfig, null, 2)};
-`;
-    downloadFile('brand-config.ts', brandContent);
-
-    // 2. توليد ملف config.ts الخاص بفايربيز
-    const firebaseContent = `
-export const firebaseConfig = ${JSON.stringify(newFirebase, null, 2)};
-`;
-    downloadFile('firebase-config.ts', firebaseContent);
-
-    toast({ 
-      title: "تم استخراج الملفات", 
-      description: "استبدل هذه الملفات في المشروع الجديد ليصبح ملكاً للعميل كلياً." 
-    });
+      toast({ 
+        title: "تم استخراج النسخة النهائية", 
+        description: "تحقق من التنزيلات. النسخة مطهرة وجاهزة للتسليم." 
+      });
+    } catch (e: any) {
+      console.error(e);
+      toast({ variant: "destructive", title: "فشل التعبئة", description: "حدث خطأ أثناء تجميع ملفات المشروع." });
+    } finally {
+      setIsPackaging(false);
+    }
   };
 
   if (!isAuth) {
@@ -84,7 +79,7 @@ export const firebaseConfig = ${JSON.stringify(newFirebase, null, 2)};
             <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto text-primary mb-4">
               <ShieldCheck className="w-10 h-10" />
             </div>
-            <CardTitle className="text-xl font-black">نظام توليد النسخ (Master)</CardTitle>
+            <CardTitle className="text-xl font-black">مصنع النسخ (The Factory)</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
@@ -120,75 +115,94 @@ export const firebaseConfig = ${JSON.stringify(newFirebase, null, 2)};
       <div className="max-w-6xl mx-auto space-y-12">
         <header className="flex flex-col md:flex-row-reverse justify-between items-center border-b border-white/10 pb-8 gap-6">
            <div>
-              <h1 className="text-4xl font-black text-primary flex items-center gap-3 justify-end">أداة "تصفير المنصة" (Reset & Rebrand) <Terminal className="w-8 h-8" /></h1>
-              <p className="text-zinc-400 mt-2 font-bold">هذه الأداة تمسح أي صلة بالمنصة القديمة وتجهز الملفات للعميل الجديد.</p>
+              <h1 className="text-4xl font-black text-primary flex items-center gap-3 justify-end">محرك إنتاج النسخ النهائية <Terminal className="w-8 h-8" /></h1>
+              <p className="text-zinc-400 mt-2 font-bold">املأ البيانات، واضغط زر التحميل؛ ستحصل على كود المشروع كاملاً باسم العميل الجديد وبدون صفحة الأتمتة هذه.</p>
            </div>
            <Button variant="outline" className="border-white/10" onClick={() => window.location.reload()}>خروج آمن</Button>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-          {/* القسم الأول: الهوية */}
-          <Card className="bg-zinc-900 border-white/5 text-white">
+          {/* بيانات الهوية */}
+          <Card className="bg-zinc-900 border-white/5 text-white shadow-2xl">
             <CardHeader className="bg-white/5"><CardTitle className="text-lg font-black flex items-center gap-2 justify-end"><Globe className="w-5 h-5 text-primary" /> 1. بيانات الهوية الجديدة</CardTitle></CardHeader>
             <CardContent className="space-y-4 pt-6">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1"><Label>اسم المنصة</Label><Input value={newConfig.name} onChange={(e) => setNewConfig({...newConfig, name: e.target.value})} className="bg-black border-white/10" /></div>
-                <div className="space-y-1"><Label>الاسم المختصر</Label><Input value={newConfig.shortName} onChange={(e) => setNewConfig({...newConfig, shortName: e.target.value})} className="bg-black border-white/10" /></div>
+                <div className="space-y-1"><Label>اسم المنصة</Label><Input value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="bg-black border-white/10" /></div>
+                <div className="space-y-1"><Label>الاسم المختصر</Label><Input value={formData.shortName} onChange={(e) => setFormData({...formData, shortName: e.target.value})} className="bg-black border-white/10" /></div>
               </div>
-              <div className="space-y-1"><Label>بريد الأدمن (المالك الجديد)</Label><Input value={newConfig.adminEmail} onChange={(e) => setNewConfig({...newConfig, adminEmail: e.target.value})} className="bg-black border-white/10 text-center" /></div>
+              <div className="space-y-1"><Label>وصف المنصة (SEO)</Label><Textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="bg-black border-white/10" /></div>
+              <div className="space-y-1"><Label>بريد الأدمن الجديد (حساس جداً)</Label><Input value={formData.adminEmail} onChange={(e) => setFormData({...formData, adminEmail: e.target.value})} className="bg-black border-white/10 text-center text-primary" /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1"><Label>رقم الواتساب</Label><Input value={newConfig.whatsappNumber} onChange={(e) => setNewConfig({...newConfig, whatsappNumber: e.target.value})} className="bg-black border-white/10" /></div>
-                <div className="space-y-1"><Label>رقم الدعم</Label><Input value={newConfig.supportPhone} onChange={(e) => setNewConfig({...newConfig, supportPhone: e.target.value})} className="bg-black border-white/10" /></div>
+                <div className="space-y-1"><Label>رقم الواتساب</Label><Input value={formData.whatsappNumber} onChange={(e) => setFormData({...formData, whatsappNumber: e.target.value})} className="bg-black border-white/10" /></div>
+                <div className="space-y-1"><Label>رقم الدعم</Label><Input value={formData.supportPhone} onChange={(e) => setFormData({...formData, supportPhone: e.target.value})} className="bg-black border-white/10" /></div>
               </div>
               <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
-                <div className="space-y-1"><Label>اسم المطور (توقيعك)</Label><Input value={newConfig.developerName} onChange={(e) => setNewConfig({...newConfig, developerName: e.target.value})} className="bg-black border-white/10" /></div>
-                <div className="space-y-1"><Label>تواصل المطور</Label><Input value={newConfig.developerContact} onChange={(e) => setNewConfig({...newConfig, developerContact: e.target.value})} className="bg-black border-white/10" /></div>
+                <div className="space-y-1"><Label>توقيع المطور الجديد</Label><Input value={formData.developerName} onChange={(e) => setFormData({...formData, developerName: e.target.value})} className="bg-black border-white/10" /></div>
+                <div className="space-y-1"><Label>تواصل المطور</Label><Input value={formData.developerContact} onChange={(e) => setFormData({...formData, developerContact: e.target.value})} className="bg-black border-white/10" /></div>
               </div>
             </CardContent>
           </Card>
 
-          {/* القسم الثاني: فايربيز */}
-          <Card className="bg-zinc-900 border-white/5 text-white">
-            <CardHeader className="bg-white/5"><CardTitle className="text-lg font-black flex items-center gap-2 justify-end"><Database className="w-5 h-5 text-accent" /> 2. ربط Firebase الجديد (قاعدة البيانات)</CardTitle></CardHeader>
+          {/* بيانات فايربيز */}
+          <Card className="bg-zinc-900 border-white/5 text-white shadow-2xl">
+            <CardHeader className="bg-white/5"><CardTitle className="text-lg font-black flex items-center gap-2 justify-end"><Database className="w-5 h-5 text-accent" /> 2. ربط Firebase (المحرك)</CardTitle></CardHeader>
             <CardContent className="space-y-4 pt-6">
-              <div className="space-y-1"><Label>API Key</Label><Input value={newFirebase.apiKey} onChange={(e) => setNewFirebase({...newFirebase, apiKey: e.target.value})} className="bg-black border-white/10 font-mono text-xs" /></div>
+              <div className="space-y-1"><Label>API Key</Label><Input value={formData.firebase.apiKey} onChange={(e) => setFormData({...formData, firebase: {...formData.firebase, apiKey: e.target.value}})} className="bg-black border-white/10 font-mono text-xs" /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1"><Label>Project ID</Label><Input value={newFirebase.projectId} onChange={(e) => setNewFirebase({...newFirebase, projectId: e.target.value})} className="bg-black border-white/10 font-mono text-xs" /></div>
-                <div className="space-y-1"><Label>App ID</Label><Input value={newFirebase.appId} onChange={(e) => setNewFirebase({...newFirebase, appId: e.target.value})} className="bg-black border-white/10 font-mono text-xs" /></div>
+                <div className="space-y-1"><Label>Project ID</Label><Input value={formData.firebase.projectId} onChange={(e) => setFormData({...formData, firebase: {...formData.firebase, projectId: e.target.value}})} className="bg-black border-white/10 font-mono text-xs" /></div>
+                <div className="space-y-1"><Label>App ID</Label><Input value={formData.firebase.appId} onChange={(e) => setFormData({...formData, firebase: {...formData.firebase, appId: e.target.value}})} className="bg-black border-white/10 font-mono text-xs" /></div>
               </div>
-              <div className="space-y-1"><Label>Auth Domain</Label><Input value={newFirebase.authDomain} onChange={(e) => setNewFirebase({...newFirebase, authDomain: e.target.value})} className="bg-black border-white/10 font-mono text-xs" /></div>
-              <div className="space-y-1"><Label>Storage Bucket</Label><Input value={newFirebase.storageBucket} onChange={(e) => setNewFirebase({...newFirebase, storageBucket: e.target.value})} className="bg-black border-white/10 font-mono text-xs" /></div>
+              <div className="space-y-1"><Label>Auth Domain</Label><Input value={formData.firebase.authDomain} onChange={(e) => setFormData({...formData, firebase: {...formData.firebase, authDomain: e.target.value}})} className="bg-black border-white/10 font-mono text-xs" /></div>
+              <div className="space-y-1"><Label>Storage Bucket</Label><Input value={formData.firebase.storageBucket} onChange={(e) => setFormData({...formData, firebase: {...formData.firebase, storageBucket: e.target.value}})} className="bg-black border-white/10 font-mono text-xs" /></div>
+              <div className="space-y-1"><Label>Messaging Sender ID</Label><Input value={formData.firebase.messagingSenderId} onChange={(e) => setFormData({...formData, firebase: {...formData.firebase, messagingSenderId: e.target.value}})} className="bg-black border-white/10 font-mono text-xs" /></div>
             </CardContent>
           </Card>
         </div>
 
-        {/* زر التنفيذ */}
-        <div className="flex flex-col items-center gap-6 py-12 bg-primary/5 rounded-[3rem] border-2 border-dashed border-primary/20">
-            <PackageCheck className="w-20 h-20 text-primary animate-bounce" />
-            <div className="text-center space-y-2">
-              <h2 className="text-3xl font-black">جاهز لتصدير النسخة النهائية؟</h2>
-              <p className="text-zinc-400 font-bold max-w-lg">عند الضغط، ستحمل ملفات "عقل المنصة" الجديدة. <br/> ضعها في المجلدات المخصصة ثم قم بضغط المشروع كـ ZIP.</p>
+        {/* زر التوليد والتحميل */}
+        <div className="flex flex-col items-center gap-6 py-16 bg-primary/5 rounded-[3rem] border-2 border-dashed border-primary/30 relative overflow-hidden">
+            <div className="absolute inset-0 bg-primary/5 animate-pulse pointer-events-none" />
+            <PackageCheck className="w-24 h-24 text-primary" />
+            <div className="text-center space-y-2 relative z-10">
+              <h2 className="text-4xl font-black">تحميل المشروع كاملاً (Ready to Ship)</h2>
+              <p className="text-zinc-400 font-bold max-w-2xl px-4">
+                عند الضغط، سيقوم النظام بإنتاج ملف ZIP يحتوي على كافة ملفات البرمجة بعد تعديلها آلياً. <br/>
+                تنبيه: سيتم حذف أدوات الماستر من الملف المحمل لضمان خصوصيتك أمام العميل.
+              </p>
             </div>
+            
             <Button 
-              onClick={handleGeneratePackage} 
-              className="h-20 px-12 bg-primary text-black font-black text-2xl rounded-2xl shadow-2xl hover:scale-105 transition-transform gap-4"
+              onClick={handleDownloadFullProject} 
+              disabled={isPackaging}
+              className="h-24 px-16 bg-primary text-black font-black text-3xl rounded-3xl shadow-2xl hover:scale-105 transition-all gap-5 relative z-10"
             >
-              <Download className="w-8 h-8" /> تحميل حزمة الإعدادات (The Core)
+              {isPackaging ? (
+                <><Loader2 className="w-10 h-10 animate-spin" /> جاري تجميع النسخة...</>
+              ) : (
+                <><Download className="w-10 h-10" /> إنتاج وتحميل المشروع الآن</>
+              )}
             </Button>
+
+            {isPackaging && (
+              <p className="text-primary font-black animate-bounce">يتم الآن قراءة {formData.name} وإعادة برمجتها... ثوانٍ من فضلك</p>
+            )}
         </div>
 
-        {/* تعليمات التسليم */}
-        <Card className="bg-black border-white/10 p-8">
-           <CardHeader><CardTitle className="text-xl font-black flex items-center gap-2 justify-end text-orange-500"><FileCode className="w-6 h-6" /> خطوات تسليم النسخة (صفر أخطاء)</CardTitle></CardHeader>
-           <CardContent className="pt-4">
-              <ul className="space-y-4 text-right text-zinc-300 font-bold">
-                <li className="flex flex-row-reverse gap-3 items-start"><span className="text-primary">1.</span> <span>استبدل ملف `src/lib/brand-config.ts` بالملف الذي حملته الآن.</span></li>
-                <li className="flex flex-row-reverse gap-3 items-start"><span className="text-primary">2.</span> <span>استبدل كود `src/firebase/config.ts` ببيانات الفايربيز الجديدة التي حملتها.</span></li>
-                <li className="flex flex-row-reverse gap-3 items-start"><span className="text-primary">3.</span> <span>اذهب لـ Firebase Console للمشروع الجديد وفعّل (Email Auth) و (Firestore).</span></li>
-                <li className="flex flex-row-reverse gap-3 items-start"><span className="text-primary">4.</span> <span>الآن، قم بضغط مجلد المشروع بالكامل لملف ZIP، وأرسله للعميل.. مبروك البيعة!</span></li>
-              </ul>
-           </CardContent>
-        </Card>
+        {/* شروط الأمان */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+           <div className="p-6 bg-zinc-900 rounded-2xl border border-white/5 flex items-center gap-4 flex-row-reverse">
+              <Zap className="w-8 h-8 text-yellow-500" />
+              <div className="text-right"><p className="font-black text-sm">أتمتة كاملة</p><p className="text-[10px] opacity-50">لا حاجة لتعديل أي ملف يدوياً.</p></div>
+           </div>
+           <div className="p-6 bg-zinc-900 rounded-2xl border border-white/5 flex items-center gap-4 flex-row-reverse">
+              <Lock className="w-8 h-8 text-accent" />
+              <div className="text-right"><p className="font-black text-sm">تشفير وحماية</p><p className="text-[10px] opacity-50">يتم إخفاء أدوات الماستر عن العميل.</p></div>
+           </div>
+           <div className="p-6 bg-zinc-900 rounded-2xl border border-white/5 flex items-center gap-4 flex-row-reverse">
+              <Mail className="w-8 h-8 text-blue-500" />
+              <div className="text-right"><p className="font-black text-sm">تطهير القواعد</p><p className="text-[10px] opacity-50">تحديث إيميل الأدمن في Firestore Rules.</p></div>
+           </div>
+        </div>
       </div>
     </div>
   );
