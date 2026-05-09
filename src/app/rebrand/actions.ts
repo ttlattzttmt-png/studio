@@ -1,8 +1,8 @@
 'use server';
 
 /**
- * @fileOverview محرك التطهير والنشر التلقائي المتقدم (Git Data API Edition)
- * يدعم الرفع الجماعي في Commit واحد لتجنب الـ Timeout وتطهير النسخة 100%.
+ * @fileOverview محرك التطهير والنشر التلقائي المتقدم (Git Blobs API Edition)
+ * يقوم برفع الملفات ملفاً بملف كـ Blobs لتفادي مشاكل الحجم، ثم ينشئ Commit واحد شامل.
  */
 
 import fs from 'fs';
@@ -17,11 +17,11 @@ function purgeContent(content: string, fileName: string, formData: any): string 
   const replacements = [
     { search: OldConfig.name, replace: formData.name },
     { search: OldConfig.shortName, replace: formData.shortName },
+    { search: OldConfig.description, replace: formData.description },
     { search: OldConfig.adminEmail, replace: formData.adminEmail },
     { search: OldConfig.supportPhone, replace: formData.supportPhone },
     { search: OldConfig.supportEmail, replace: formData.supportEmail },
     { search: OldConfig.developerName, replace: formData.developerName },
-    { search: OldConfig.developerContact, replace: formData.developerContact },
     { search: OldConfig.whatsappNumber, replace: formData.whatsappNumber },
   ];
 
@@ -40,7 +40,7 @@ function purgeContent(content: string, fileName: string, formData: any): string 
   }
 
   // تحديث بيانات الـ PWA واسم المشروع
-  if (fileName === 'package.json' || fileName === 'manifest.json') {
+  if (fileName === 'package.json' || fileName === 'manifest.json' || fileName === 'next.config.ts') {
     purged = purged.replace(new RegExp(OldConfig.shortName, 'g'), formData.shortName);
     purged = purged.replace(new RegExp("nextn", 'g'), formData.shortName.toLowerCase().replace(/\s+/g, '-'));
   }
@@ -60,19 +60,19 @@ async function getCleanFiles(formData: any) {
       const relativePath = path.relative(rootDir, fullPath).replace(/\\/g, '/');
       const stats = fs.statSync(fullPath);
 
-      // استبعاد ملفات التطوير والماستر لضمان خصوصية العميل
+      // استبعاد ملفات النظام والماستر
       if (
         file === 'node_modules' || file === '.next' || file === '.git' || 
         file === 'rebrand' || file === '.env' || file === 'package-lock.json' ||
-        file === '.DS_Store' || file === 'dev.ts'
+        file === '.DS_Store' || file === '.firebase' || file === 'firebase-debug.log'
       ) continue;
 
       if (stats.isDirectory()) {
         walk(fullPath);
       } else {
         let content: any = fs.readFileSync(fullPath);
-        const ext = path.extname(file);
-        const textExtensions = ['.ts', '.tsx', '.js', '.jsx', '.json', '.md', '.rules', '.css', '.html', '.txt', '.yaml', '.yml', '.js', '.mjs'];
+        const ext = path.extname(file).toLowerCase();
+        const textExtensions = ['.ts', '.tsx', '.js', '.jsx', '.json', '.md', '.rules', '.css', '.html', '.txt', '.yaml', '.yml', '.mjs'];
         const isText = textExtensions.includes(ext);
 
         if (isText) {
@@ -115,59 +115,68 @@ export async function deployToGitHub(formData: any) {
   };
 
   try {
-    // 1. الحصول على اسم المستخدم الحالي
+    // 1. الحصول على اسم المستخدم
     const userRes = await fetch('https://api.github.com/user', { headers });
-    if (!userRes.ok) throw new Error("فشل التحقق من الـ Token - تأكد من صحته");
+    if (!userRes.ok) throw new Error("فشل التحقق من الـ Token");
     const userData = await userRes.json();
     const owner = userData.login;
 
-    // 2. إنشاء المستودع (إذا لم يكن موجوداً)
+    // 2. إنشاء المستودع
     const createRepoRes = await fetch('https://api.github.com/user/repos', {
       method: 'POST',
       headers,
       body: JSON.stringify({ name: repoName, private: true, auto_init: true })
     });
     
-    // إذا كان المستودع موجوداً مسبقاً، لا مشكلة
     if (!createRepoRes.ok && createRepoRes.status !== 422) {
       const err = await createRepoRes.json();
       throw new Error(`خطأ GitHub: ${err.message}`);
     }
 
-    // الانتظار ثانية لضمان تهيئة المستودع
-    await new Promise(r => setTimeout(r, 2000));
+    // الانتظار لتهيئة المستودع
+    await new Promise(r => setTimeout(r, 3000));
 
-    // 3. الحصول على الـ SHA لآخر Commit (للبدء منه)
+    // 3. الحصول على SHA آخر Commit
     const branchRes = await fetch(`https://api.github.com/repos/${owner}/${repoName}/branches/main`, { headers });
-    let baseTreeSha = "";
-    if (branchRes.ok) {
-      const branchData = await branchRes.json();
-      baseTreeSha = branchData.commit.commit.tree.sha;
-    }
+    if (!branchRes.ok) throw new Error("لم يتم العثور على فرع main - تأكد من صلاحيات الـ Token");
+    const branchData = await branchRes.json();
+    const baseTreeSha = branchData.commit.commit.tree.sha;
+    const parentCommitSha = branchData.commit.sha;
 
-    // 4. تجهيز كافة الملفات لرفعها في Tree واحد
-    const files = await getCleanFiles(formData);
+    // 4. رفع الملفات كـ Blobs (القلب النابض للمحرك)
+    const cleanFiles = await getCleanFiles(formData);
     const treeItems = [];
 
-    for (const file of files) {
-      // الرفع عبر API يتطلب معالجة خاصة للملفات الكبيرة
-      // سنرفع كافة الملفات النصية المطهّرة
-      if (!file.isBinary) {
+    // سنقوم برفع كافة الملفات النصية المطهّرة والملفات الثنائية
+    for (const file of cleanFiles) {
+      const blobRes = await fetch(`https://api.github.com/repos/${owner}/${repoName}/git/blobs`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          content: file.isBinary 
+            ? (file.content as Buffer).toString('base64') 
+            : file.content as string,
+          encoding: file.isBinary ? "base64" : "utf-8"
+        })
+      });
+
+      if (blobRes.ok) {
+        const blobData = await blobRes.json();
         treeItems.push({
           path: file.path,
           mode: "100644",
           type: "blob",
-          content: file.content as string
+          sha: blobData.sha
         });
       }
     }
 
-    // 5. إنشاء الـ Tree الجديد
+    // 5. إنشاء الـ Tree الشامل
     const createTreeRes = await fetch(`https://api.github.com/repos/${owner}/${repoName}/git/trees`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        base_tree: baseTreeSha || undefined,
+        base_tree: baseTreeSha,
         tree: treeItems
       })
     });
@@ -181,12 +190,12 @@ export async function deployToGitHub(formData: any) {
       body: JSON.stringify({
         message: `إطلاق المنصة الجديدة: ${formData.name} 🚀`,
         tree: treeData.sha,
-        parents: baseTreeSha ? [baseTreeSha] : []
+        parents: [parentCommitSha]
       })
     });
     const commitData = await createCommitRes.json();
 
-    // 7. تحديث الـ Reference (تفعيل الـ Commit على فرع main)
+    // 7. تحديث الـ Reference
     await fetch(`https://api.github.com/repos/${owner}/${repoName}/git/refs/heads/main`, {
       method: 'PATCH',
       headers,
@@ -195,7 +204,7 @@ export async function deployToGitHub(formData: any) {
 
     return { success: true, url: `https://github.com/${owner}/${repoName}` };
   } catch (e: any) {
-    console.error("GitHub Deploy Error:", e);
-    throw new Error(e.message || "حدث خطأ غير متوقع أثناء الرفع");
+    console.error("GitHub Detailed Deploy Error:", e);
+    throw new Error(e.message || "فشل الرفع لـ GitHub");
   }
 }
