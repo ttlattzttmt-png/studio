@@ -12,13 +12,14 @@ import {
   PackageCheck, 
   Download, 
   Loader2, 
-  Terminal, 
-  Database, 
   Globe, 
   Zap,
-  Lock,
   RefreshCw,
-  Code2
+  Code2,
+  Palette,
+  Github,
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { packageProject } from './actions';
@@ -34,7 +35,8 @@ export default function MasterRebranderPage() {
 
   const [formData, setFormData] = useState({
     ...CurrentConfig,
-    firebase: { ...CurrentFirebase }
+    firebase: { ...CurrentFirebase },
+    github: { token: '', repoName: '' }
   });
 
   const [firebaseJson, setFirebaseJson] = useState('');
@@ -85,8 +87,8 @@ export default function MasterRebranderPage() {
 
   if (!isAuth) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-4">
-        <Card className="w-full max-w-md bg-zinc-900 border-primary/20 text-white text-right">
+      <div className="min-h-screen bg-black flex items-center justify-center p-4 text-right">
+        <Card className="w-full max-w-md bg-zinc-900 border-primary/20 text-white">
           <CardHeader className="text-center">
             <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto text-primary mb-4">
               <ShieldCheck className="w-10 h-10" />
@@ -96,11 +98,11 @@ export default function MasterRebranderPage() {
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label>بريد الماستر</Label>
+                <Label className="block text-right">بريد الماستر</Label>
                 <Input type="email" placeholder="master@admin.com" className="bg-black border-white/10 text-center" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>كلمة السر</Label>
+                <Label className="block text-right">كلمة السر</Label>
                 <Input type="password" className="bg-black border-white/10 text-center" value={loginPass} onChange={(e) => setLoginPass(e.target.value)} />
               </div>
               <Button className="w-full h-12 bg-primary text-black font-black">فتح النظام الجذري</Button>
@@ -117,12 +119,13 @@ export default function MasterRebranderPage() {
         <header className="flex flex-col md:flex-row-reverse justify-between items-center border-b border-white/10 pb-8 gap-6">
            <div>
               <h1 className="text-4xl font-black text-primary flex items-center gap-3 justify-end">محرك التطهير والتغليف الشامل <RefreshCw className="w-8 h-8 animate-spin-slow" /></h1>
-              <p className="text-zinc-400 mt-2 font-bold">هذا المحرك يفحص كافة الملفات ويستبدل كل شيء آلياً ويحذف نفسه من النسخة المحملة.</p>
+              <p className="text-zinc-400 mt-2 font-bold">المحرك سيفحص كل حرف ويستبدله، ويعدل الألوان، ويرفع الكود باسم العميل الجديد.</p>
            </div>
            <Button variant="outline" className="border-white/10" onClick={() => window.location.reload()}>خروج آمن</Button>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+          {/* 1. بيانات الهوية */}
           <Card className="bg-zinc-900 border-white/5 text-white shadow-2xl">
             <CardHeader className="bg-white/5 border-b"><CardTitle className="text-lg font-black flex items-center gap-2 justify-end"><Globe className="w-5 h-5 text-primary" /> 1. بيانات الهوية الجديدة</CardTitle></CardHeader>
             <CardContent className="space-y-4 pt-6">
@@ -137,60 +140,92 @@ export default function MasterRebranderPage() {
               </div>
               <div className="pt-4 border-t border-white/5 space-y-4">
                 <div className="space-y-1"><Label>توقيع المطور (سيتم استبداله عالمياً)</Label><Input value={formData.developerName} onChange={(e) => setFormData({...formData, developerName: e.target.value})} className="bg-black border-white/10" /></div>
-                <div className="space-y-1"><Label>تواصل المطور</Label><Input value={formData.developerContact} onChange={(e) => setFormData({...formData, developerContact: e.target.value})} className="bg-black border-white/10" /></div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-zinc-900 border-white/5 text-white shadow-2xl flex flex-col">
-            <CardHeader className="bg-white/5 border-b"><CardTitle className="text-lg font-black flex items-center gap-2 justify-end"><Database className="w-5 h-5 text-accent" /> 2. إعدادات Firebase السهلة</CardTitle></CardHeader>
-            <CardContent className="space-y-6 pt-6 flex-grow">
+          {/* 2. الألوان والـ GitHub */}
+          <div className="space-y-8">
+            <Card className="bg-zinc-900 border-white/5 text-white shadow-2xl">
+              <CardHeader className="bg-white/5 border-b"><CardTitle className="text-lg font-black flex items-center gap-2 justify-end"><Palette className="w-5 h-5 text-accent" /> 2. الألوان والثيم</CardTitle></CardHeader>
+              <CardContent className="space-y-6 pt-6">
+                <div className="grid grid-cols-2 gap-6">
+                   <div className="space-y-2">
+                      <Label>اللون الأساسي (Primary HSL)</Label>
+                      <Input value={formData.colors.primary} onChange={(e) => setFormData({...formData, colors: {...formData.colors, primary: e.target.value}})} className="bg-black border-white/10 font-mono text-xs" />
+                      <div className="h-4 rounded" style={{ backgroundColor: `hsl(${formData.colors.primary})` }} />
+                   </div>
+                   <div className="space-y-2">
+                      <Label>لون التميز (Accent HSL)</Label>
+                      <Input value={formData.colors.accent} onChange={(e) => setFormData({...formData, colors: {...formData.colors, accent: e.target.value}})} className="bg-black border-white/10 font-mono text-xs" />
+                      <div className="h-4 rounded" style={{ backgroundColor: `hsl(${formData.colors.accent})` }} />
+                   </div>
+                </div>
+                <p className="text-[10px] text-zinc-500 italic">ملاحظة: سيتم حقن هذه الألوان في ملف globals.css لتغيير هوية الموقع بالكامل.</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-zinc-900 border-white/5 text-white shadow-2xl border-dashed border-2 border-blue-500/20">
+              <CardHeader className="bg-blue-500/5 border-b"><CardTitle className="text-lg font-black flex items-center gap-2 justify-end text-blue-400"><Github className="w-5 h-5" /> 3. الربط مع GitHub</CardTitle></CardHeader>
+              <CardContent className="space-y-4 pt-6">
+                <div className="space-y-1"><Label>GitHub Personal Token</Label><Input type="password" placeholder="ghp_xxxx..." value={formData.github.token} onChange={(e) => setFormData({...formData, github: {...formData.github, token: e.target.value}})} className="bg-black border-white/10 text-xs" /></div>
+                <div className="space-y-1"><Label>اسم المستودع (Repo Name)</Label><Input placeholder="new-client-platform" value={formData.github.repoName} onChange={(e) => setFormData({...formData, github: {...formData.github, repoName: e.target.value}})} className="bg-black border-white/10" /></div>
+                <div className="p-3 bg-blue-500/10 rounded-lg flex items-center gap-3 text-[10px] text-blue-300">
+                   <AlertTriangle className="w-4 h-4 shrink-0" />
+                   <p>سيتم رفع النسخة "المطهّرة" فقط (بدون نظام الماستر) إلى حسابك على GitHub آلياً بعد التحميل.</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 3. إعدادات Firebase السهلة */}
+          <Card className="lg:col-span-2 bg-zinc-900 border-white/5 text-white shadow-2xl">
+            <CardHeader className="bg-white/5 border-b"><CardTitle className="text-lg font-black flex items-center gap-2 justify-end"><Code2 className="w-5 h-5 text-accent" /> 4. إعدادات Firebase (JSON)</CardTitle></CardHeader>
+            <CardContent className="space-y-6 pt-6">
               <div className="space-y-2">
-                <Label className="flex items-center gap-2 justify-end">ألصق كود الـ JSON الخاص بالمشروع هنا <Code2 className="w-4 h-4 text-accent" /></Label>
+                <Label className="flex items-center gap-2 justify-end">ألصق كود الـ JSON الخاص بالمشروع الجديد هنا <Zap className="w-3 h-3 text-accent" /></Label>
                 <Textarea 
                   placeholder='{"apiKey": "...", "projectId": "...", ...}' 
-                  className="min-h-[200px] bg-black border-white/10 font-mono text-[10px] text-accent"
+                  className="min-h-[150px] bg-black border-white/10 font-mono text-[10px] text-accent"
                   value={firebaseJson}
                   onChange={(e) => setFirebaseJson(e.target.value)}
                 />
-                <Button onClick={handleParseFirebaseJson} variant="secondary" className="w-full text-xs font-bold gap-2">
-                   <Zap className="w-3 h-3" /> تحليل وتطبيق الإعدادات
-                </Button>
-              </div>
-              
-              <div className="p-4 bg-black/50 rounded-xl border border-white/5 text-[10px] space-y-2">
-                 <p className="text-zinc-500 font-bold">القيم الحالية في الذاكرة:</p>
-                 <div className="grid grid-cols-2 gap-2 opacity-60">
-                    <p>Project: {formData.firebase.projectId}</p>
-                    <p>App ID: ...{formData.firebase.appId.slice(-10)}</p>
-                 </div>
+                <Button onClick={handleParseFirebaseJson} variant="secondary" className="w-full text-xs font-bold gap-2">تطبيق إعدادات الربط</Button>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="flex flex-col items-center gap-6 py-16 bg-primary/5 rounded-[3rem] border-2 border-dashed border-primary/30 relative overflow-hidden">
+        {/* زر الإنتاج النهائي */}
+        <div className="flex flex-col items-center gap-6 py-20 bg-primary/5 rounded-[4rem] border-4 border-dashed border-primary/20 relative overflow-hidden">
             <div className="absolute inset-0 bg-primary/5 animate-pulse pointer-events-none" />
             <PackageCheck className="w-24 h-24 text-primary" />
-            <div className="text-center space-y-2 relative z-10">
-              <h2 className="text-4xl font-black">تحميل النسخة المطهّرة (Zero-Trace)</h2>
-              <p className="text-zinc-400 font-bold max-w-2xl px-4">
-                المحرك الآن سيقوم بقراءة كل ملف، استبدال كل حرف يخص "البشمهندس" بالبيانات الجديدة، <br/>
-                وحذف نظام الماستر تماماً من ملف الـ ZIP الناتج.
+            <div className="text-center space-y-4 relative z-10">
+              <h2 className="text-5xl font-black">جاهز للتحميل والتصدير؟</h2>
+              <p className="text-zinc-400 font-bold max-w-3xl px-8 leading-relaxed">
+                الضغط على الزر أدناه سيقوم بعملية "تطهير شاملة"، تعديل الألوان، تغيير هوية الـ CSS، <br/>
+                وحذف كل ما له علاقة بك من النسخة النهائية لضمان ملكية كاملة للعميل الجديد.
               </p>
             </div>
             
-            <Button 
-              onClick={handleDownloadFullProject} 
-              disabled={isPackaging}
-              className="h-24 px-16 bg-primary text-black font-black text-3xl rounded-3xl shadow-2xl hover:scale-105 transition-all gap-5 relative z-10"
-            >
-              {isPackaging ? (
-                <><Loader2 className="w-10 h-10 animate-spin" /> جاري التطهير العالمي...</>
-              ) : (
-                <><Download className="w-10 h-10" /> فحص، تطهير، وتحميل ZIP</>
-              )}
-            </Button>
+            <div className="flex flex-wrap justify-center gap-6 relative z-10">
+              <Button 
+                onClick={handleDownloadFullProject} 
+                disabled={isPackaging}
+                className="h-24 px-16 bg-primary text-black font-black text-3xl rounded-[2rem] shadow-2xl hover:scale-105 transition-all gap-5"
+              >
+                {isPackaging ? (
+                  <><Loader2 className="w-10 h-10 animate-spin" /> جاري التطهير العالمي...</>
+                ) : (
+                  <><Download className="w-10 h-10" /> إنتاج النسخة المطهّرة ZIP</>
+                )}
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-4 text-accent font-bold animate-bounce mt-8">
+               <CheckCircle2 className="w-6 h-6" />
+               <span>تنبيه: سيتم حذف صفحة الماستر هذه تماماً من النسخة المحملة لضمان السرية.</span>
+            </div>
         </div>
       </div>
     </div>

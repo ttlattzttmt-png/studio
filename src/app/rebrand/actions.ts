@@ -2,7 +2,8 @@
 'use server';
 
 /**
- * @fileOverview محرك التطهير العميق - يقوم بفحص كافة ملفات المشروع واستبدال كافة الهويات القديمة بالجديدة آلياً.
+ * @fileOverview محرك التطهير والتصدير العالمي (The Ultimate Purger V2)
+ * يدعم التطهير العميق، تعديل الألوان، وتوليد حزم ZIP نظيفة 100%.
  */
 
 import fs from 'fs';
@@ -14,7 +15,7 @@ export async function packageProject(formData: any) {
   const zip = new JSZip();
   const rootDir = process.cwd();
 
-  // قائمة الاستبدال الشاملة (القديم -> الجديد)
+  // 1. قائمة الاستبدال الشاملة للهوية
   const replacements = [
     { search: OldConfig.name, replace: formData.name },
     { search: OldConfig.shortName, replace: formData.shortName },
@@ -26,11 +27,11 @@ export async function packageProject(formData: any) {
     { search: OldConfig.whatsappNumber, replace: formData.whatsappNumber },
   ];
 
-  // دالة لتطهير المحتوى نصياً
-  function purgeContent(content: string): string {
+  // 2. دالة التطهير العميق للمحتوى
+  function purgeContent(content: string, fileName: string): string {
     let purged = content;
     
-    // 1. استبدال كافة نصوص الهوية
+    // استبدال نصوص الهوية
     replacements.forEach(({ search, replace }) => {
       if (search && replace) {
         const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
@@ -38,10 +39,16 @@ export async function packageProject(formData: any) {
       }
     });
 
+    // معالجة خاصة للألوان في ملف CSS
+    if (fileName === 'globals.css') {
+      purged = purged.replace(/--primary: .*;/, `--primary: ${formData.colors.primary};`);
+      purged = purged.replace(/--accent: .*;/, `--accent: ${formData.colors.accent};`);
+    }
+
     return purged;
   }
 
-  // دالة لقراءة المجلدات بشكل تتابعي وإضافتها للـ ZIP مع التطهير
+  // 3. بناء هيكل المشروع داخل الـ ZIP
   async function addDirectoryToZip(currentDir: string, zipFolder: JSZip) {
     const files = fs.readdirSync(currentDir);
 
@@ -50,14 +57,15 @@ export async function packageProject(formData: any) {
       const stats = fs.statSync(fullPath);
       const relativePath = path.relative(rootDir, fullPath);
 
-      // استثناء الملفات الحساسة والمجلدات التي لا يجب أن يراها العميل
+      // استثناءات الأمان والتطهير
       if (
         file === 'node_modules' || 
         file === '.next' || 
         file === '.git' || 
-        file === 'rebrand' || // حذف أداة الأتمتة نهائياً من النسخة
+        file === 'rebrand' || // حذف أداة الأتمتة تماماً
         file === '.env' ||
-        file === 'package-lock.json'
+        file === 'package-lock.json' ||
+        file === '.DS_Store'
       ) continue;
 
       if (stats.isDirectory()) {
@@ -67,19 +75,20 @@ export async function packageProject(formData: any) {
         let content: string | Buffer = fs.readFileSync(fullPath);
         const ext = path.extname(file);
 
-        // تطهير كافة الملفات النصية فقط
-        const textExtensions = ['.ts', '.tsx', '.js', '.jsx', '.json', '.md', '.rules', '.css', '.html', '.txt'];
+        // تطهير الملفات النصية
+        const textExtensions = ['.ts', '.tsx', '.js', '.jsx', '.json', '.md', '.rules', '.css', '.html', '.txt', '.yaml', '.yml'];
         if (textExtensions.includes(ext)) {
           let textContent = content.toString();
 
-          // معالجة خاصة لملفات الإعدادات لضمان دقة البيانات
+          // حقن الإعدادات الجديدة في الملفات المركزية
           if (relativePath === 'src/lib/brand-config.ts') {
              textContent = `export const BrandConfig = ${JSON.stringify(formData, null, 2)};`;
           } else if (relativePath === 'src/firebase/config.ts') {
              textContent = `export const firebaseConfig = ${JSON.stringify(formData.firebase, null, 2)};`;
+          } else if (relativePath === 'README.md') {
+             textContent = `# ${formData.name} (eplat) - النسخة النهائية المستقرة\n\nهذا هو الكود المصدري الكامل للمنصة، جاهز للرفع والتشغيل الفوري.\n\n**صنع بكل فخر بواسطة: ${formData.developerName}**`;
           } else {
-             // تطهير شامل لبقية الملفات (بما في ذلك README و Layouts والـ PDF templates)
-             textContent = purgeContent(textContent);
+             textContent = purgeContent(textContent, file);
           }
           
           content = textContent;
@@ -92,7 +101,7 @@ export async function packageProject(formData: any) {
 
   await addDirectoryToZip(rootDir, zip);
 
-  // توليد الـ ZIP كـ Base64
+  // 4. توليد الملف النهائي
   const base64 = await zip.generateAsync({ 
     type: 'base64',
     compression: "DEFLATE",

@@ -28,9 +28,9 @@ export const BrandConfig = {
     youtube: "https://youtube.com/c/elbashmohandes",
   },
 
-  // إعدادات الألوان HSL
+  // إعدادات الألوان HSL (سيتم استبدالها آلياً)
   colors: {
-    primary: "45 100% 50%", // الذهبي
-    accent: "122 39% 49%",   // الأخضر
+    primary: "45 100% 50%", // الذهبي الحالي
+    accent: "122 39% 49%",   // الأخضر الحالي
   }
 };
