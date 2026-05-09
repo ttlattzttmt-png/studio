@@ -2,6 +2,7 @@
 "use client";
 
 import { SidebarNav } from '@/components/layout/sidebar-nav';
+import { BrandConfig } from '@/lib/brand-config';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -11,7 +12,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="container mx-auto p-4 md:p-8">
           {children}
           <div className="mt-20 border-t pt-8 text-center pb-8">
-            <p className="text-sm text-muted-foreground">made by : mohamed alaa</p>
+            <p className="text-sm text-muted-foreground">made by : {BrandConfig.developerName}</p>
           </div>
         </div>
       </main>

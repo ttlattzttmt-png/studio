@@ -1,6 +1,8 @@
+
 /**
- * @fileOverview أدوات مساعدة للربط الاحترافي مع واتساب - نظام الإرسال الآلي (البشمهندس PRO)
+ * @fileOverview أدوات مساعدة للربط الاحترافي مع واتساب - نظام الإرسال الآلي
  */
+import { BrandConfig } from '@/lib/brand-config';
 
 interface GatewayConfig {
   apiKey: string;
@@ -8,34 +10,25 @@ interface GatewayConfig {
   senderNumber: string;
 }
 
-/**
- * تنظيف وتنسيق الرقم المصري
- */
 export const formatEgyptianNumber = (phoneNumber: string) => {
   if (!phoneNumber) return '';
   const clean = phoneNumber.replace(/\D/g, '');
-  // تحويل الرقم المصري للصيغة الدولية 20
   if (clean.startsWith('01')) return `2${clean}`;
   if (clean.startsWith('1')) return `20${clean}`;
   if (!clean.startsWith('20') && clean.length === 10) return `20${clean}`;
   return clean.startsWith('20') ? clean : `20${clean}`;
 };
 
-/**
- * إرسال رسالة آلية عبر بوابة API (بدون فتح تبويبات)
- */
 export const sendAutomatedMessage = async (to: string, message: string, config?: GatewayConfig) => {
   if (!config?.apiKey || !config?.instanceId) {
-    // Fallback: إذا لم يتم إعداد API، نستخدم الطريقة التقليدية (فتح الرابط)
     const formattedNum = formatEgyptianNumber(to);
     const url = `https://wa.me/${formattedNum}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
+    if (typeof window !== 'undefined') window.open(url, '_blank');
     return { success: true, mode: 'manual' };
   }
 
   try {
     const formattedNum = formatEgyptianNumber(to);
-    // استخدام بوابة UltraMsg كمثال احترافي للربط الحقيقي
     const response = await fetch(`https://api.ultramsg.com/${config.instanceId}/messages/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -51,16 +44,15 @@ export const sendAutomatedMessage = async (to: string, message: string, config?:
     return { success: !!result.sent || result.status === 'success', mode: 'api', result };
   } catch (error) {
     console.error("WhatsApp API Error:", error);
-    // في حالة فشل الـ API، نعود للفتح اليدوي لضمان وصول الرسالة
     const formattedNum = formatEgyptianNumber(to);
     const url = `https://wa.me/${formattedNum}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
+    if (typeof window !== 'undefined') window.open(url, '_blank');
     return { success: false, mode: 'fallback', error };
   }
 };
 
 export const formatExamResultMessage = (studentName: string, examTitle: string, score: number, points: number, total: number) => {
-  return `*منصة البشمهندس التعليمية* 🎓
+  return `*${BrandConfig.name}* 🎓
   
 مرحباً، نود إبلاغكم بنتيجة اختبار الطالب: *${studentName}*
 في مادة/اختبار: *${examTitle}*
@@ -74,13 +66,14 @@ export const formatExamResultMessage = (studentName: string, examTitle: string, 
 };
 
 export const formatNotificationMessage = (title: string, message: string) => {
-  return `*إشعار هام من منصة البشمهندس* 📢
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  return `*إشعار هام من ${BrandConfig.shortName}* 📢
 
 *${title}*
 
 ${message}
 
-يمكنك الدخول للمنصة للمتابعة: ${window.location.origin}
+يمكنك الدخول للمنصة للمتابعة: ${origin}
 --------------------------------
 بشمهندس، مستقبلك يبدأ من هنا. 🚀`;
 };

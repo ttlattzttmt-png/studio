@@ -1,9 +1,11 @@
+
 "use client";
 
 import Link from 'next/link';
 import { Button } from './button';
 import { ShieldCheck, User, LayoutDashboard, BookOpen } from 'lucide-react';
 import { useUser } from '@/firebase';
+import { BrandConfig } from '@/lib/brand-config';
 
 export function Navbar() {
   const { user } = useUser();
@@ -13,7 +15,7 @@ export function Navbar() {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-8">
           <Link href={user ? "/student" : "/"} className="flex items-center gap-2">
-            <span className="text-2xl font-headline font-bold text-primary">البشمهندس</span>
+            <span className="text-2xl font-headline font-bold text-primary">{BrandConfig.shortName}</span>
             <ShieldCheck className="w-6 h-6 text-primary" />
           </Link>
           

@@ -1,5 +1,7 @@
+
 import { ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
+import { BrandConfig } from '@/lib/brand-config';
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -9,11 +11,11 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-2xl font-headline font-bold text-primary">البشمهندس</span>
+              <span className="text-2xl font-headline font-bold text-primary">{BrandConfig.shortName}</span>
               <ShieldCheck className="w-6 h-6 text-primary" />
             </div>
             <p className="text-muted-foreground max-w-sm">
-              المنصة التعليمية الرائدة لتبسيط العلوم الهندسية والفيزيائية لطلاب المرحلة الثانوية. نهدف إلى خلق جيل مبدع ومتميز.
+              {BrandConfig.description}
             </p>
           </div>
           <div>
@@ -27,18 +29,18 @@ export function Footer() {
           <div>
             <h4 className="font-headline font-bold mb-4">تواصل معنا</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li dir="ltr" className="hover:text-primary transition-colors cursor-pointer">واتساب: 01008006562</li>
-              <li className="hover:text-primary transition-colors cursor-pointer">فيسبوك: البشمهندس</li>
-              <li className="hover:text-primary transition-colors cursor-pointer">يوتيوب: قناة البشمهندس</li>
+              <li dir="ltr" className="hover:text-primary transition-colors cursor-pointer">واتساب: {BrandConfig.supportPhone}</li>
+              <li className="hover:text-primary transition-colors cursor-pointer">فيسبوك: {BrandConfig.shortName}</li>
+              <li className="hover:text-primary transition-colors cursor-pointer">يوتيوب: قناة {BrandConfig.shortName}</li>
             </ul>
           </div>
         </div>
         <div className="border-t mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            &copy; {currentYear} منصة البشمهندس. جميع الحقوق محفوظة.
+            &copy; {currentYear} {BrandConfig.name}. جميع الحقوق محفوظة.
           </p>
           <p className="text-sm font-medium text-primary">
-            made by : mohamed alaa
+            made by : {BrandConfig.developerName}
           </p>
         </div>
       </div>
