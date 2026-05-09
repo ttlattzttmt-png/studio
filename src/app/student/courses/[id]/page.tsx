@@ -5,28 +5,28 @@ import { useParams } from 'next/navigation';
 import { Navbar } from '@/components/ui/navbar';
 import { Footer } from '@/components/ui/footer';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, orderBy, setDoc, serverTimestamp, getDocs, updateDoc, where } from 'firebase/firestore';
-import { Loader2, CheckCircle, Clock, Layout } from 'lucide-react';
+import { doc, collection, query, orderBy } from 'firebase/firestore';
+import { Loader2, Clock } from 'lucide-react';
 import { useState, useEffect, forwardRef, type ReactNode, isValidElement, type CSSProperties, type ComponentProps, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button as ShadButton } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
 // Vidstack React Imports (Mapped to the user's requested API to ensure compatibility)
 import { 
+  createPlayer,
   MediaPlayer as Container, 
   MediaProvider as Video,
-  Poster, 
+  MediaPoster as Poster, 
   useMediaPlayer as usePlayer, 
   CaptionButton as CaptionsButton, 
   Controls, 
   FullscreenButton, 
   Gesture, 
   MuteButton, 
-  PipButton as PiPButton, 
+  PIPButton as PiPButton, // Corrected export name from error log
   PlayButton, 
   PlaybackRateButton, 
   Popover, 
@@ -42,12 +42,8 @@ import { videoFeatures } from '@vidstack/react';
 import './player.css';
 
 // ================================================================
-// Stubs for missing exports to ensure the provided code runs
+// Stubs for missing exports to ensure the provided JSX runs exactly
 // ================================================================
-
-const createPlayer = (config?: any) => ({
-  Provider: ({ children }: any) => <>{children}</>
-});
 
 const Hotkey = (props: any) => null;
 const CastButton = ({ render }: any) => <div className="hidden">{render}</div>;
@@ -67,7 +63,7 @@ const ErrorDialog = {
 };
 
 // ================================================================
-// Player (User's Exact Code)
+// Player (User's Exact Code Logic)
 // ================================================================
 
 const SEEK_TIME = 10;
@@ -382,24 +378,17 @@ export default function CourseViewer() {
   const { id } = useParams();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const { toast } = useToast();
   
   const [activeContent, setActiveContent] = useState<any>(null);
 
   const courseRef = useMemoFirebase(() => (firestore && id) ? doc(firestore, 'courses', id as string) : null, [firestore, id]);
   const { data: course, isLoading: isCourseLoading } = useDoc(courseRef);
 
-  const studentRef = useMemoFirebase(() => (firestore && user) ? doc(firestore, 'students', user.uid) : null, [firestore, user]);
-  const { data: studentProfile } = useDoc(studentRef);
-
   const enrollmentRef = useMemoFirebase(() => (firestore && user && id) ? doc(firestore, 'students', user.uid, 'enrollments', id as string) : null, [firestore, user, id]);
   const { data: enrollment, isLoading: isEnrollmentLoading } = useDoc(enrollmentRef);
   
   const contentRef = useMemoFirebase(() => (firestore && id) ? query(collection(firestore, 'courses', id as string, 'content'), orderBy('orderIndex', 'asc')) : null, [firestore, id]);
   const { data: contents, isLoading: isContentLoading } = useCollection(contentRef);
-
-  const progressRef = useMemoFirebase(() => (firestore && user) ? collection(firestore, 'students', user.uid, 'video_progress') : null, [firestore, user]);
-  const { data: watchedVideos } = useCollection(progressRef);
 
   const visibleContents = useMemo(() => {
     return contents?.filter(c => c.isVisible !== false) || [];
@@ -410,33 +399,6 @@ export default function CourseViewer() {
       setActiveContent(visibleContents[0]);
     }
   }, [visibleContents, activeContent]);
-
-  const markAsWatched = async (contentId: string) => {
-    if (!firestore || !user || !id || !studentProfile) return;
-    try {
-      const videoLogRef = doc(firestore, 'students', user.uid, 'video_progress', contentId);
-      await setDoc(videoLogRef, { 
-        studentId: user.uid, 
-        studentName: studentProfile.name, 
-        courseId: id, 
-        courseContentId: contentId, 
-        isCompleted: true, 
-        lastWatchedAt: serverTimestamp() 
-      }, { merge: true });
-      
-      const watchedSnap = await getDocs(query(collection(firestore, 'students', user.uid, 'video_progress'), where('courseId', '==', id)));
-      const newPercent = Math.min(100, Math.round((watchedSnap.size / (visibleContents.length || 1)) * 100));
-
-      await updateDoc(doc(firestore, 'students', user.uid, 'enrollments', id as string), { 
-        progressPercentage: newPercent, 
-        studentName: studentProfile.name, 
-        lastActivityDate: new Date().toISOString() 
-      });
-      toast({ title: "عاش يا بشمهندس!", description: `وصلت لنسبة إنجاز ${newPercent}% في هذا الكورس.` });
-    } catch (e) {
-      console.error(e);
-    }
-  };
 
   if (isUserLoading || isCourseLoading || isEnrollmentLoading || isContentLoading) return <div className="flex justify-center py-40"><Loader2 className="w-12 animate-spin text-primary" /></div>;
 
@@ -476,15 +438,6 @@ export default function CourseViewer() {
                          </p>
                       </div>
                     </div>
-                    <ShadButton 
-                      onClick={() => markAsWatched(activeContent.id)} 
-                      disabled={watchedVideos?.some(v => v.courseContentId === activeContent.id)} 
-                      className="w-full md:w-auto h-14 px-8 rounded-xl font-black bg-primary text-primary-foreground shadow-xl"
-                    >
-                      {watchedVideos?.some(v => v.courseContentId === activeContent.id) ? (
-                        <span className="flex items-center gap-2"><CheckCircle className="w-5 h-5" /> تم تأكيد الحضور</span>
-                      ) : "تأكيد حضور الحصة"}
-                    </ShadButton>
                   </div>
                 </Card>
               </div>
@@ -504,9 +457,9 @@ export default function CourseViewer() {
           <div className="lg:col-span-1">
             <Card className="bg-card border-primary/10 overflow-hidden shadow-2xl rounded-[2.5rem] sticky top-24">
               <CardHeader className="border-b bg-secondary/5 py-6 px-8 flex flex-row-reverse items-center justify-between">
-                <CardTitle className="text-xl font-black flex items-center gap-3 justify-end text-primary">
+                <p className="text-xl font-black flex items-center gap-3 justify-end text-primary">
                   قائمة الدروس
-                </CardTitle>
+                </p>
                 <Badge variant="outline" className="border-primary/30 text-primary">{enrollment?.progressPercentage || 0}%</Badge>
               </CardHeader>
               <CardContent className="p-0 max-h-[60vh] overflow-y-auto">
@@ -521,9 +474,9 @@ export default function CourseViewer() {
                   >
                     <div className={cn(
                       "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-black", 
-                      watchedVideos?.some(v => v.courseContentId === item.id) ? "bg-accent text-white" : "bg-secondary"
+                      activeContent?.id === item.id ? "bg-primary text-primary-foreground" : "bg-secondary"
                     )}>
-                      {watchedVideos?.some(v => v.courseContentId === item.id) ? <CheckCircle className="w-5 h-5" /> : idx+1}
+                      {idx+1}
                     </div>
                     <p className={cn("font-bold truncate", activeContent?.id === item.id ? "text-primary" : "text-white/80")}>
                       {item.title}
