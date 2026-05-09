@@ -11,6 +11,7 @@ import { ShieldCheck, Lock, User, Loader2 } from 'lucide-react';
 import { useFirebase } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
+import { BrandConfig } from '@/lib/brand-config';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -20,18 +21,18 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const ADMIN_EMAIL = 'admin@al-bashmohandes.com';
   const MASTER_EMAIL = 'master@admin.com';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth) return;
     
+    // منع دخول الماستر من صفحة الطلاب
     if (email.toLowerCase() === MASTER_EMAIL.toLowerCase()) {
       toast({
         variant: "destructive",
         title: "حساب محمي",
-        description: "هذا الحساب مخصص لأدوات الأتمتة فقط. يرجى الدخول من صفحة /rebrand"
+        description: "هذا الحساب مخصص لأدوات الماستر فقط. يرجى الدخول من صفحة /rebrand"
       });
       return;
     }
@@ -41,7 +42,8 @@ export default function LoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const userEmail = userCredential.user.email?.toLowerCase();
 
-      if (userEmail === ADMIN_EMAIL.toLowerCase()) {
+      // التوجيه بناءً على الإيميل المسجل في الإعدادات المركزية
+      if (userEmail === BrandConfig.adminEmail.toLowerCase()) {
         toast({ title: "مرحباً بك يا بشمهندس", description: "جاري فتح لوحة التحكم..." });
         router.push('/admin');
       } else {
@@ -50,16 +52,10 @@ export default function LoginPage() {
       }
 
     } catch (error: any) {
-      let errorMessage = "البريد الإلكتروني أو كلمة المرور غير صحيحة. تأكد من صحة البيانات.";
-      
-      if (error.code === 'auth/too-many-requests') {
-        errorMessage = "تم حظر الدخول مؤقتاً بسبب محاولات كثيرة خاطئة. حاول لاحقاً.";
-      }
-
       toast({
         variant: "destructive",
         title: "فشل الدخول",
-        description: errorMessage
+        description: "البريد الإلكتروني أو كلمة المرور غير صحيحة."
       });
     } finally {
       setIsLoading(false);
@@ -76,7 +72,7 @@ export default function LoginPage() {
             <ShieldCheck className="w-10 h-10" />
           </div>
           <h2 className="text-3xl font-headline font-bold mb-2">تسجيل الدخول</h2>
-          <p className="text-muted-foreground">أهلاً بك في منصة البشمهندس التعليمية</p>
+          <p className="text-muted-foreground">أهلاً بك في {BrandConfig.name}</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6 relative">

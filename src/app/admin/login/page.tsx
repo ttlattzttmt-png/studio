@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { UserCog, Loader2 } from 'lucide-react';
 import { useAuth, initiateEmailSignIn } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
+import { BrandConfig } from '@/lib/brand-config';
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('');
@@ -23,6 +24,16 @@ export default function AdminLoginPage() {
     e.preventDefault();
     if (!auth) return;
 
+    // التأكد أن الشخص الذي يحاول الدخول هو الأدمن المسجل في الإعدادات
+    if (email.toLowerCase() !== BrandConfig.adminEmail.toLowerCase()) {
+      toast({
+        variant: "destructive",
+        title: "غير مسموح",
+        description: "هذا البريد ليس له صلاحيات الوصول للوحة التحكم."
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       await initiateEmailSignIn(auth, email, password);
@@ -31,7 +42,7 @@ export default function AdminLoginPage() {
       toast({
         variant: "destructive",
         title: "خطأ في الدخول",
-        description: "تأكد من بيانات المشرف."
+        description: "تأكد من بريد المسؤول وكلمة السر."
       });
     } finally {
       setIsLoading(false);
@@ -48,18 +59,16 @@ export default function AdminLoginPage() {
             <UserCog className="w-10 h-10" />
           </div>
           <h2 className="text-3xl font-headline font-bold mb-2">لوحة المشرف</h2>
-          <p className="text-muted-foreground">مرحباً بك في غرفة التحكم، بشمهندس</p>
+          <p className="text-muted-foreground">مرحباً بك في غرفة التحكم، {BrandConfig.shortName}</p>
         </div>
 
         <form onSubmit={handleAdminLogin} className="space-y-6 relative">
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-sm font-bold flex items-center gap-2">
-              بريد المسؤول
-            </Label>
+            <Label htmlFor="email" className="text-sm font-bold">بريد المسؤول الرسمي</Label>
             <Input 
               id="email" 
               type="email" 
-              placeholder="admin@al-bashmohandes.com" 
+              placeholder={BrandConfig.adminEmail} 
               className="h-12 bg-background border-primary/10 focus:border-primary" 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -95,7 +104,7 @@ export default function AdminLoginPage() {
         </p>
       </div>
       
-      <p className="mt-8 text-xs text-muted-foreground">made by : mohamed alaa</p>
+      <p className="mt-8 text-xs text-muted-foreground">made by : {BrandConfig.developerName}</p>
     </div>
   );
 }

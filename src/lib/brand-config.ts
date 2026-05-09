@@ -1,24 +1,24 @@
 
 /**
  * @fileOverview المكتبة المركزية لإعدادات الهوية (عقل المنصة)
- * تعديل أي قيمة هنا سيغيرها فوراً في كافة أركان المنصة، الإشعارات، ملفات الـ PDF، والـ SEO.
+ * ملاحظة: هذا الملف يتم استبداله بالكامل عند إنشاء نسخة لعميل جديد من صفحة /rebrand
  */
 
 export const BrandConfig = {
-  // المعلومات الأساسية
+  // المعلومات الأساسية للمنصة
   name: "منصة البشمهندس",
   shortName: "البشمهندس",
   description: "المنصة التعليمية الأولى لطلاب الهندسة والمرحلة الثانوية",
   
-  // بيانات التواصل
+  // بيانات التواصل (تظهر في كل مكان)
   supportPhone: "01008006562",
   supportEmail: "support@al-bashmohandes.com",
-  whatsappNumber: "201008006562", // الصيغة الدولية بدون +
+  whatsappNumber: "201008006562",
   
-  // الإدارة (الأمان)
+  // الإدارة والأمان (البريد الذي سيصبح هو الأدمن الوحيد)
   adminEmail: "admin@al-bashmohandes.com",
   
-  // توقيع المطور (Credits)
+  // توقيع المطور (يظهر في الأسفل)
   developerName: "Mohamed Alaa",
   developerContact: "01008006562",
   
@@ -28,17 +28,9 @@ export const BrandConfig = {
     youtube: "https://youtube.com/c/elbashmohandes",
   },
 
-  // الألوان (بصيغة HSL لسهولة التعديل)
+  // إعدادات الألوان HSL
   colors: {
     primary: "45 100% 50%", // الذهبي
     accent: "122 39% 49%",   // الأخضر
-  },
-
-  // قوالب الرسائل الآلية
-  whatsappTemplates: {
-    examResult: (studentName: string, examTitle: string, score: number) => 
-      `*${BrandConfig.name}* 🎓\n\nمرحباً، نتيجة الطالب: *${studentName}*\nفي مادة: *${examTitle}*\nالدرجة: *${score}%*\n\nمع تمنياتنا بالتوفيق. ✨`,
-    notification: (title: string, msg: string) => 
-      `*إشعار من ${BrandConfig.shortName}* 📢\n\n*${title}*\n\n${msg}\n\nللمتابعة: ${typeof window !== 'undefined' ? window.location.origin : ''}`
   }
 };
