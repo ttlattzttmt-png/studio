@@ -8,7 +8,7 @@ import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, orderBy } from 'firebase/firestore';
 import { Loader2, Clock } from 'lucide-react';
 import { useState, useEffect, forwardRef, type ReactNode, isValidElement, type CSSProperties, type ComponentProps, useMemo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button as ShadButton } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -16,10 +16,9 @@ import Link from 'next/link';
 
 // Vidstack React Imports (Mapped to the user's requested API to ensure compatibility)
 import { 
-  createPlayer,
   MediaPlayer as Container, 
   MediaProvider as Video,
-  MediaPoster as Poster, 
+  Poster, 
   useMediaPlayer as usePlayer, 
   CaptionButton as CaptionsButton, 
   Controls, 
@@ -44,6 +43,10 @@ import './player.css';
 // ================================================================
 // Stubs for missing exports to ensure the provided JSX runs exactly
 // ================================================================
+
+const createPlayer = ({ features }: any) => ({
+  Provider: ({ children }: any) => <>{children}</>,
+});
 
 const Hotkey = (props: any) => null;
 const CastButton = ({ render }: any) => <div className="hidden">{render}</div>;
