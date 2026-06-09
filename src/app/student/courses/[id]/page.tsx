@@ -6,9 +6,9 @@ import { Navbar } from '@/components/ui/navbar';
 import { Footer } from '@/components/ui/footer';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, collection, query, orderBy, updateDoc, increment, setDoc, getDoc } from 'firebase/firestore';
-import { Loader2, Clock, PlayCircle, Lock, BookOpen, ChevronLeft, ShieldCheck, Trophy, CheckCircle2 } from 'lucide-react';
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Loader2, Clock, PlayCircle, Lock, BookOpen, ChevronLeft, Trophy, CheckCircle2 } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -16,7 +16,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useToast } from '@/hooks/use-toast';
 
-// استيراد المشغل بشكل ديناميكي لضمان التوافقية
+// استيراد المشغل بشكل ديناميكي لضمان التوافقية مع Next.js
 const ReactPlayer = dynamic(() => import('react-player/lazy'), { ssr: false });
 
 export default function CourseViewer() {
@@ -57,7 +57,7 @@ export default function CourseViewer() {
     }
   }, [visibleContents, activeContent]);
 
-  // تحديث مكان العلامة المائية
+  // تحديث مكان العلامة المائية بشكل عشوائي كل دقيقة
   useEffect(() => {
     const interval = setInterval(() => {
       setWatermarkPos({
@@ -68,7 +68,7 @@ export default function CourseViewer() {
     return () => clearInterval(interval);
   }, []);
 
-  // وظيفة الضغط على زر "تم سماع المحاضرة"
+  // وظيفة الضغط على زر "تم سماع المحاضرة" - تمنح نقاط وتحدث التقدم
   const handleMarkAsCompleted = async () => {
     if (!firestore || !user || !id || !activeContent || isCompleting) return;
     
@@ -77,9 +77,9 @@ export default function CourseViewer() {
       const progressDocRef = doc(firestore, 'students', user.uid, 'video_progress', activeContent.id);
       const progressSnap = await getDoc(progressDocRef);
       
-      // إذا لم تكن مكتملة مسبقاً، نمنح النقاط
+      // إذا لم تكن مكتملة مسبقاً، نمنح النقاط ونحدث التقدم
       if (!progressSnap.exists() || !progressSnap.data().isCompleted) {
-        // 1. إضافة سجل الإتمام
+        // 1. إضافة سجل الإتمام للدرس
         await setDoc(progressDocRef, {
           courseId: id,
           contentId: activeContent.id,
@@ -96,7 +96,6 @@ export default function CourseViewer() {
         // 3. تحديث نسبة تقدم الكورس
         if (enrollment) {
           const totalItems = visibleContents.length || 1;
-          // حساب عدد العناصر المكتملة فعلياً من السجل
           const newlyCompletedCount = (completedVideos?.length || 0) + 1;
           const newProgress = Math.min(100, Math.round((newlyCompletedCount / totalItems) * 100));
           
@@ -130,6 +129,7 @@ export default function CourseViewer() {
     );
   }
 
+  // التحقق من الصلاحية: إما كورس مجاني أو اشتراك مفعل
   const hasAccess = (enrollment && enrollment.status === 'active') || course?.price === 0;
   if (!hasAccess) return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6">
@@ -148,7 +148,7 @@ export default function CourseViewer() {
       <main className="flex-grow pt-24 pb-20 container mx-auto px-4">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* منطقة المشغل */}
+          {/* منطقة عرض المحتوى (المشغل) */}
           <div className="lg:col-span-2 space-y-6">
             {activeContent?.contentType === 'Video' ? (
               <div className="space-y-6 animate-in fade-in duration-700">
@@ -159,10 +159,18 @@ export default function CourseViewer() {
                       height="100%"
                       controls={true}
                       playing={false}
-                      config={{ youtube: { playerVars: { modestbranding: 1, rel: 0 } } }}
+                      config={{ 
+                        youtube: { 
+                          playerVars: { 
+                            modestbranding: 1, 
+                            rel: 0,
+                            disablekb: 1
+                          } 
+                        } 
+                      }}
                    />
                    
-                   {/* العلامة المائية */}
+                   {/* علامة مائية أمنية متحركة باسم موبايل الطالب */}
                    <div 
                     className="absolute pointer-events-none opacity-10 select-none z-50 transition-all duration-1000"
                     style={{ top: watermarkPos.top, left: watermarkPos.left }}
@@ -188,7 +196,7 @@ export default function CourseViewer() {
                       </div>
                     </div>
                     
-                    {/* زر إتمام المحاضرة المستعاد */}
+                    {/* زر إتمام المحاضرة للحصول على نقاط وتحديث التقدم */}
                     <div className="flex flex-col items-center gap-3">
                       <Button 
                         onClick={handleMarkAsCompleted}
