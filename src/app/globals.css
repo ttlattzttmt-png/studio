@@ -11,20 +11,20 @@
     --card-foreground: 0 0% 98%;
     --popover: 0 0% 12%;
     --popover-foreground: 0 0% 98%;
-    --primary: 45 100% 50%; /* هذا السطر يتم استبداله آلياً عبر محرك التطهير */
+    --primary: 45 100% 50%;
     --primary-foreground: 0 0% 10%;
     --secondary: 0 0% 18%;
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 20%;
     --muted-foreground: 0 0% 70%;
-    --accent: 122 39% 49%; /* هذا السطر يتم استبداله آلياً عبر محرك التطهير */
+    --accent: 122 39% 49%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 20%;
     --input: 0 0% 20%;
     --ring: 45 100% 50%;
-    --radius: 1rem;
+    --radius: 1.25rem;
   }
 }
 
@@ -42,30 +42,22 @@
     -ms-user-select: none !important;
     -webkit-touch-callout: none !important;
     overflow-x: hidden;
-    /* تحسين تجربة التطبيق ومنع السحب للأسفل لتحديث الصفحة */
     overscroll-behavior-y: contain;
     touch-action: pan-x pan-y;
+    line-height: 1.6;
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline;
-  }
-}
-
-@media print {
-  body {
-    display: none !important;
-  }
-  * {
-    display: none !important;
+    letter-spacing: -0.02em;
   }
 }
 
 .font-body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Almarai', sans-serif;
 }
 
 .font-headline {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Cairo', sans-serif;
 }
 
 ::-webkit-scrollbar {
