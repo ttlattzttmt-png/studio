@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -16,13 +17,16 @@ import {
   PlayCircle
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, query, orderBy, doc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, setDoc } from 'firebase/firestore';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function CoursesPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [enrollingId, setEnrollingId] = useState<string | null>(null);
   const firestore = useFirestore();
   const { user } = useUser();
+  const router = useRouter();
 
   const studentRef = useMemoFirebase(() => user ? doc(firestore, 'students', user.uid) : null, [firestore, user]);
   const { data: student } = useDoc(studentRef);
@@ -49,6 +53,38 @@ export default function CoursesPage() {
     }
     return filtered;
   }, [courses, student, searchTerm]);
+
+  const handleFreeEnrollment = async (course: any) => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+    if (!firestore) return;
+
+    setEnrollingId(course.id);
+    try {
+      // إنشاء سجل اشتراك رسمي ومفعل للكورس المجاني
+      await setDoc(doc(firestore, 'students', user.uid, 'enrollments', course.id), {
+        id: course.id,
+        courseId: course.id,
+        studentId: user.uid,
+        status: 'active',
+        enrollmentDate: new Date().toISOString(),
+        activationDate: new Date().toISOString(),
+        progressPercentage: 0,
+        isCompleted: false,
+        courseTitle: course.title,
+        redeemedCode: 'FREE_ACCESS'
+      });
+      
+      // التوجه لمشاهدة الكورس
+      router.push(`/student/courses/${course.id}`);
+    } catch (e) {
+      console.error("Enrollment error:", e);
+    } finally {
+      setEnrollingId(null);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -113,13 +149,26 @@ export default function CoursesPage() {
                       
                       <div className="mt-auto pt-6 border-t border-primary/5 flex flex-row-reverse items-center justify-between">
                         <div className="text-2xl font-black text-accent">{isFree ? 'مجاناً' : `${course.price} ج.م`}</div>
-                        {isActive || isFree ? (
+                        
+                        {isActive ? (
                           <Link href={`/student/courses/${course.id}`}>
                             <Button className="bg-accent text-white gap-2 rounded-xl h-11">
-                              {isFree && !isActive ? <PlayCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />} 
-                              {isFree && !isActive ? "ابدأ التعلم الآن" : "فتح الكورس"}
+                              <CheckCircle className="w-4 h-4" /> فتح الكورس
                             </Button>
                           </Link>
+                        ) : isFree ? (
+                          <Button 
+                            onClick={() => handleFreeEnrollment(course)}
+                            disabled={enrollingId === course.id}
+                            className="bg-accent text-white gap-2 rounded-xl h-11 font-bold shadow-lg shadow-accent/20 active:scale-95 transition-transform"
+                          >
+                            {enrollingId === course.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <PlayCircle className="w-4 h-4" />
+                            )}
+                            ابدأ التعلم الآن
+                          </Button>
                         ) : (
                           <Link href="/student/redeem">
                             <Button className="bg-primary text-primary-foreground font-bold rounded-xl h-11 px-6">اشترك الآن</Button>
