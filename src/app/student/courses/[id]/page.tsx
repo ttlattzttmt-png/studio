@@ -6,13 +6,17 @@ import { Navbar } from '@/components/ui/navbar';
 import { Footer } from '@/components/ui/footer';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, collection, query, orderBy } from 'firebase/firestore';
-import { Loader2, Clock, PlayCircle, Lock, BookOpen, ChevronLeft, ShieldAlert } from 'lucide-react';
+import { Loader2, Clock, PlayCircle, Lock, BookOpen, ChevronLeft } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
+
+// استيراد المشغل بشكل ديناميكي لتجنب مشاكل الـ SSR
+const ReactPlayer = dynamic(() => import('react-player/lazy'), { ssr: false });
 
 export default function CourseViewer() {
   const { id } = useParams();
@@ -20,21 +24,12 @@ export default function CourseViewer() {
   const firestore = useFirestore();
   
   const [activeContent, setActiveContent] = useState<any>(null);
-  const [isBlocked, setIsBlocked] = useState(false);
 
-  // حماية المحتوى من تصوير الشاشة أو الخروج من التبويب
+  // منع القائمة المنسدلة (Right Click) فقط لحماية المحتوى دون إعاقة التجربة
   useEffect(() => {
-    const triggerProtection = () => setIsBlocked(true);
-    const restoreView = () => setTimeout(() => setIsBlocked(false), 2000);
-    
-    window.addEventListener('blur', triggerProtection);
-    window.addEventListener('focus', restoreView);
-    document.addEventListener('contextmenu', (e) => e.preventDefault());
-    
-    return () => {
-      window.removeEventListener('blur', triggerProtection);
-      window.removeEventListener('focus', restoreView);
-    };
+    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
+    document.addEventListener('contextmenu', handleContextMenu);
+    return () => document.removeEventListener('contextmenu', handleContextMenu);
   }, []);
 
   // جلب بروفايل الطالب لعرض بياناته في العلامة المائية
@@ -61,7 +56,12 @@ export default function CourseViewer() {
   }, [visibleContents, activeContent]);
 
   if (isUserLoading || isCourseLoading || isEnrollmentLoading || isContentLoading) {
-    return <div className="flex flex-col items-center justify-center py-40 gap-4"><Loader2 className="w-12 h-12 animate-spin text-primary" /><p className="font-bold text-muted-foreground animate-pulse">جاري تحميل الحصة...</p></div>;
+    return (
+      <div className="flex flex-col items-center justify-center py-40 gap-4">
+        <Loader2 className="w-12 h-12 animate-spin text-primary" />
+        <p className="font-bold text-muted-foreground animate-pulse">جاري تحميل الحصة...</p>
+      </div>
+    );
   }
 
   const hasAccess = (enrollment && enrollment.status === 'active') || course?.price === 0;
@@ -75,27 +75,13 @@ export default function CourseViewer() {
         <h2 className="text-3xl font-black text-white">عذراً، الحصة مغلقة</h2>
         <p className="text-muted-foreground max-w-sm mx-auto">هذا الكورس يتطلب تفعيل الكود الخاص بك لتتمكن من مشاهدة المحتوى.</p>
       </div>
-      <Link href="/student/redeem"><Button className="bg-primary hover:bg-primary/90 h-14 px-10 rounded-2xl font-black shadow-xl shadow-primary/20">تفعيل كود الحصة الآن</Button></Link>
+      <Link href="/student/redeem">
+        <Button className="bg-primary hover:bg-primary/90 h-14 px-10 rounded-2xl font-black shadow-xl shadow-primary/20">
+          تفعيل كود الحصة الآن
+        </Button>
+      </Link>
     </div>
   );
-
-  if (isBlocked) return (
-    <div className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center text-center p-8">
-      <ShieldAlert className="w-20 h-20 text-primary mb-6 animate-pulse" />
-      <h2 className="text-3xl font-black text-white">🚨 محتوى محمي</h2>
-      <p className="text-primary font-bold mt-2">يمنع تصوير الشاشة أو الخروج من الصفحة لضمان خصوصية المحتوى التعليمي.</p>
-    </div>
-  );
-
-  // دالة لاستخراج ID اليوتيوب
-  const getYouTubeEmbedUrl = (url: string) => {
-    if (!url) return "";
-    let videoId = "";
-    if (url.includes("v=")) videoId = url.split("v=")[1].split("&")[0];
-    else if (url.includes("youtu.be/")) videoId = url.split("youtu.be/")[1].split("?")[0];
-    else videoId = url;
-    return `https://www.youtube.com/embed/${videoId}?autoplay=1&modestbranding=1&rel=0`;
-  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-right overflow-x-hidden">
@@ -107,15 +93,26 @@ export default function CourseViewer() {
             {activeContent?.contentType === 'Video' ? (
               <div className="space-y-6">
                 <div className="relative aspect-video rounded-[2rem] overflow-hidden bg-black shadow-2xl border-4 border-primary/5 group">
-                   <iframe 
-                     src={getYouTubeEmbedUrl(activeContent.youtubeLink)}
-                     className="absolute inset-0 w-full h-full"
-                     allow="autoplay; encrypted-media; picture-in-picture"
-                     allowFullScreen
-                   />
-                   <div className="absolute top-4 left-4 pointer-events-none opacity-20 group-hover:opacity-100 transition-opacity">
+                   <div className="absolute inset-0 flex items-center justify-center">
+                     <ReactPlayer
+                        url={activeContent.youtubeLink}
+                        width="100%"
+                        height="100%"
+                        controls={true}
+                        playing={true}
+                        config={{
+                          youtube: {
+                            playerVars: { showinfo: 0, modestbranding: 1, rel: 0 }
+                          }
+                        }}
+                     />
+                   </div>
+                   {/* علامة مائية ذكية */}
+                   <div className="absolute top-4 left-4 pointer-events-none opacity-20 select-none z-10">
                       <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
-                        <p className="text-[10px] font-black text-white" dir="ltr">{studentProfile?.studentPhoneNumber || studentProfile?.name || user?.email}</p>
+                        <p className="text-[10px] font-black text-white" dir="ltr">
+                          {studentProfile?.studentPhoneNumber || studentProfile?.name || user?.email}
+                        </p>
                       </div>
                    </div>
                 </div>
