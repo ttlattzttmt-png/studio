@@ -18,7 +18,8 @@ import {
   CheckCircle2,
   Volume2,
   Settings2,
-  Maximize
+  Maximize,
+  Play
 } from 'lucide-react';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -220,7 +221,7 @@ export default function CourseViewer() {
             {activeContent?.contentType === 'Video' ? (
               <div className="space-y-6 animate-in fade-in duration-700">
                 {/* مشغل الفيديو المخصص */}
-                <div ref={playerContainerRef} className="relative aspect-video rounded-[2.5rem] overflow-hidden bg-black shadow-2xl border border-white/10 group select-none">
+                <div ref={playerContainerRef} className="relative aspect-video rounded-[2.5rem] overflow-hidden bg-black shadow-2xl border border-white/10 group select-none flex flex-col">
                    <ReactPlayer
                       ref={playerRef}
                       url={activeContent.youtubeLink}
@@ -236,9 +237,21 @@ export default function CourseViewer() {
                       }}
                    />
 
+                   {/* زر التشغيل الكبير في المنتصف */}
+                   {!playing && (
+                     <div 
+                      onClick={handlePlayPause}
+                      className="absolute inset-0 flex items-center justify-center bg-black/40 cursor-pointer group/play z-40 transition-all duration-300"
+                     >
+                        <div className="w-24 h-24 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-[0_0_50px_rgba(255,215,0,0.4)] group-hover/play:scale-110 transition-transform duration-300 border-4 border-white/20">
+                          <Play className="w-10 h-10 fill-current ml-1" />
+                        </div>
+                     </div>
+                   )}
+
                    {/* علامة مائية */}
                    <div 
-                    className="absolute pointer-events-none opacity-10 select-none z-50 transition-all duration-1000"
+                    className="absolute pointer-events-none opacity-10 select-none z-30 transition-all duration-1000"
                     style={{ top: watermarkPos.top, left: watermarkPos.left }}
                    >
                       <div className="bg-white/10 backdrop-blur-sm px-4 py-2 rounded-xl border border-white/20 rotate-[-15deg]">
@@ -249,7 +262,7 @@ export default function CourseViewer() {
                    </div>
 
                    {/* واجهة تحكم مخصصة تظهر عند التحويم */}
-                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-6">
+                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-6 z-50">
                       <div className="space-y-4">
                         {/* شريط التقدم */}
                         <div className="flex items-center gap-4">
@@ -288,10 +301,10 @@ export default function CourseViewer() {
                               <div className="flex items-center gap-2">
                                 <Settings2 className="w-4 h-4 text-white/50" />
                                 <Select value={playbackRate.toString()} onValueChange={(v) => setPlaybackRate(parseFloat(v))}>
-                                  <SelectTrigger className="w-24 h-8 bg-white/10 border-none text-white text-[10px] font-bold">
+                                  <SelectTrigger className="w-24 h-8 bg-white/10 border-none text-white text-[10px] font-bold focus:ring-0">
                                     <SelectValue placeholder="السرعة" />
                                   </SelectTrigger>
-                                  <SelectContent className="bg-card border-white/10 text-white">
+                                  <SelectContent className="bg-card border-white/10 text-white z-[9999]">
                                     <SelectItem value="0.5">0.5x</SelectItem>
                                     <SelectItem value="1">العادية</SelectItem>
                                     <SelectItem value="1.25">1.25x</SelectItem>
@@ -315,7 +328,7 @@ export default function CourseViewer() {
                     <div className="text-right flex-grow">
                       <h1 className="text-2xl md:text-3xl font-black text-primary mb-2">{activeContent.title}</h1>
                       <div className="flex items-center gap-3 justify-end opacity-70">
-                         <Badge className="bg-accent/10 text-accent text-[10px] font-black border-accent/20">مشغل البشمهندس v1.1 ✓</Badge>
+                         <Badge className="bg-accent/10 text-accent text-[10px] font-black border-accent/20">مشغل البشمهندس v2.0 ✓</Badge>
                          <p className="text-xs text-muted-foreground font-bold flex items-center gap-1">
                            <Clock className="w-3.5 h-3.5" /> مضافة في: {activeContent.createdAt?.seconds ? new Date(activeContent.createdAt.seconds * 1000).toLocaleDateString('ar-EG') : 'اليوم'}
                          </p>
