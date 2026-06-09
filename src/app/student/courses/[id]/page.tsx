@@ -19,26 +19,21 @@ import {
   Volume2,
   Settings2,
   Maximize,
-  Play
+  Play,
+  RotateCcw,
+  RotateCw
 } from 'lucide-react';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useToast } from '@/hooks/use-toast';
 
-// استيراد المشغل بشكل ديناميكي لضمان التوافقية
+// استيراد المشغل بشكل ديناميكي
 const ReactPlayer = dynamic(() => import('react-player/lazy'), { ssr: false });
 
 export default function CourseViewer() {
@@ -54,12 +49,16 @@ export default function CourseViewer() {
   // حالات المشغل المخصص
   const playerRef = useRef<any>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
+  const controlsTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const [playing, setPlaying] = useState(false);
   const [volume, setVolume] = useState(0.8);
   const [playbackRate, setPlaybackRate] = useState(1.0);
   const [played, setPlayed] = useState(0);
   const [duration, setDuration] = useState(0);
   const [seeking, setSeeking] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // جلب بروفايل الطالب
   const studentRef = useMemoFirebase(() => (firestore && user) ? doc(firestore, 'students', user.uid) : null, [firestore, user]);
@@ -89,18 +88,49 @@ export default function CourseViewer() {
     }
   }, [visibleContents, activeContent]);
 
+  // تحديث العلامة المائية
   useEffect(() => {
     const interval = setInterval(() => {
       setWatermarkPos({
         top: `${Math.floor(Math.random() * 70) + 10}%`,
         left: `${Math.floor(Math.random() * 70) + 10}%`
       });
-    }, 60000);
+    }, 45000);
     return () => clearInterval(interval);
   }, []);
 
-  // وظائف التحكم في المشغل
-  const handlePlayPause = () => setPlaying(!playing);
+  // مراقبة وضع ملء الشاشة
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  // وظيفة إخفاء أدوات التحكم تلقائياً
+  const startControlsTimer = () => {
+    if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    setShowControls(true);
+    
+    // إخفاء بعد 5 ثوانٍ إذا كان الفيديو يعمل
+    if (playing) {
+      controlsTimerRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 5000);
+    }
+  };
+
+  const handleMouseMove = () => {
+    startControlsTimer();
+  };
+
+  const handlePlayPause = () => {
+    const nextState = !playing;
+    setPlaying(nextState);
+    if (nextState) startControlsTimer();
+    else setShowControls(true);
+  };
   
   const handleProgress = (state: any) => {
     if (!seeking) {
@@ -117,15 +147,11 @@ export default function CourseViewer() {
     playerRef.current?.seekTo(value[0]);
   };
 
-  const handleDuration = (duration: number) => {
-    setDuration(duration);
-  };
-
   const toggleFullScreen = () => {
     if (!playerContainerRef.current) return;
     if (!document.fullscreenElement) {
       playerContainerRef.current.requestFullscreen().catch(err => {
-        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+        console.error(`Error entering fullscreen: ${err.message}`);
       });
     } else {
       document.exitFullscreen();
@@ -137,9 +163,7 @@ export default function CourseViewer() {
     const hh = date.getUTCHours();
     const mm = date.getUTCMinutes();
     const ss = date.getUTCSeconds().toString().padStart(2, '0');
-    if (hh) {
-      return `${hh}:${mm.toString().padStart(2, '0')}:${ss}`;
-    }
+    if (hh) return `${hh}:${mm.toString().padStart(2, '0')}:${ss}`;
     return `${mm}:${ss}`;
   };
 
@@ -175,12 +199,7 @@ export default function CourseViewer() {
           });
         }
 
-        toast({
-          title: "عاش يا بطل! 🚀",
-          description: "تم تسجيل إتمام المحاضرة وإضافة 10 نقاط لرصيدك.",
-        });
-      } else {
-        toast({ title: "المحاضرة مكتملة بالفعل" });
+        toast({ title: "عاش يا بطل! 🚀", description: "تم تسجيل إتمام المحاضرة وإضافة 10 نقاط لرصيدك." });
       }
     } catch (e) {
       console.error(e);
@@ -194,7 +213,7 @@ export default function CourseViewer() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <Loader2 className="w-12 h-12 animate-spin text-primary" />
-        <p className="font-bold text-muted-foreground animate-pulse italic">جاري تحضير القاعة التعليمية...</p>
+        <p className="font-bold text-muted-foreground animate-pulse italic text-lg">جاري تحضير القاعة التعليمية...</p>
       </div>
     );
   }
@@ -205,14 +224,14 @@ export default function CourseViewer() {
       <Lock className="w-20 h-20 text-primary opacity-20" />
       <h2 className="text-3xl font-black">محتوى مغلق</h2>
       <p className="text-muted-foreground">بشمهندس، يرجى الاشتراك في الكورس أولاً لتتمكن من المشاهدة.</p>
-      <Link href="/student/redeem"><Button className="bg-primary font-bold h-12 px-8 rounded-xl">تفعيل كود الحصة</Button></Link>
+      <Link href="/student/redeem"><Button className="bg-primary font-bold h-12 px-8 rounded-xl shadow-lg">تفعيل كود الحصة</Button></Link>
     </div>
   );
 
   const isCurrentVideoCompleted = completedVideos?.some(v => v.contentId === activeContent?.id);
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-right">
+    <div className="min-h-screen flex flex-col bg-background text-right selection:bg-primary/30">
       <Navbar />
       <main className="flex-grow pt-24 pb-20 container mx-auto px-4">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -220,8 +239,17 @@ export default function CourseViewer() {
           <div className="lg:col-span-2 space-y-6">
             {activeContent?.contentType === 'Video' ? (
               <div className="space-y-6 animate-in fade-in duration-700">
-                {/* مشغل الفيديو المخصص */}
-                <div ref={playerContainerRef} className="relative aspect-video rounded-[2.5rem] overflow-hidden bg-black shadow-2xl border border-white/10 group select-none flex flex-col">
+                
+                {/* مشغل الفيديو المطور Elite V3 */}
+                <div 
+                  ref={playerContainerRef} 
+                  onMouseMove={handleMouseMove}
+                  onMouseLeave={() => playing && setShowControls(false)}
+                  className={cn(
+                    "relative aspect-video rounded-[2.5rem] overflow-hidden bg-black shadow-2xl border border-white/10 group select-none flex flex-col transition-all",
+                    !showControls && playing ? "cursor-none" : "cursor-default"
+                  )}
+                >
                    <ReactPlayer
                       ref={playerRef}
                       url={activeContent.youtubeLink}
@@ -231,27 +259,33 @@ export default function CourseViewer() {
                       volume={volume}
                       playbackRate={playbackRate}
                       onProgress={handleProgress}
-                      onDuration={handleDuration}
+                      onDuration={(d) => setDuration(d)}
                       config={{ 
-                        youtube: { playerVars: { modestbranding: 1, rel: 0, controls: 0, disablekb: 1 } } 
+                        youtube: { playerVars: { modestbranding: 1, rel: 0, controls: 0, disablekb: 1, iv_load_policy: 3 } } 
                       }}
                    />
 
-                   {/* زر التشغيل الكبير في المنتصف */}
-                   {!playing && (
-                     <div 
-                      onClick={handlePlayPause}
-                      className="absolute inset-0 flex items-center justify-center bg-black/40 cursor-pointer group/play z-40 transition-all duration-300"
-                     >
-                        <div className="w-24 h-24 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-[0_0_50px_rgba(255,215,0,0.4)] group-hover/play:scale-110 transition-transform duration-300 border-4 border-white/20">
+                   {/* زر التشغيل المركزي العملاق */}
+                   <div 
+                    onClick={handlePlayPause}
+                    className={cn(
+                      "absolute inset-0 flex items-center justify-center bg-black/20 cursor-pointer z-40 transition-opacity duration-500",
+                      (playing && !showControls) ? "opacity-0" : "opacity-100"
+                    )}
+                   >
+                      {!playing && (
+                        <div className="w-24 h-24 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-[0_0_50px_rgba(255,215,0,0.5)] scale-100 hover:scale-110 transition-transform duration-300 border-4 border-white/20">
                           <Play className="w-10 h-10 fill-current ml-1" />
                         </div>
-                     </div>
-                   )}
+                      )}
+                   </div>
 
-                   {/* علامة مائية */}
+                   {/* العلامة المائية */}
                    <div 
-                    className="absolute pointer-events-none opacity-10 select-none z-30 transition-all duration-1000"
+                    className={cn(
+                      "absolute pointer-events-none opacity-10 select-none z-30 transition-all duration-1000",
+                      !showControls && playing ? "opacity-5" : "opacity-10"
+                    )}
                     style={{ top: watermarkPos.top, left: watermarkPos.left }}
                    >
                       <div className="bg-white/10 backdrop-blur-sm px-4 py-2 rounded-xl border border-white/20 rotate-[-15deg]">
@@ -261,12 +295,15 @@ export default function CourseViewer() {
                       </div>
                    </div>
 
-                   {/* واجهة تحكم مخصصة تظهر عند التحويم */}
-                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-6 z-50">
+                   {/* شريط التحكم المطور */}
+                   <div className={cn(
+                      "absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent flex flex-col justify-end p-6 z-50 transition-all duration-500",
+                      showControls ? "opacity-100 translate-y-0" : "opacity-0 translate-y-full"
+                   )}>
                       <div className="space-y-4">
-                        {/* شريط التقدم */}
+                        {/* شريط التقدم التفاعلي */}
                         <div className="flex items-center gap-4">
-                           <span className="text-[10px] font-mono text-white/70">{formatTime(played * duration)}</span>
+                           <span className="text-[10px] font-mono text-white/70 w-10 text-center">{formatTime(played * duration)}</span>
                            <Slider 
                             value={[played]} 
                             max={0.999999} 
@@ -275,17 +312,17 @@ export default function CourseViewer() {
                             onValueCommit={handleSeekMouseUp}
                             className="flex-grow cursor-pointer"
                            />
-                           <span className="text-[10px] font-mono text-white/70">{formatTime(duration)}</span>
+                           <span className="text-[10px] font-mono text-white/70 w-10 text-center">{formatTime(duration)}</span>
                         </div>
 
-                        {/* أزرار التحكم */}
+                        {/* أدوات التحكم السفلية */}
                         <div className="flex items-center justify-between">
                            <div className="flex items-center gap-6">
-                              <button onClick={handlePlayPause} className="text-white hover:text-primary transition-colors">
+                              <button onClick={handlePlayPause} className="text-white hover:text-primary transition-all active:scale-90">
                                 {playing ? <PauseCircle className="w-10 h-10" /> : <PlayCircle className="w-10 h-10" />}
                               </button>
                               
-                              <div className="flex items-center gap-2 text-white/70 group/vol">
+                              <div className="hidden md:flex items-center gap-2 text-white/70 group/vol">
                                  <Volume2 className="w-5 h-5" />
                                  <Slider 
                                   value={[volume]} 
@@ -297,23 +334,24 @@ export default function CourseViewer() {
                               </div>
                            </div>
 
-                           <div className="flex items-center gap-4">
-                              <div className="flex items-center gap-2">
-                                <Settings2 className="w-4 h-4 text-white/50" />
-                                <Select value={playbackRate.toString()} onValueChange={(v) => setPlaybackRate(parseFloat(v))}>
-                                  <SelectTrigger className="w-24 h-8 bg-white/10 border-none text-white text-[10px] font-bold focus:ring-0">
-                                    <SelectValue placeholder="السرعة" />
-                                  </SelectTrigger>
-                                  <SelectContent className="bg-card border-white/10 text-white z-[9999]">
-                                    <SelectItem value="0.5">0.5x</SelectItem>
-                                    <SelectItem value="1">العادية</SelectItem>
-                                    <SelectItem value="1.25">1.25x</SelectItem>
-                                    <SelectItem value="1.5">1.5x</SelectItem>
-                                    <SelectItem value="2">2x</SelectItem>
-                                  </SelectContent>
-                                </Select>
+                           <div className="flex items-center gap-3">
+                              {/* متحكم السرعة المدمج (يعمل في Fullscreen) */}
+                              <div className="flex bg-white/10 rounded-xl p-1 border border-white/10 overflow-hidden">
+                                 {[1, 1.25, 1.5, 2].map((rate) => (
+                                   <button 
+                                    key={rate}
+                                    onClick={() => setPlaybackRate(rate)}
+                                    className={cn(
+                                      "px-3 py-1 text-[10px] font-black rounded-lg transition-all",
+                                      playbackRate === rate ? "bg-primary text-primary-foreground shadow-lg" : "text-white/50 hover:bg-white/5"
+                                    )}
+                                   >
+                                      {rate}x
+                                   </button>
+                                 ))}
                               </div>
-                              <button onClick={toggleFullScreen} className="text-white/70 hover:text-white transition-colors">
+
+                              <button onClick={toggleFullScreen} className="text-white/70 hover:text-primary transition-all p-2 rounded-xl hover:bg-white/5 active:scale-90">
                                 <Maximize className="w-6 h-6" />
                               </button>
                            </div>
@@ -326,16 +364,16 @@ export default function CourseViewer() {
                   <div className="absolute top-0 right-0 w-1.5 h-full bg-primary" />
                   <div className="flex flex-col md:flex-row-reverse justify-between items-center gap-6">
                     <div className="text-right flex-grow">
-                      <h1 className="text-2xl md:text-3xl font-black text-primary mb-2">{activeContent.title}</h1>
+                      <h1 className="text-2xl md:text-3xl font-black text-primary mb-2 leading-tight">{activeContent.title}</h1>
                       <div className="flex items-center gap-3 justify-end opacity-70">
-                         <Badge className="bg-accent/10 text-accent text-[10px] font-black border-accent/20">مشغل البشمهندس v2.0 ✓</Badge>
+                         <Badge className="bg-accent/10 text-accent text-[10px] font-black border-accent/20 px-3 py-1">مشغل النخبة V3.0 ✓</Badge>
                          <p className="text-xs text-muted-foreground font-bold flex items-center gap-1">
                            <Clock className="w-3.5 h-3.5" /> مضافة في: {activeContent.createdAt?.seconds ? new Date(activeContent.createdAt.seconds * 1000).toLocaleDateString('ar-EG') : 'اليوم'}
                          </p>
                       </div>
                     </div>
                     
-                    <div className="flex flex-col items-center gap-3">
+                    <div className="flex flex-col items-center gap-3 shrink-0">
                       <Button 
                         onClick={handleMarkAsCompleted}
                         disabled={isCompleting || isCurrentVideoCompleted}
@@ -360,10 +398,10 @@ export default function CourseViewer() {
                   <Trophy className="w-20 h-20 text-primary mx-auto animate-bounce" />
                   <div className="space-y-4">
                     <h2 className="text-4xl font-black">{activeContent.title}</h2>
-                    <p className="text-muted-foreground font-bold text-lg">بشمهندس، هذا الجزء عبارة عن اختبار تقييمي.</p>
+                    <p className="text-muted-foreground font-bold text-lg italic">بشمهندس، هذا الجزء عبارة عن اختبار تقييمي.</p>
                   </div>
                   <Link href={`/student/exams/${activeContent.id}`}>
-                    <Button size="lg" className="h-16 px-12 bg-primary text-primary-foreground font-black rounded-2xl text-xl shadow-xl">
+                    <Button size="lg" className="h-16 px-12 bg-primary text-primary-foreground font-black rounded-2xl text-xl shadow-xl shadow-primary/20">
                       ابدأ الامتحان الآن ✍️
                     </Button>
                   </Link>
@@ -377,19 +415,23 @@ export default function CourseViewer() {
                 <p className="text-xl font-black flex items-center gap-2 text-primary">
                   دروس الكورس <BookOpen className="w-5 h-5" />
                 </p>
-                <Badge variant="outline" className="border-primary/40 text-primary font-black px-3 py-1 rounded-lg">
+                <Badge variant="outline" className="border-primary/40 text-primary font-black px-4 py-1.5 rounded-xl">
                   {enrollment?.progressPercentage || 0}% إنجاز
                 </Badge>
               </CardHeader>
               <CardContent className="p-0 max-h-[60vh] overflow-y-auto">
                 {visibleContents.length === 0 ? (
-                  <p className="p-10 text-center text-muted-foreground italic font-bold">لا توجد دروس حالياً.</p>
+                  <p className="p-10 text-center text-muted-foreground italic font-bold opacity-50">لا توجد دروس حالياً.</p>
                 ) : visibleContents.map((item, idx) => {
                   const isDone = completedVideos?.some(v => v.contentId === item.id);
                   return (
                     <button 
                       key={item.id} 
-                      onClick={() => setActiveContent(item)} 
+                      onClick={() => {
+                        setActiveContent(item);
+                        setPlaying(false);
+                        setShowControls(true);
+                      }} 
                       className={cn(
                         "w-full p-6 text-right flex flex-row-reverse items-center gap-4 transition-all border-b border-white/5 group", 
                         activeContent?.id === item.id ? "bg-primary/10 border-r-4 border-r-primary" : "hover:bg-white/5"
@@ -414,7 +456,7 @@ export default function CourseViewer() {
               </CardContent>
               <div className="p-6 bg-secondary/5 border-t">
                  <Link href="/student/dashboard" className="w-full">
-                    <Button variant="ghost" className="w-full font-black text-muted-foreground hover:text-primary">العودة للوحة التحكم</Button>
+                    <Button variant="ghost" className="w-full font-black text-muted-foreground hover:text-primary rounded-xl">العودة للوحة التحكم</Button>
                  </Link>
               </div>
             </Card>
